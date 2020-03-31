@@ -1,0 +1,23 @@
+daml 1.2
+module Finance where
+
+undefined = error "Undefined"
+
+data Obs a = Obs a
+
+data Contract a = Zero
+  | One Currency
+  | Give (Contract a)
+  | And with lhs: (Contract a), rhs: (Contract a)
+  | Or with lhs: (Contract a), rhs: (Contract a)
+  | Cond with k: (Obs Bool), t: (Contract a), f: (Contract a)
+  | Scale with k: (Obs Bool), x: (Contract a)
+  | When with o: (Obs Bool), x: (Contract a)
+  | Anytime with o: (Obs Bool), x: (Contract a)
+  | Until with o: (Obs Bool), x: (Contract a)
+  deriving (Show, Eq)
+
+data Currency
+
+zcb : (Numeric n) => Date -> n -> Currency -> Contract
+
