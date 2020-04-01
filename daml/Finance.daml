@@ -53,11 +53,11 @@ data Currency = GBP
 
 zcb : Date -> Decimal -> Currency -> Contract (Fix Contract)
 zcb maturity payoff ccy = 
-  When (at maturity) (Scale ((pure payoff): Obs Decimal)  (One ccy))
+  When (at maturity) $ Scale (pure payoff) (One ccy)
 
 at : Date -> Obs Bool
 at t = liftA2 (==) date (pure t)
 
 date : Obs Date
-date = Obs $ \d -> PR [[d]]
+date = Obs $ pure
 
