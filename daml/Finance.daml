@@ -5,6 +5,7 @@ newtype Fix f = Fix { unfix : f (Fix f) }
 
 undefined = error "Undefined"
 
+-- This is basically a reader monad
 newtype Obs a = Obs (Date -> (PR a)) -- TODO: should we parametrize Date too?
   deriving (Functor)
 
@@ -37,23 +38,39 @@ instance Applicative Obs where -- how to derive this automagically?
     
 
 data Contract a = Zero
-  | One Currency
+  | One Currency -- Does this need to be parametrized? Otherwise this only works for cash-settled securities.
   | Give (Contract a)
   | And with lhs: (Contract a), rhs: (Contract a)
   | Or with lhs: (Contract a), rhs: (Contract a)
   | Cond with predicate: (Obs Bool), t: (Contract a), f: (Contract a)
-  | Scale with predicate2: (Obs Decimal), x: (Contract a) -- TODO: Decimal -> Numeric ? 
+  | Scale with k: (Obs Decimal), x: (Contract a) -- TODO: Decimal -> Numeric ? 
   | When with o: (Obs Bool), x: (Contract a)
   | Anytime with o: (Obs Bool), x: (Contract a)
   | Until with o: (Obs Bool), x: (Contract a)
   deriving (Show)
+
+one = One
+
+and c1 c2 = And c1 c2
+
+or c1 c2 = Or c1 c2
+
+cond p c1 c2 = Cond p c1 c2
+
+scale k c1 = Scale k c1
+
+when o c1 = When o c1
+
+anytime o c1 = Anytime o c1
+
+until o c1 = Until o c1
 
 data Currency = GBP
   deriving (Show, Eq)
 
 zcb : Date -> Decimal -> Currency -> Contract (Fix Contract)
 zcb maturity payoff ccy = 
-  When (at maturity) $ Scale (pure payoff) (One ccy)
+  When (at maturity) $ scale (pure payoff) (one ccy)
 
 at : Date -> Obs Bool
 at t = liftA2 (==) date (pure t)
@@ -61,3 +78,11 @@ at t = liftA2 (==) date (pure t)
 date : Obs Date
 date = Obs $ pure
 
+european : Date -> Contract (Fix Contract) -> Contract (Fix Contract)
+european t u = when (at t) (u `Finance.or` Zero)
+
+american : (Date, Date) -> Contract (Fix Contract) -> Contract (Fix Contract)
+american (t1, t2) u = anytime (between t1 t2) u
+
+between : Date -> Date -> Obs Bool
+between t1 t2 = liftA2 (&&) (liftA2 (>=) date $pure t1) (liftA2 (<=) date $ pure t2)
