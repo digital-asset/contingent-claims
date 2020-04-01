@@ -1,23 +1,63 @@
 daml 1.2
 module Finance where
 
+newtype Fix f = Fix { unfix : f (Fix f) }
+
 undefined = error "Undefined"
 
-data Obs a = Obs a
+newtype Obs a = Obs (Date -> (PR a)) -- TODO: should we parametrize Date too?
+  deriving (Functor)
+
+-- Stochastic process
+newtype PR a = PR [RV a] 
+  deriving Show
+
+-- Random variable PMF - could use a PDF too?
+type RV a = [a]
+
+instance Show (Obs a) where
+  show _ = "Obs(t -> ?)"
+
+instance Functor PR where
+  fmap f (PR rvs) = PR $ 
+    fmap (\rv -> fmap f rv) rvs
+
+instance Applicative PR where
+  pure a = PR [[a]]
+  (<*>) (PR fs) (PR as) = PR $ do
+    f' <- fs
+    f <- f'
+    a' <- as
+    return $ fmap f a'
+
+instance Applicative Obs where -- how to derive this automagically?
+  pure a = Obs (pure (pure a))
+  (<*>) (Obs fs) (Obs gs) = Obs $
+     \d -> fs d <*> gs d
+    
 
 data Contract a = Zero
   | One Currency
   | Give (Contract a)
   | And with lhs: (Contract a), rhs: (Contract a)
   | Or with lhs: (Contract a), rhs: (Contract a)
-  | Cond with k: (Obs Bool), t: (Contract a), f: (Contract a)
-  | Scale with k: (Obs Bool), x: (Contract a)
+  | Cond with predicate: (Obs Bool), t: (Contract a), f: (Contract a)
+  | Scale with predicate2: (Obs Decimal), x: (Contract a) -- TODO: Decimal -> Numeric ? 
   | When with o: (Obs Bool), x: (Contract a)
   | Anytime with o: (Obs Bool), x: (Contract a)
   | Until with o: (Obs Bool), x: (Contract a)
+  deriving (Show)
+
+data Currency = GBP
   deriving (Show, Eq)
 
-data Currency
+zcb : Date -> Decimal -> Currency -> Contract (Fix Contract)
+zcb maturity payoff ccy = 
+  When (at maturity) (Scale ((pure payoff): Obs Decimal)  (One ccy))
 
-zcb : (Numeric n) => Date -> n -> Currency -> Contract
+at : Date -> Obs Bool
+at t = liftA2 (==) date (pure t)
+
+date : Obs Date
+date = Obs $ \d -> PR [[d]]
 
