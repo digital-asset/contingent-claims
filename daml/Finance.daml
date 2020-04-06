@@ -7,9 +7,9 @@ undefined = error "Undefined"
 
 -- This is basically a reader monad
 newtype Obs a = Obs (Date -> (PR a)) -- TODO: should we parametrize Date too?
-  deriving (Functor)
+  deriving Functor
 
--- Stochastic process
+-- Stochastic process / filtration
 newtype PR a = PR [RV a] 
   deriving Show
 
@@ -36,17 +36,38 @@ instance Applicative Obs where -- how to derive this automagically?
   (<*>) (Obs fs) (Obs gs) = Obs $
      \d -> fs d <*> gs d
     
+-- Can either be an external source, or pricing for bespoke contracts for a counterparty
+{-
+template MarketData with
+    provider: Party
+    subscribers: Set Party
+  where 
+    signatory provider
+    controller subscribers can 
+      -- Retrieve a quote
+      nonconsuming quote: PR[Decimal] with date: Date, asset: Currency, q: Text where undefined
+      -- Retrieve a binary state e.g. is trading day?
+      nonconsuming state: PR[Bool] with date: Date, asset: Currency, q: Text where undefined
+-}
 
-data Contract a = Zero
+template Contract with
+    buyer: Party
+    seller: Party
+  where
+    signatory buyer, seller
+
+-- In Petyon-Jones' paper, this is called 'Contract'.
+-- We renamed it to allow our top-level (template) to be Contract.
+data Obligation a = Zero
   | One Currency -- Does this need to be parametrized? Otherwise this only works for cash-settled securities.
-  | Give (Contract a)
-  | And with lhs: (Contract a), rhs: (Contract a)
-  | Or with lhs: (Contract a), rhs: (Contract a)
-  | Cond with predicate: (Obs Bool), t: (Contract a), f: (Contract a)
-  | Scale with k: (Obs Decimal), x: (Contract a) -- TODO: Decimal -> Numeric ? 
-  | When with o: (Obs Bool), x: (Contract a)
-  | Anytime with o: (Obs Bool), x: (Contract a)
-  | Until with o: (Obs Bool), x: (Contract a)
+  | Give (Obligation a)
+  | And with lhs: (Obligation a), rhs: (Obligation a)
+  | Or with lhs: (Obligation a), rhs: (Obligation a)
+  | Cond with predicate: (Obs Bool), t: (Obligation a), f: (Obligation a)
+  | Scale with k: (Obs Decimal), x: (Obligation a) -- TODO: Decimal -> Numeric ? 
+  | When with o: (Obs Bool), x: (Obligation a)
+  | Anytime with o: (Obs Bool), x: (Obligation a)
+  | Until with o: (Obs Bool), x: (Obligation a)
   deriving (Show)
 
 one = One
@@ -68,9 +89,9 @@ until o c1 = Until o c1
 data Currency = GBP
   deriving (Show, Eq)
 
-zcb : Date -> Decimal -> Currency -> Contract (Fix Contract)
+zcb : Date -> Decimal -> Currency -> Obligation (Fix Obligation)
 zcb maturity payoff ccy = 
-  When (at maturity) $ scale (pure payoff) (one ccy)
+  when (at maturity) $ scale (pure payoff) (one ccy)
 
 at : Date -> Obs Bool
 at t = liftA2 (==) date (pure t)
@@ -78,10 +99,10 @@ at t = liftA2 (==) date (pure t)
 date : Obs Date
 date = Obs $ pure
 
-european : Date -> Contract (Fix Contract) -> Contract (Fix Contract)
+european : Date -> Obligation (Fix Obligation) -> Obligation (Fix Obligation)
 european t u = when (at t) (u `Finance.or` Zero)
 
-american : (Date, Date) -> Contract (Fix Contract) -> Contract (Fix Contract)
+american : (Date, Date) -> Obligation (Fix Obligation) -> Obligation (Fix Obligation)
 american (t1, t2) u = anytime (between t1 t2) u
 
 between : Date -> Date -> Obs Bool
