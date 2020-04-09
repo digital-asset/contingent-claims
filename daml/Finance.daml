@@ -3,9 +3,8 @@ module Finance where
 
 import Prelude hiding (or,and)
 import DA.Next.Set
+import Recursion
 -- import DA.Date (toDateUTC)
-
-newtype Fix f = Fix { unfix : f (Fix f) }
 
 undefined = error "Undefined"
 -- TODO replace with GenMap
@@ -39,20 +38,25 @@ template MasterServiceAgreement with
   where
     signatory buyer, seller
     controller buyer can 
-      Execute: Contract with obligations: Obligation 
-        do undefined
+      Execute: Contract with obligations: Obligation  -- needs propose/accept workflow
+        do id <- create Contract with buyer, seller, obligations, elections = []
+           c <- fetch id
+           return c
 
 template Contract with
     buyer: Party
     seller: Party
-    id: SecurityId
+    -- id: SecurityId -- The FIGI of the security if it's not OTC
     obligations: Obligation -- of the buyer
+    elections: Map Date Bool -- of the buyer
   where
     signatory buyer, seller
     controller buyer can 
-      Lifecycle: Contract with elections: Map Date Bool 
+      Lifecycle: Contract with d: Date, election: [ Bool ]
         do undefined
-      --choice Underlyings -- get set of underlying
+        -- fold until the given date, 
+  
+    --choice Underlyings -- get set of underlying
 
 template PricingModels with
     seller: Party
@@ -86,8 +90,33 @@ data Obligation = Zero
   | Until with o: (Obs Bool), x: Obligation
   deriving (Show, Eq)
 
+data ObligationF a = ZeroF -- ^ base functor, for internal use only.
+  | OneF Currency 
+  | GiveF a
+  | AndF with lhs: a, rhs: a
+  | OrF with lhs: a, rhs: a
+  | CondF with predicate: (Obs Bool), tru: a, fls: a
+  | ScaleF with k: (Obs Decimal), x: a
+  | WhenF with o: (Obs Bool), x: a
+  | AnytimeF with o: (Obs Bool), x: a
+  | UntilF with o: (Obs Bool), x: a
+  deriving (Show, Eq, Functor)
+
+instance Base Obligation ObligationF where
+  project Zero = ZeroF
+  project (One x) = OneF x
+  project (Give a) = GiveF a
+  project (And a b) = (AndF a b)
+  project (Or a b) = (OrF a b)
+  project (Cond x a b) = CondF x a b
+  project (Scale k x) = ScaleF k x
+  project (When o x) = WhenF o x
+  project (Anytime o x) = AnytimeF o x
+  project (Until o x) = UntilF o x
+
 data Obs a = Const a
   | Spot with filtration: Map Date (PR a)
+-- | Today -- Laws: this would be monoid unit? What if Dates are represented by offsets from today?
     deriving (Show, Eq)
 
 instance Functor Obs where
@@ -149,7 +178,7 @@ at : Date -> Obs Bool
 at t = liftA2 (==) date (pure t)
 
 date : Obs Date
-date = Spot []  -- empty has special meaning: identity
+date = undefined 
 
 {-
 

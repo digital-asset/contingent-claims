@@ -1,0 +1,11 @@
+daml 1.2
+module Recursion where
+
+newtype Fix f = Fix { unfix : f (Fix f) }
+
+class Base b f where
+  project: b -> f b
+
+class (Base b f, Functor f) => Recursive b f where
+  cata : (f a -> a) -> b -> a
+  cata f = f . fmap (cata f) . project

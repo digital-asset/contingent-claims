@@ -1,7 +1,7 @@
 sdk-version: 0.13.55
 name: financial-contracts
 version: 0.0.1
-source: daml/Finance.daml
+source: daml/
 # scenario: Main:mainScenario
 parties:
 - Alice
