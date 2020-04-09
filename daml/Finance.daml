@@ -1,27 +1,26 @@
 daml 1.2
 module Finance where
 
+import Prelude hiding (or,and)
+import DA.Next.Set
+-- import DA.Date (toDateUTC)
+
 newtype Fix f = Fix { unfix : f (Fix f) }
 
 undefined = error "Undefined"
+-- TODO replace with GenMap
+type Map k v = [(k, v)]
 
--- This is basically a reader monad
-newtype Obs a = Obs (Date -> (PR a)) -- TODO: should we parametrize Date too?
-  deriving Functor
+-- E.g. FIGI
+newtype SecurityId = SecurityId Text
+  deriving (Show, Eq)
 
 -- Stochastic process / filtration
 newtype PR a = PR [RV a] 
-  deriving Show
+  deriving (Show, Eq, Functor)
 
 -- Random variable PMF - could use a PDF too?
 type RV a = [a]
-
-instance Show (Obs a) where
-  show _ = "Obs(t -> ?)"
-
-instance Functor PR where
-  fmap f (PR rvs) = PR $ 
-    fmap (\rv -> fmap f rv) rvs
 
 instance Applicative PR where
   pure a = PR [[a]]
@@ -31,46 +30,99 @@ instance Applicative PR where
     a' <- as
     return $ fmap f a'
 
-instance Applicative Obs where -- how to derive this automagically?
-  pure a = Obs (pure (pure a))
-  (<*>) (Obs fs) (Obs gs) = Obs $
-     \d -> fs d <*> gs d
-    
--- Can either be an external source, or pricing for bespoke contracts for a counterparty
-{-
-template MarketData with
-    provider: Party
-    subscribers: Set Party
-  where 
-    signatory provider
-    controller subscribers can 
-      -- Retrieve a quote
-      nonconsuming quote: PR[Decimal] with date: Date, asset: Currency, q: Text where undefined
-      -- Retrieve a binary state e.g. is trading day?
-      nonconsuming state: PR[Bool] with date: Date, asset: Currency, q: Text where undefined
--}
+template MasterServiceAgreement with
+    -- Counterparties
+    buyer: Party
+    seller: Party
+    marketDataProvider: Party
+    -- Standard contracts
+  where
+    signatory buyer, seller
+    controller buyer can 
+      Execute: Contract with obligations: Obligation 
+        do undefined
 
 template Contract with
     buyer: Party
     seller: Party
+    id: SecurityId
+    obligations: Obligation -- of the buyer
   where
     signatory buyer, seller
+    controller buyer can 
+      Lifecycle: Contract with elections: Map Date Bool 
+        do undefined
+      --choice Underlyings -- get set of underlying
+
+template PricingModels with
+    seller: Party
+    buyer: Party
+  where
+    signatory seller, buyer
+    controller seller can
+      BlackScholes97: Decimal with r: Decimal, s: Decimal, t: Decimal, contract: Contract
+        do undefined
+
+template PresentValue with
+    buyer: Party
+    seller: Party
+    parameters: Map SecurityId Decimal
+    contract: ContractId Contract
+  where
+    signatory seller
+    observer buyer
 
 -- In Petyon-Jones' paper, this is called 'Contract'.
 -- We renamed it to allow our top-level (template) to be Contract.
-data Obligation a = Zero
+data Obligation = Zero
   | One Currency -- Does this need to be parametrized? Otherwise this only works for cash-settled securities.
-  | Give (Obligation a)
-  | And with lhs: (Obligation a), rhs: (Obligation a)
-  | Or with lhs: (Obligation a), rhs: (Obligation a)
-  | Cond with predicate: (Obs Bool), t: (Obligation a), f: (Obligation a)
-  | Scale with k: (Obs Decimal), x: (Obligation a) -- TODO: Decimal -> Numeric ? 
-  | When with o: (Obs Bool), x: (Obligation a)
-  | Anytime with o: (Obs Bool), x: (Obligation a)
-  | Until with o: (Obs Bool), x: (Obligation a)
-  deriving (Show)
+  | Give Obligation -- consider using Swap as a primitive instead of (one-sided) give.
+  | And with lhs: Obligation, rhs: Obligation
+  | Or with lhs: Obligation, rhs: Obligation
+  | Cond with predicate: (Obs Bool), tru: Obligation, fls: Obligation
+  | Scale with k: (Obs Decimal), x: Obligation -- TODO: Decimal -> Numeric ? 
+  | When with o: (Obs Bool), x: Obligation
+  | Anytime with o: (Obs Bool), x: Obligation
+  | Until with o: (Obs Bool), x: Obligation
+  deriving (Show, Eq)
 
-one = One
+data Obs a = Const a
+  | Spot with filtration: Map Date (PR a)
+    deriving (Show, Eq)
+
+instance Functor Obs where
+  fmap f (Const a) = Const $ f a
+  fmap f (Spot m) = Spot $ map (\ (k, v) -> (k, fmap f v)) m
+
+instance Applicative Obs where
+  pure a = Const a
+  liftA2 f (Const a) (Const b) = Const (f a b)
+  -- This all breaks if a and b are not aligned.
+  liftA2 f (Spot g) (Spot h) = 
+    let k = fmap fst g
+        v = liftA2 (liftA2 f) (fmap snd g) (fmap snd h)
+    in Spot $ zip k v
+  liftA2 f (Const a) (Spot h) = 
+    let k = fmap fst h
+        v = fmap (fmap $ f a) (fmap snd h)
+    in Spot $ zip k v
+  liftA2 f (Spot g) (Const b) =
+    let k = fmap fst g
+        v = fmap (fmap $ flip f $ b) (fmap snd g)
+    in Spot $ zip k v
+
+template MarketData with
+    source: Party
+    subscribers: Set Party
+  where 
+    signatory source
+    controller subscribers can  
+      Close: Decimal with d: Date
+        do undefined
+
+zero = Zero
+
+one ccy = One ccy
 
 and c1 c2 = And c1 c2
 
@@ -86,10 +138,10 @@ anytime o c1 = Anytime o c1
 
 until o c1 = Until o c1
 
-data Currency = GBP
+data Currency = GBP -- Generalize this to any 'asset'
   deriving (Show, Eq)
 
-zcb : Date -> Decimal -> Currency -> Obligation (Fix Obligation)
+zcb : Date -> Decimal -> Currency -> Obligation 
 zcb maturity payoff ccy = 
   when (at maturity) $ scale (pure payoff) (one ccy)
 
@@ -97,13 +149,17 @@ at : Date -> Obs Bool
 at t = liftA2 (==) date (pure t)
 
 date : Obs Date
-date = Obs $ pure
+date = Spot []  -- empty has special meaning: identity
 
-european : Date -> Obligation (Fix Obligation) -> Obligation (Fix Obligation)
-european t u = when (at t) (u `Finance.or` Zero)
+{-
 
-american : (Date, Date) -> Obligation (Fix Obligation) -> Obligation (Fix Obligation)
+european : Date -> Obligation -> Obligation
+european t u = when (at t) (u `or` Zero)
+
+american : (Date, Date) -> Obligation -> Obligation
 american (t1, t2) u = anytime (between t1 t2) u
 
 between : Date -> Date -> Obs Bool
-between t1 t2 = liftA2 (&&) (liftA2 (>=) date $pure t1) (liftA2 (<=) date $ pure t2)
+between t1 t2 = liftA2 (&&) (liftA2 (>=) date $ pure t1) (liftA2 (<=) date $ pure t2)
+
+-}
