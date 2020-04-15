@@ -114,31 +114,75 @@ instance Base Obligation ObligationF where
   project (Anytime o x) = AnytimeF o x
   project (Until o x) = UntilF o x
 
-data Obs a = Const a
-  | Spot with filtration: Map Date (PR a)
--- | Today -- Laws: this would be monoid unit? What if Dates are represented by offsets from today?
+-- | A future value which may or may not have been observed yet.
+-- Typically `Date` or `Decimal`. 
+-- These include a number of common operators prefixed with percent sign.
+-- e.g.
+-- %== equality
+-- %<= less-than-or-equals
+-- %&& boolean 'and'
+-- etc.
+--
+
+-- TODO: really hate this encoding - is there a more elegant way to do this? 
+-- The problem is that the output type is inferred from the inputs, so if we want e.g.
+-- equality, we need to have ground input types, and then use a smart constructor that
+-- explicitly states the output value.
+data Obs a = Today
+  | Const a
+  | Spot with d: Date, id: SecurityId
+  | ObsDtEq with dlhs: (Obs Date), drhs: (Obs Date)
+  | ObsDtLte with dlhs: (Obs Date), drhs: (Obs Date)
+  | ObsREq with rlhs: (Obs Decimal), rrhs: (Obs Decimal)
+  | ObsRLte with rlhs: (Obs Decimal), rrhs: (Obs Decimal)
+  | ObsPlus with lhs: (Obs a), rhs: (Obs a)
+  | ObsTimes with lhs: (Obs a), rhs: (Obs a)
+  | ObsPow with lhs: (Obs a), i: Int
+  | ObsAnd with blhs: (Obs Bool), brhs: (Obs Bool)
+  | ObsOr with blhs: (Obs Bool), brhs: (Obs Bool)
+  | ObsNeg with blhs: (Obs Bool)
     deriving (Show, Eq)
 
-instance Functor Obs where
-  fmap f (Const a) = Const $ f a
-  fmap f (Spot m) = Spot $ map (\ (k, v) -> (k, fmap f v)) m
+class {- (Ordering a) => -} ObsOrdering a where
+  (%==) : Obs a -> Obs a -> Obs Bool
+  (%/=) : Obs a -> Obs a -> Obs Bool
+  (%/=) a a' = (%!) (a %== a')
+  (%<=) : Obs a -> Obs a -> Obs Bool
+  (%<) : Obs a -> Obs a -> Obs Bool
+  (%<) a a' = (a %<= a') %&& (a %/= a')
+  (%>) : Obs a -> Obs a -> Obs Bool
+  (%>) a a' = (%!) (a %<= a')
+  (%>=) : Obs a -> Obs a -> Obs Bool
+  (%>=) a a' = (a %> a') %|| (a %== a')
 
-instance Applicative Obs where
-  pure a = Const a
-  liftA2 f (Const a) (Const b) = Const (f a b)
-  -- This all breaks if a and b are not aligned.
-  liftA2 f (Spot g) (Spot h) = 
-    let k = fmap fst g
-        v = liftA2 (liftA2 f) (fmap snd g) (fmap snd h)
-    in Spot $ zip k v
-  liftA2 f (Const a) (Spot h) = 
-    let k = fmap fst h
-        v = fmap (fmap $ f a) (fmap snd h)
-    in Spot $ zip k v
-  liftA2 f (Spot g) (Const b) =
-    let k = fmap fst g
-        v = fmap (fmap $ flip f $ b) (fmap snd g)
-    in Spot $ zip k v
+
+instance ObsOrdering Date where
+  (%==) = ObsDtEq
+  (%<=) = ObsDtLte
+
+instance ObsOrdering Decimal where
+  (%==) = ObsREq
+  (%<=) = ObsRLte
+
+(%&&) : Obs Bool -> Obs Bool -> Obs Bool
+(%&&) = ObsAnd
+
+(%||) : Obs Bool -> Obs Bool -> Obs Bool
+(%||) = ObsOr
+
+(%!) : Obs Bool -> Obs Bool
+(%!) = ObsNeg
+
+instance Additive (Obs Decimal) where
+  aunit = konst 0.0
+  o + o' = ObsPlus o o'
+
+instance Multiplicative (Obs Decimal) where
+  munit = konst 1.0
+  o * o' = ObsTimes o o'
+  x ^ i = ObsPow x i
+
+instance Number (Obs Decimal) where
 
 template MarketData with
     source: Party
@@ -172,23 +216,22 @@ data Currency = GBP -- Generalize this to any 'asset'
 
 zcb : Date -> Decimal -> Currency -> Obligation 
 zcb maturity payoff ccy = 
-  when (at maturity) $ scale (pure payoff) (one ccy)
+  when (at maturity) $ scale (konst payoff) (one ccy)
+
+konst : a -> Obs a
+konst a = Const a
 
 at : Date -> Obs Bool
-at t = liftA2 (==) date (pure t)
+at t = date %== (konst t)
 
 date : Obs Date
-date = undefined 
-
-{-
+date = Today
 
 european : Date -> Obligation -> Obligation
-european t u = when (at t) (u `or` Zero)
+european t u = when (at t) (u `or` zero)
 
 american : (Date, Date) -> Obligation -> Obligation
 american (t1, t2) u = anytime (between t1 t2) u
 
 between : Date -> Date -> Obs Bool
-between t1 t2 = liftA2 (&&) (liftA2 (>=) date $ pure t1) (liftA2 (<=) date $ pure t2)
-
--}
+between t1 t2 = (date %>= konst t1) %&& (date %<= konst t2)
