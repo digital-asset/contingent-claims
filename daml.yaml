@@ -1,8 +1,8 @@
-sdk-version: 0.13.55
+sdk-version: 1.0.0
 name: financial-contracts
 version: 0.0.1
 source: daml/
-# scenario: Main:mainScenario
+scenario: Scenarios:spMini
 parties:
 - Alice
 - Bob
