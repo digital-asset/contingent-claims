@@ -9,14 +9,14 @@ spMini =
      -- client <- getParty "Alice"
      broker <- getParty "Bob"
      submit broker do
-       msa <- create MasterServiceAgreement with
+       msaCid <- create MasterServiceAgreement with
          buyer = broker
          seller = broker
          marketDataProvider = broker
 
        -- Create a new financial option contract with payoffs matching ES
        let t = date 2020 May 01
-       spMini <- exercise msa Execute with
+       spMiniCid <- exercise msaCid Execute with
          obligations = european
            t
            (scale (konst 50.0) (one USD)) -- * spot (SecurityId ("ES")))
@@ -25,14 +25,14 @@ spMini =
        -- TODO
 
        -- On maturity, chose the non-zero option (TODO: make a helper function for this?)
-       spMiniContract <- fetch spMini
-       let election = case spMiniContract.obligations of 
+       spMini <- fetch spMiniCid
+       let election = case spMini.obligations of 
                          Or payoff Zero -> payoff
-                         _ -> error $ "No choice to make at date " <> show spMiniContract.asAt
+                         _ -> error $ "No choice to make at date " <> show spMini.asAt
        -- Lifecycle the contract
-       spMini <- exercise spMini Lifecycle with t, election
-       spMiniContract <- fetch spMini
-       assert(spMiniContract.obligations == scale (konst 50.0) (one USD))
+       spMiniCid <- exercise spMiniCid Lifecycle with t, election
+       spMini <- fetch spMiniCid
+       assert(spMini.obligations == scale (konst 50.0) (one USD))
        return ()
 
 

@@ -15,21 +15,6 @@ type Map k v = [(k, v)]
 newtype SecurityId = SecurityId Text
   deriving (Show, Eq)
 
--- Stochastic process / filtration
-newtype PR a = PR [RV a] 
-  deriving (Show, Eq, Functor)
-
--- Random variable PMF - could use a PDF too?
-type RV a = [a]
-
-instance Applicative PR where
-  pure a = PR [[a]]
-  (<*>) (PR fs) (PR as) = PR $ do
-    f' <- fs
-    f <- f'
-    a' <- as
-    return $ fmap f a'
-
 template MasterServiceAgreement with
     -- Counterparties
     buyer: Party
@@ -62,30 +47,14 @@ template Contract with
   
     --choice Underlyings -- get set of underlying
 
+{-
 template Election with
     buyer: Party
     electionDate: Date
     election: Bool
     verbatim: Text
   where signatory buyer
-
-template PricingModels with
-    seller: Party
-    buyer: Party
-  where
-    signatory seller, buyer
-    controller seller can
-      BlackScholes97: Decimal with r: Decimal, s: Decimal, t: Decimal, contract: Contract
-        do undefined
-
-template PresentValue with
-    buyer: Party
-    seller: Party
-    parameters: Map SecurityId Decimal
-    contract: ContractId Contract
-  where
-    signatory seller
-    observer buyer
+-}
 
 -- | In Petyon-Jones' paper, this is called 'Contract'.
 -- We renamed it to allow our top-level (template) to be Contract.
@@ -101,7 +70,8 @@ data Obligation = Zero
   | Until with o: (Obs Bool), x: Obligation
   deriving (Show, Eq)
 
-data ObligationF a = ZeroF -- ^ base functor, for internal use only.
+-- | pattern functor, for internal use only.
+data ObligationF a = ZeroF 
   | OneF Currency 
   | GiveF a
   | AndF with lhs: a, rhs: a
@@ -113,7 +83,7 @@ data ObligationF a = ZeroF -- ^ base functor, for internal use only.
   | UntilF with o: (Obs Bool), x: a
   deriving (Show, Eq, Functor)
 
-instance Base Obligation ObligationF where
+instance Recursive Obligation ObligationF where
   project Zero = ZeroF
   project (One x) = OneF x
   project (Give a) = GiveF a
@@ -207,6 +177,8 @@ template MarketData with
 zero = Zero
 
 one ccy = One ccy
+
+give c = Give c
 
 and c1 c2 = And c1 c2
 

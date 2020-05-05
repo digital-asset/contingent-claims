@@ -1,0 +1,56 @@
+daml 1.2
+module Valuation where
+
+import Prelude hiding (or,and)
+--import DA.Next.Set
+import Recursion
+import Finance (Currency, Contract)
+import qualified Finance
+
+template PricingModels with
+    seller: Party
+    buyer: Party
+  where
+    signatory seller, buyer
+    controller seller can
+      --BlackScholes97: Decimal with r: Decimal, s: Decimal, t: Decimal, contract: Contract
+        --do undefined
+      AD: Decimal with cid: ContractId Contract, ccy: Currency
+       do c <- fetch cid
+          --let _ = project (Finance.undefined: Finance.Obligation)
+          let p = cata (obligationAlgebra ccy) c.obligations 
+          return Finance.undefined
+
+-- | Used to fold the contract into a stochastic process, see §4, Figure 4.
+obligationAlgebra : Currency -> Finance.ObligationF StochasticProcess -> StochasticProcess
+obligationAlgebra _ Finance.ZeroF = Zero
+obligationAlgebra term (Finance.OneF base) = Spot base term
+obligationAlgebra ccy (Finance.GiveF c) = - c
+obligationAlgebra (o `Finance.ScaleF` c) = observableAlgebra o * c
+
+observableAlgebra : Finance.ObsF StochasticProcess -> StochasticProcess
+observableAlgebra (Finance.ConstF Decimal) = Const Decimal
+
+-- | Intermediate representation used for valuation, see §4.
+data StochasticProcess = Zero
+  | Const Decimal
+  | Spot with base: Currency, term: Currency
+
+instance Additive StochasticProcess where
+  aunit = Finance.undefined
+  (+) = Finance.undefined
+
+instance Multiplicative StochasticProcess where
+  ounit = Finance.undefined
+  (*) = Finance.undefined
+         
+{-
+template PresentValue with
+    buyer: Party
+    seller: Party
+    parameters: Map SecurityId Decimal
+    contract: ContractId Contract
+  where
+    signatory seller
+    observer buyer
+-}

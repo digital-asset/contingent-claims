@@ -3,9 +3,7 @@ module Recursion where
 
 newtype Fix f = Fix { unfix : f (Fix f) }
 
-class Base b f where
+class Functor f => Recursive b f | b -> f b where
   project: b -> f b
-
-class (Base b f, Functor f) => Recursive b f where
   cata : (f a -> a) -> b -> a
   cata f = f . fmap (cata f) . project
