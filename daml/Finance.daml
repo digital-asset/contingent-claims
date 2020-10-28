@@ -109,20 +109,32 @@ instance Recursive Obligation ObligationF where
 -- The problem is that the output type is inferred from the inputs, so if we want e.g.
 -- equality, we need to have ground input types, and then use a smart constructor that
 -- explicitly states the output value.
-data Obs a = Today
-  | Const a
+data Obs x = Today
+  | Const x
   | Spot with d: Date, id: SecurityId
   | ObsDtEq with dlhs: (Obs Date), drhs: (Obs Date)
   | ObsDtLte with dlhs: (Obs Date), drhs: (Obs Date)
   | ObsREq with rlhs: (Obs Decimal), rrhs: (Obs Decimal)
   | ObsRLte with rlhs: (Obs Decimal), rrhs: (Obs Decimal)
-  | ObsPlus with lhs: (Obs a), rhs: (Obs a)
-  | ObsTimes with lhs: (Obs a), rhs: (Obs a)
-  | ObsPow with lhs: (Obs a), i: Int
+  | ObsPlus with lhs: (Obs x), rhs: (Obs x)
+  | ObsTimes with lhs: (Obs x), rhs: (Obs x)
+  | ObsPow with lhs: (Obs x), i: Int
   | ObsAnd with blhs: (Obs Bool), brhs: (Obs Bool)
   | ObsOr with blhs: (Obs Bool), brhs: (Obs Bool)
   | ObsNeg with blhs: (Obs Bool)
     deriving (Show, Eq)
+
+instance forall x . Recursive (Obs x) (ObsF x) where
+  project (Const d) = ConstF d
+
+data ObsF x a = TodayF
+  | ConstF x
+  | SpotF with d: Date, id: SecurityId
+  | ObsEqF with lhs: a, rhs: a
+  | ObsLteF with lhs: a, rhs: a
+  | ObsPlusF with lhs: a, rhs: a
+  | ObsAndF with lhs: a, rhs: a
+   deriving (Show, Eq, Functor)
 
 class {- (Ordering a) => -} ObsOrdering a where
   (%==) : Obs a -> Obs a -> Obs Bool

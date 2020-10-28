@@ -17,31 +17,32 @@ template PricingModels with
         --do undefined
       AD: Decimal with cid: ContractId Contract, ccy: Currency
        do c <- fetch cid
-          --let _ = project (Finance.undefined: Finance.Obligation)
+          let x : Finance.ObsF Decimal (StochasticProcess Decimal)
+              x = project $ Finance.konst 1.0
           let p = cata (obligationAlgebra ccy) c.obligations 
           return Finance.undefined
 
 -- | Used to fold the contract into a stochastic process, see §4, Figure 4.
-obligationAlgebra : Currency -> Finance.ObligationF StochasticProcess -> StochasticProcess
+obligationAlgebra : Currency -> Finance.ObligationF (StochasticProcess Decimal) -> (StochasticProcess Decimal)
 obligationAlgebra _ Finance.ZeroF = Zero
 obligationAlgebra term (Finance.OneF base) = Spot base term
 obligationAlgebra ccy (Finance.GiveF c) = - c
-obligationAlgebra (o `Finance.ScaleF` c) = observableAlgebra o * c
+obligationAlgebra _ (Finance.ScaleF o c) = observableAlgebra (project o) * c
 
-observableAlgebra : Finance.ObsF StochasticProcess -> StochasticProcess
-observableAlgebra (Finance.ConstF Decimal) = Const Decimal
+observableAlgebra : Finance.ObsF x (StochasticProcess x) -> (StochasticProcess x)
+observableAlgebra (Finance.ConstF x) = Const x
 
 -- | Intermediate representation used for valuation, see §4.
-data StochasticProcess = Zero
-  | Const Decimal
+data StochasticProcess x = Zero
+  | Const x
   | Spot with base: Currency, term: Currency
 
-instance Additive StochasticProcess where
+instance Additive (StochasticProcess Decimal) where
   aunit = Finance.undefined
   (+) = Finance.undefined
 
-instance Multiplicative StochasticProcess where
-  ounit = Finance.undefined
+instance Multiplicative (StochasticProcess Decimal) where
+  munit = Finance.undefined
   (*) = Finance.undefined
          
 {-
