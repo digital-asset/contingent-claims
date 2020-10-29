@@ -1,0 +1,9 @@
+module Filtration where
+
+type F = Filtration
+
+newtype Filtration a = Filtration a deriving (Eq, Show, Functor)
+
+instance Applicative Filtration where
+  pure a = Filtration a
+  liftA2 f (Filtration a) (Filtration a') = Filtration (f a a')

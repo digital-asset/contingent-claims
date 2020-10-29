@@ -1,20 +1,21 @@
 module Obligation where
 
 import Prelude hiding (or, and)
+import Filtration (F)
 
 -- | In Petyon-Jones' paper, this is called 'Contract'.
 -- We renamed it to avoid ambiguity
-data Obligation f a
+data Obligation a
   = Zero
   | One a
-  | Deliver (Obligation f a)
-  | And with lhs: Obligation f a, rhs: Obligation f a
-  | Or with lhs: Obligation f a, rhs: Obligation f a
-  | Cond with predicate: f Bool, success: Obligation f a, failure: Obligation f a
-  | Scale with k: f Decimal, obligation: Obligation f a -- TODO: Decimal -> Numeric ?
-  | When with predicate: f Bool, obligation: Obligation f a
-  | Anytime with predicate: f Bool, obligation: Obligation f a
-  | Until with predicate: f Bool, obligation: Obligation f a
+  | Deliver (Obligation a)
+  | And with lhs: Obligation a, rhs: Obligation a
+  | Or with lhs: Obligation a, rhs: Obligation a
+  | Cond with predicate: F Bool, success: Obligation a, failure: Obligation a
+  | Scale with k: F Decimal, obligation: Obligation a -- TODO: Decimal -> Numeric ?
+  | When with predicate: F Bool, obligation: Obligation a
+  | Anytime with predicate: F Bool, obligation: Obligation a
+  | Until with predicate: F Bool, obligation: Obligation a
 
 one ccy = One ccy
 
@@ -35,7 +36,7 @@ anytime o c1 = Anytime o c1
 until o c1 = Until o c1
 
 --How about using a pattern functor constraint on f to allow comparison of structural equality?
-instance (Eq a, Eq (f a)) => Eq (Obligation f a) where 
+instance (Eq a) => Eq (Obligation a) where 
   Zero == Zero = True
   One a == One a' = a == a'
   Deliver o == Deliver o' = o == o'
@@ -51,7 +52,7 @@ instance (Eq a, Eq (f a)) => Eq (Obligation f a) where
   (==) _ _ = False
 -}
 
-instance Show a => Show (Obligation f a) where
+instance Show a => Show (Obligation a) where
   show Zero = "zero"
   show (One a) = "receive " <> show a
   show (Deliver ofa) = "deliver " <>  show ofa

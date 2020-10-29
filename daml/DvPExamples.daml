@@ -9,7 +9,7 @@ import Id
 import DA.Date (date,Month(..))
 
 -- Specialized effect-less obligation for DvP
-type Obligations = Obligation Id (Either Ccy Security)
+type Obligations = Obligation (Either Ccy Security)
 
 -- Asset types
 data Ccy = GBP | USD deriving  (Eq, Show)
@@ -29,12 +29,12 @@ template DeliveryVersusPayment
     signatory bearer, counterparty
 
 -- Some helper functions for defining obligations
-pay amt = deliver . scale (Id amt) . one . Left
+pay amt = deliver . scale (pure amt) . one . Left
 
-receive amt = scale (Id amt) . one . Right
+receive amt = scale (pure amt) . one . Right
 
 dividend : Decimal -> Ccy -> Date -> Obligations
-dividend px ccy t = when undefined (scale (Id px) . one $ Left ccy)
+dividend px ccy t = when undefined (scale (pure px) . one $ Left ccy)
 
 
 -- Example of how this would be used
