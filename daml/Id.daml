@@ -1,0 +1,12 @@
+module Id where
+
+-- Identity monad
+newtype Id a = Id a deriving (Eq, Show)
+
+instance Functor Id where fmap f (Id a) = Id $ f a
+
+instance Applicative Id where 
+  pure a = Id a
+  liftA2 f (Id a) (Id b) = Id $ f a b
+
+

@@ -1,0 +1,55 @@
+module DvPExamples where
+
+{-# LANGUAGE ApplicativeDo #-} --for scripts?
+
+import Prelude hiding (and, or)
+import Daml.Script
+import Obligation
+import Id
+import DA.Date (date,Month(..))
+
+-- Specialized effect-less obligation for DvP
+type Obligations = Obligation Id (Either Ccy Security)
+
+-- Asset types
+data Ccy = GBP | USD deriving  (Eq, Show)
+
+data Security = Security with
+    isin: Text
+    claims: Obligations
+  deriving (Eq, Show)
+
+-- The financial contracts
+template DeliveryVersusPayment 
+  with
+    bearer: Party
+    counterparty: Party
+    obligations: Obligations
+  where
+    signatory bearer, counterparty
+
+-- Some helper functions for defining obligations
+pay amt = deliver . scale (Id amt) . one . Left
+
+receive amt = scale (Id amt) . one . Right
+
+dividend : Decimal -> Ccy -> Date -> Obligations
+dividend px ccy t = when undefined (scale (Id px) . one $ Left ccy)
+
+
+-- Example of how this would be used
+
+x = script do
+  buyer <- allocateParty "Alice"
+  seller <- allocateParty "Bob"
+  let vod = Security with
+              isin = "GB01234567890" 
+              claims = 
+                      dividend 0.65 GBP (date 2020 Dec 1)
+                `and` dividend 0.65 GBP (date 2021 Jan 30)
+  dvpCid <- submit buyer do 
+    createCmd DeliveryVersusPayment with
+      bearer = buyer
+      counterparty = seller
+      obligations = pay 10000.0 GBP `and` receive 200.0 vod
+  return ()

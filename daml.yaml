@@ -1,13 +1,14 @@
-sdk-version: 1.0.0
+sdk-version: 1.6.0
 name: financial-contracts
 version: 0.0.1
 source: daml/
-scenario: Scenarios:spMini
+# scenario: Scenarios:spMini
 parties:
 - Alice
 - Bob
-exposed-modules:
-- Finance
+#exposed-modules:
+#- Finance
 dependencies:
 - daml-prim
 - daml-stdlib
+- daml-script
