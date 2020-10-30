@@ -5,7 +5,6 @@ module DvPExamples where
 import Prelude hiding (and, or)
 import Daml.Script
 import Obligation
-import Id
 import DA.Date (date,Month(..))
 
 -- Specialized effect-less obligation for DvP
