@@ -1,0 +1,38 @@
+module Observation (Observation) where
+
+import Prelude hiding (Left, Right, lookup)
+import DA.Next.Map
+import DA.Bifunctor
+import IOr
+import DA.Optional (fromOptional)
+
+-- A left value is true for every t, a right value only for given t's that are in the map's keys.
+newtype Observation t a = Observation (IOr a (Map t a))
+
+instance (MapKey t) => Functor (Observation t) where
+  fmap f (Observation ior) = Observation $ bimap f (fmap f) ior
+
+-- n.b. Returns an intersection of the dates
+instance (MapKey t) => Applicative (Observation t) where --TODO: use GenMap, remove key constraint
+  pure a = Observation . Left $ a
+  Observation (Left f) <*> Observation as = Observation $ bimap f (fmap f) as
+  Observation (Right fs) <*> Observation (Left a) = Observation . Right $ fmap ($ a) fs
+  Observation (Right fs) <*> Observation (Right as) =
+    Observation . Right $ merge (\_ _ -> None) (\_ _ -> None) (\_ f a -> Some $ f a) fs as
+  Observation (Right fs) <*> Observation (Both a as) =
+    Observation . Right $ merge (\_ f -> Some $ f a) (\_ _ -> None) (\_ f a -> Some $ f a) fs as
+  Observation (Both f gs) <*> Observation (Left a) = Observation Both with
+    left = f a
+    right = fmap ($ a) gs
+  Observation (Both f gs) <*> Observation (Right as) = 
+    Observation . Right $ merge (\_ _ -> None) (\_ a -> Some $ f a) (\_ g a -> Some $ g a) gs as
+  Observation (Both f gs) <*> Observation (Both a as) = 
+    Observation Both with
+      left = f a
+      right = 
+        merge (\_ g -> Some $ g a) (\_ a -> Some $ f a) (\_ g a -> Some $ g a) gs as
+
+run : (MapKey t) => Observation t a -> t -> Optional a
+run (Observation (Left a)) _ = Some a
+run (Observation (Right as)) t = lookup t as
+run (Observation (Both a as)) t = Some $ fromOptional a (lookup t as)

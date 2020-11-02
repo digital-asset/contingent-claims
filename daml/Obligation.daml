@@ -1,10 +1,10 @@
 module Obligation where
 
 import Prelude hiding (or, and)
-import Filtration (Filtration)
+import Observation (Observation)
 
 type Days = Int
-type F a = Filtration Days a
+type F a = Observation Days a
 
 -- | In Petyon-Jones' paper, this is called 'Contract'.
 -- We renamed it to avoid ambiguity
