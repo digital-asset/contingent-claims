@@ -2,13 +2,15 @@ module DvPExamples where
 
 {-# LANGUAGE ApplicativeDo #-} --for scripts?
 
-import Prelude hiding (and, or)
+import Prelude hiding (and, or, time)
 import Daml.Script
 import Obligation
 import DA.Date (date,Month(..))
+import Reader
 
 -- Specialized effect-less obligation for DvP
-type Obligations = Obligation (Either Ccy Security)
+type Obs a = Reader Date a
+type Obligations = Obligation (Reader Date) (Either Ccy Security)
 
 -- Asset types
 data Ccy = GBP | USD deriving  (Eq, Show)
@@ -16,16 +18,41 @@ data Ccy = GBP | USD deriving  (Eq, Show)
 data Security = Security with
     isin: Text
     claims: Obligations
-  deriving (Eq, Show)
 
+zcb : Date -> Decimal -> Ccy -> Obligations
+zcb maturity payoff ccy =
+  when (at maturity) $ scale (pure payoff) (one . Left $ ccy)
+
+at : Date -> Obs Bool
+at t = liftA2 (==) time (pure t)
+
+european : Date -> Obligations -> Obligations
+european t u = when (at t) (u `or` Zero)
+
+american : (Date, Date) -> Obligations -> Obligations
+american (t, t') u = anytime (between t t') u
+
+between : Date -> Date -> Obs Bool
+between t t' = liftA2 (&&) (liftA2 (>=) time (pure t))  (liftA2 (<=) time (pure t'))
+
+x = when (at $ date 2020 Dec 1) (scale (pure 100.0) . one . Left $ GBP)
+
+{-
 -- The financial contracts
 template DeliveryVersusPayment 
   with
     bearer: Party
     counterparty: Party
-    obligations: Obligations
   where
+    let obligations : Obligations = undefined
+
     signatory bearer, counterparty
+
+    choice Lifecycle : ContractId self with t : Date
+      controller case obligations of 
+                      One _ -> counterparty
+                      Deliver _ -> bearer
+                 do
 
 -- Some helper functions for defining obligations
 pay amt = deliver . scale (pure amt) . one . Left
@@ -43,12 +70,20 @@ x = script do
   seller <- allocateParty "Bob"
   let vod = Security with
               isin = "GB01234567890" 
-              claims = 
-                      dividend 0.65 GBP (date 2020 Dec 1)
+              claims 
+                =     dividend 0.65 GBP (date 2020 Dec 1)
                 `and` dividend 0.65 GBP (date 2021 Jan 30)
-  dvpCid <- submit buyer do 
+  submit buyer do 
     createCmd DeliveryVersusPayment with
       bearer = buyer
       counterparty = seller
       obligations = pay 10000.0 GBP `and` receive 200.0 vod
-  return ()
+  submit buyer do 
+    createCmd DeliveryVersusPayment with
+      bearer = buyer
+      counterparty = seller
+      obligations 
+        =     pay 10000.0 GBP 
+        `and` when (liftA2 (==) t (pure $ date 2020 Dec 1)) (receive 200.0 vod)
+     
+-}

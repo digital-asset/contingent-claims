@@ -1,0 +1,10 @@
+module Reader where
+
+newtype Reader a b = Reader { run : a -> b } deriving Functor
+
+instance Applicative (Reader a) where
+  pure = Reader . const
+  --(<*>) : (Reader (a -> (b -> c))) -> (Reader (a -> (b))) -> (Reader (a -> c))
+  Reader f <*> Reader g = Reader (\a -> (f a) (g a))
+
+time = Reader identity

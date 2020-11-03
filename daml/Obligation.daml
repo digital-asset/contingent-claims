@@ -1,24 +1,23 @@
 module Obligation where
 
 import Prelude hiding (or, and)
-import Observation (Observation)
-
-type Days = Int
-type F a = Observation Days a
 
 -- | In Petyon-Jones' paper, this is called 'Contract'.
 -- We renamed it to avoid ambiguity
-data Obligation a
-  = Zero
-  | One a
-  | Deliver (Obligation a)
-  | And with lhs: Obligation a, rhs: Obligation a
-  | Or with lhs: Obligation a, rhs: Obligation a
-  | Cond with predicate: F Bool, success: Obligation a, failure: Obligation a
-  | Scale with k: F Decimal, obligation: Obligation a -- TODO: Decimal -> Numeric ?
-  | When with predicate: F Bool, obligation: Obligation a
-  | Anytime with predicate: F Bool, obligation: Obligation a
-  | Until with predicate: F Bool, obligation: Obligation a
+data Obligation f a
+    = Zero
+    | One a
+    | Deliver (Obligation f a)
+    | And with lhs: Obligation f a, rhs: Obligation f a
+    | Or with lhs: Obligation f a, rhs: Obligation f a
+    | Cond with predicate: f Bool, success: Obligation f a, failure: Obligation f a
+    | Scale with k: f Decimal, obligation: Obligation f a
+    | When with predicate: f Bool, obligation: Obligation f a
+    | Anytime with predicate: f Bool, obligation: Obligation f a
+    | Until with predicate: f Bool, obligation: Obligation f a
+
+-- zero : Obligation f a
+-- zero = Zero
 
 one ccy = One ccy
 
@@ -38,58 +37,4 @@ anytime o c1 = Anytime o c1
 
 until o c1 = Until o c1
 
---How about using a pattern functor constraint on f to allow comparison of structural equality?
-instance (Eq a) => Eq (Obligation a) where 
-  Zero == Zero = True
-  One a == One a' = a == a'
-  Deliver o == Deliver o' = o == o'
-  And l r == And l' r' = l == l' && r == r'
-  Or l r == Or l' r' = l == l' && r == r'
-  (==) _ _ = False
-{-
-  Cond fb s f == Cond fb' s' f' = undefined
-  Scale fd o == Scale k' o' = undefined
-  When fb o == When fb' o' = undefined
-  Anytime fb o == Anytime fb' o' = undefined
-  Until fb o == Until fb' o' = undefined
-  (==) _ _ = False
--}
-
-instance Show a => Show (Obligation a) where
-  show Zero = "zero"
-  show (One a) = "receive " <> show a
-  show (Deliver ofa) = "deliver " <>  show ofa
-  show (And l r) = show l <> " and " <> show r
-  show (Or l r) = show l <> " or " <> show r
-  show _ = "undefined"
-  {-show (Cond fb s f) = undefined
-  show (Scale k o) = undefined -- show k <> " × " <> show o
-  show (When fb o) = undefined
-  show (Anytime fb o) = undefined
-  show (Until fb o) = undefined
- -}
-
-
-{-
-zcb : Date -> Decimal -> Currency -> Obligation
-zcb maturity payoff ccy =
-  when (at maturity) $ scale (konst payoff) (one ccy)
-
-konst : a -> Obs a
-konst a = Const a
-
-at : Date -> Obs Bool
-at t = today %== (konst t)
-
-today : Obs Date
-today = Today
-
-european : Date -> Obligation -> Obligation
-european t u = when (at t) (u `or` zero)
-
-american : (Date, Date) -> Obligation -> Obligation
-american (t1, t2) u = anytime (between t1 t2) u
-
-between : Date -> Date -> Obs Bool
-between t1 t2 = (today %>= konst t1) %&& (today %<= konst t2)
--}
+expiry o = undefined
