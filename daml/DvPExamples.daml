@@ -2,15 +2,16 @@ module DvPExamples where
 
 {-# LANGUAGE ApplicativeDo #-} --for scripts?
 
-import Prelude hiding (and, or, time)
+import Prelude hiding (and, or, time, (.))
 import Daml.Script
 import Obligation
 import DA.Date (date,Month(..))
 import Reader
+import Category
 
 -- Specialized effect-less obligation for DvP
 type Obs a = Reader Date a
-type Obligations = Obligation (Reader Date) (Either Ccy Security)
+type Obligations = Obligation Reader Date (Either Ccy Security)
 
 -- Asset types
 data Ccy = GBP | USD deriving  (Eq, Show)
@@ -19,23 +20,37 @@ data Security = Security with
     isin: Text
     claims: Obligations
 
-zcb : Date -> Decimal -> Ccy -> Obligations
-zcb maturity payoff ccy =
-  when (at maturity) $ scale (pure payoff) (one . Left $ ccy)
+time 
+  : forall f t . Category f 
+  => f t t
+time = id
 
-at : Date -> Obs Bool
+zcb 
+  : forall f t a . (Eq t, Category f, Applicative (f t)) 
+  => t -> Decimal -> a -> Obligation f t a
+zcb maturity payoff asset = when (at maturity) $ scale (pure payoff) (one asset)
+
+at 
+  : forall f t . (Eq t, Category f, Applicative (f t)) 
+  => t -> f t Bool
 at t = liftA2 (==) time (pure t)
 
-european : Date -> Obligations -> Obligations
+european 
+  : forall f t a . (Eq t, Category f, Applicative (f t)) 
+  => t -> Obligation f t a -> Obligation f t a
 european t u = when (at t) (u `or` Zero)
 
-american : (Date, Date) -> Obligations -> Obligations
-american (t, t') u = anytime (between t t') u
+american 
+  : forall f t a . (Ord t, Category f, Applicative (f t)) 
+  => t -> t -> Obligation f t a -> Obligation f t a
+american t t' u = anytime (between t t') u
 
-between : Date -> Date -> Obs Bool
+between 
+  : forall f t a . (Ord t, Category f, Applicative (f t)) 
+  => t -> t -> f t Bool
 between t t' = liftA2 (&&) (liftA2 (>=) time (pure t))  (liftA2 (<=) time (pure t'))
 
-x = when (at $ date 2020 Dec 1) (scale (pure 100.0) . one . Left $ GBP)
+-- x = when (at $ date 2020 Dec 1) (scale (pure 100.0) . one . Left $ GBP)
 
 {-
 -- The financial contracts
