@@ -5,9 +5,10 @@ module DvPExamples where
 import Prelude hiding (and, or, time, (.))
 -- import Daml.Script
 import Obligation
-import DA.Date (date, Month(..), toDateUTC)
+import FinancialObligation
+import DA.Date (date, Month(..)) --, toDateUTC)
 import Category
-import Recursion (cata, Fix)
+-- import Recursion (cata, Fix)
 -- import Id
 
 -- Specialized effect-less obligation for DvP
@@ -22,39 +23,10 @@ data Ccy = GBP | USD deriving  (Eq, Show)
 data Security = Security with
     isin: ISIN
     claims: Obligations
-
-time 
-  : forall f t . Category f 
-  => f t t
-time = id
-
-zcb 
-  : forall f t a . (Eq t, Category f, Applicative (f t)) 
-  => t -> Decimal -> a -> Obligation f t a
-zcb maturity payoff asset = when (at maturity) $ scale (pure payoff) (one asset)
-
-at 
-  : forall f t . (Eq t, Category f, Applicative (f t)) 
-  => t -> f t Bool
-at t = liftA2 (==) time (pure t)
-
-european 
-  : forall f t a . (Eq t, Category f, Applicative (f t)) 
-  => t -> Obligation f t a -> Obligation f t a
-european t u = when (at t) (u `or` Zero)
-
-american 
-  : forall f t a . (Ord t, Category f, Applicative (f t)) 
-  => t -> t -> Obligation f t a -> Obligation f t a
-american t t' u = anytime (between t t') u
-
-between 
-  : forall f t a . (Ord t, Category f, Applicative (f t)) 
-  => t -> t -> f t Bool
-between t t' = liftA2 (&&) (liftA2 (>=) time (pure t))  (liftA2 (<=) time (pure t'))
-
 -- Note you have to explicitly specify the type
-myZcb : Obligations = when (at $ date 2020 Dec 1) (scale (pure 100.0) . one . Left $ GBP)
+
+myZcb : Obligations  = when (at $ date 2020 Dec 1) (scale (pure 100.0) . one . Left $ GBP)
+
 
 template Quote 
   with

@@ -1,0 +1,29 @@
+module Observation where
+
+import DA.Next.Map
+import Prelude hiding ((<=),(==))
+
+data Observation t a
+  = Identity
+  | Const a
+  | Observation (Map t a)
+  | LiftA2 with op: Op, lhs: Observation t a, rhs: Observation t a
+  deriving Eq
+
+data Op
+  = Sum
+  | Lte
+  | Eq'
+  deriving (Eq)
+
+instance Additive a => Additive (Observation t a) where
+  aunit = Const aunit
+  (+) = LiftA2 Sum
+
+class ObservationOrd a where
+  (<=) : a -> a -> a
+  (==) : a -> a -> a
+
+instance Ord a => ObservationOrd (Observation t a) where
+  (<=) = LiftA2 Lte
+  (==) = LiftA2 Eq'
