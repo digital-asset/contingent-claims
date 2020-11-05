@@ -1,6 +1,7 @@
 module Obligation where
 
 import Prelude hiding (or, and)
+import Recursion (Base, project)
 
 -- | In Petyon-Jones' paper, this is called 'Contract'.
 -- We renamed it to avoid ambiguity
@@ -10,23 +11,23 @@ import Prelude hiding (or, and)
 -- Finally, for this to be useful, @t `f` a@ should form a category.
 -- TODO: f should depend on t
 data Obligation f t a
-    = Zero
-    | One a
-    | Deliver (Obligation f t a)
-    | And with lhs: Obligation f t a, rhs: Obligation f t a
-    | Or with lhs: Obligation f t a, rhs: Obligation f t a
-    | Cond with predicate: f t Bool, success: Obligation f t a, failure: Obligation f t a
-    | Scale with k: f t Decimal, obligation: Obligation f t a
-    | When with predicate: f t Bool, obligation: Obligation f t a
-    | Anytime with predicate: f t Bool, obligation: Obligation f t a
-    | Until with predicate: f t Bool, obligation: Obligation f t a
+  = Zero
+  | One a
+  | Give (Obligation f t a)
+  | And with lhs: Obligation f t a, rhs: Obligation f t a
+  | Or with lhs: Obligation f t a, rhs: Obligation f t a
+  | Cond with predicate: f t Bool, success: Obligation f t a, failure: Obligation f t a
+  | Scale with k: f t Decimal, obligation: Obligation f t a
+  | When with predicate: f t Bool, obligation: Obligation f t a
+  | Anytime with predicate: f t Bool, obligation: Obligation f t a
+  | Until with predicate: f t Bool, obligation: Obligation f t a
 
 -- zero : Obligation f a
 -- zero = Zero
 
 one ccy = One ccy
 
-deliver x = Deliver x
+give x = Give x
 
 and c1 c2 = And c1 c2
 
@@ -43,3 +44,30 @@ anytime o c1 = Anytime o c1
 until o c1 = Until o c1
 
 expiry o = undefined
+
+-- Pattern functor on Obligation, needed by the Rercursion package
+data ObligationF f t a x
+  = ZeroF
+  | OneF a 
+  | GiveF x
+  | AndF with lhs: x, rhs: x
+  | OrF with lhs: x, rhs: x
+  | CondF with predicate: (f t Bool), success: x, failure: x
+  | ScaleF with k: (f t Decimal), obligation: x
+  | WhenF with predicate: (f t Bool), obligation: x
+  | AnytimeF with predicate: (f t Bool), obligation: x
+  | UntilF with predicate: (f t Bool), obligation: x
+  deriving Functor
+
+instance Base (Obligation f t a) (ObligationF f t a) where
+  project Zero = ZeroF
+  project (One x) = OneF x
+  project (Give a) = GiveF a
+  project (And a b) = (AndF a b)
+  project (Or a b) = (OrF a b)
+  project (Cond x a b) = CondF x a b
+  project (Scale k x) = ScaleF k x
+  project (When o x) = WhenF o x
+  project (Anytime o x) = AnytimeF o x
+  project (Until o x) = UntilF o x
+

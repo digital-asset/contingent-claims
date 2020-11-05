@@ -5,8 +5,9 @@ module DvPExamples where
 import Prelude hiding (and, or, time, (.))
 -- import Daml.Script
 import Obligation
-import DA.Date (date,Month(..))
+import DA.Date (date, Month(..), toDateUTC)
 import Category
+import Recursion (cata, Fix)
 -- import Id
 
 -- Specialized effect-less obligation for DvP
@@ -55,7 +56,6 @@ between t t' = liftA2 (&&) (liftA2 (>=) time (pure t))  (liftA2 (<=) time (pure 
 -- Note you have to explicitly specify the type
 myZcb : Obligations = when (at $ date 2020 Dec 1) (scale (pure 100.0) . one . Left $ GBP)
 
-{-
 template Quote 
   with
     isin: ISIN
@@ -72,22 +72,41 @@ template FinancialContract
   with
     bearer: Party
     counterparty: Party
+    valueDate : Date
   where
-    let obligations : ISIN -> Date -> Obligation f Date ISIN
-        obligations isin t = european t isin
+    let obligations : ISIN -> Date -> Obligation _ Date ISIN
+        obligations isin t = european t (one isin)
+
+        recepient : Obligation _ _ _ -> Party --TODO: global scope; return type BOOL to signify receipt or rights
+        recepient (One _)  = bearer
+        recepient (Give _) = counterparty --FIXME: recurse
+        recepient _ = undefined
 
     signatory bearer, counterparty
 
-    controller (signatory this) can 
+    choice
       Price : Decimal with -- The value of the security
         t : Date           -- The date of valuation
-        isin: Text         -- The security ISIN code
+        isin: ISIN         -- The security ISIN code
         ccy: Ccy           -- The currency of valuation (or take off the security?)
-          do return undefined
-        
+      controller recepient undefined
+        do return undefined
 
+    choice
+      Election : ContractId FinancialContract with
+        t : Date
+        isin: ISIN
+        ccy: Ccy
+     controller (recepient ((obligations: ISIN -> Date -> Obligation (->) Date ISIN) isin t)) -- coersion necessary due to bug #7902
+       do return undefined
+       
+ 
+      
+     
+        
+{-
 -- Some helper functions for defining obligations
-pay amt = deliver . scale (pure amt) . one . Left
+pay amt = give . scale (pure amt) . one . Left
 
 receive amt = scale (pure amt) . one . Right
 

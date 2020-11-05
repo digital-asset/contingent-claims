@@ -1,5 +1,7 @@
 module Recursion where
 
+import Category ((>>>),(<<<))
+
 newtype Fix f = Fix { unfix : f (Fix f) }
 
 class Base b f where
@@ -7,4 +9,4 @@ class Base b f where
 
 class (Base b f, Functor f) => Recursive b f where
   cata : (f a -> a) -> b -> a
-  cata f = f . fmap (cata f) . project
+  cata f = project >>> fmap (cata f) >>> f
