@@ -1,0 +1,22 @@
+module ReaderT where
+
+import Prelude
+import Prelude qualified ((.))
+import Category
+import DA.Action
+
+newtype ReaderT m a b = ReaderT { run : a -> m b } deriving Functor
+
+instance (Applicative m) => Applicative (ReaderT m a) where
+  pure = ReaderT Prelude.. const Prelude.. pure
+  ReaderT f <*> ReaderT g = ReaderT \x -> f x <*> g x
+
+instance (Action m) => Action (ReaderT m a) where
+  m >>= f = ReaderT \r -> 
+    do
+    a <- run m r
+    run (f a) r
+
+instance (Action m) => Category (ReaderT m) where
+  id = ReaderT \a -> pure a
+  ReaderT f . ReaderT g = ReaderT (f <=< g)

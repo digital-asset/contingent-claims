@@ -1,0 +1,10 @@
+module Id where
+
+newtype Id a = Id a deriving (Eq, Show, Functor)
+
+instance Applicative Id where
+  pure = Id
+  Id f <*> Id a = Id (f a)
+
+instance Action Id where
+  Id a >>= f = f a

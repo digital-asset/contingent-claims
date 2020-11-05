@@ -3,21 +3,23 @@ module DvPExamples where
 {-# LANGUAGE ApplicativeDo #-} --for scripts?
 
 import Prelude hiding (and, or, time, (.))
-import Daml.Script
+-- import Daml.Script
 import Obligation
 import DA.Date (date,Month(..))
-import Reader
 import Category
+-- import Id
 
 -- Specialized effect-less obligation for DvP
-type Obs a = Reader Date a
-type Obligations = Obligation Reader Date (Either Ccy Security)
+--type Kleisli m a b = a -> m b
+type ISIN = Text
+type Asset = Either Ccy Security
+type Obligations = Obligation (->) Date Asset
 
 -- Asset types
 data Ccy = GBP | USD deriving  (Eq, Show)
 
 data Security = Security with
-    isin: Text
+    isin: ISIN
     claims: Obligations
 
 time 
@@ -50,24 +52,39 @@ between
   => t -> t -> f t Bool
 between t t' = liftA2 (&&) (liftA2 (>=) time (pure t))  (liftA2 (<=) time (pure t'))
 
--- x = when (at $ date 2020 Dec 1) (scale (pure 100.0) . one . Left $ GBP)
+-- Note you have to explicitly specify the type
+myZcb : Obligations = when (at $ date 2020 Dec 1) (scale (pure 100.0) . one . Left $ GBP)
 
 {-
--- The financial contracts
-template DeliveryVersusPayment 
+template Quote 
+  with
+    isin: ISIN
+    quoteDate: Date
+    close: Decimal
+    source: Party
+  where
+    signatory source
+    key (isin, quoteDate, source) : (ISIN, Date, Party)
+    maintainer key._3
+
+
+template FinancialContract 
   with
     bearer: Party
     counterparty: Party
   where
-    let obligations : Obligations = undefined
+    let obligations : ISIN -> Date -> Obligation f Date ISIN
+        obligations isin t = european t isin
 
     signatory bearer, counterparty
 
-    choice Lifecycle : ContractId self with t : Date
-      controller case obligations of 
-                      One _ -> counterparty
-                      Deliver _ -> bearer
-                 do
+    controller (signatory this) can 
+      Price : Decimal with -- The value of the security
+        t : Date           -- The date of valuation
+        isin: Text         -- The security ISIN code
+        ccy: Ccy           -- The currency of valuation (or take off the security?)
+          do return undefined
+        
 
 -- Some helper functions for defining obligations
 pay amt = deliver . scale (pure amt) . one . Left
