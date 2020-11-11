@@ -7,6 +7,13 @@ newtype Fix f = Fix { unfix : f (Fix f) }
 class Base b f where
   project: b -> f b
 
+class Cobase b f where
+  embed: f b -> b
+
 class (Base b f, Functor f) => Recursive b f where
   cata : (f a -> a) -> b -> a
   cata f = project >>> fmap (cata f) >>> f
+
+class (Cobase b f, Functor f) => Corecursive b f where
+  ana : (a -> f a) -> a -> b
+  ana f = embed <<< fmap (ana f) <<< f
