@@ -1,0 +1,20 @@
+module Kleisli where
+
+import Category
+
+newtype Kleisli f a b = Kleisli { run : a -> f b }
+{-
+run : Kleisli f a b -> a -> f b
+run k = k._run
+-}
+
+instance Functor (Kleisli f a) where
+  fmap = undefined
+
+instance Applicative (Kleisli f a) where
+  pure = undefined
+  (<*>) = undefined
+
+instance Category (Kleisli f) where
+  id = undefined
+  (.) = undefined

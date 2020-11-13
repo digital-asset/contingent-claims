@@ -4,6 +4,8 @@ import DA.Next.Map
 import Prelude
 import Prelude qualified ((<=),(==),(+))
 
+{-
+
 newtype Kleisli a b = Kleisli { run : a -> Update b }
 
 instance forall t . Functor (Kleisli t) where
@@ -13,7 +15,7 @@ instance forall t . Applicative (Kleisli t) where
   pure = undefined
   (<*>) = undefined
 
-class Observation f t a | t a -> f t a where
+class Observation f t a where -- | t a -> f t a where
   (+) : f t a -> f t a -> f t a
   (===): f t a -> f t a -> f t Bool
 
@@ -25,17 +27,21 @@ template ObservationDecimalInequalityAlgebra
     key p : Party
     maintainer key
     controller p can
-      nonconsuming Equals : Bool with lhsDecimal: Decimal, rhsDecimal: Decimal do pure $ lhsDecimal == rhsDecimal
+      nonconsuming DecimalEquals : Bool with lhsDecimal: Decimal, rhsDecimal: Decimal do pure $ lhsDecimal == rhsDecimal
   
-instance (Eq a, Number a) => Observation Kleisli t a where
+{-instance (Eq a, Number a) => Observation Kleisli t a where
   fa + fa' = liftA2 (Prelude.+) fa fa'
   (===) = liftA2 (Prelude.==)
+-}
+
+instance HasExercise templ DecimalEquals r => Observation (Obs templ ceq) t r where
+  -- Obs{run = Left a} + Obs{run = Left a'} = Obs (Left a)
+  Obs{run = r} === Obs{run = r'} = Obs (DecimalEquals r r')
 
 -- A serializable Observation
-newtype Obs = Obs { run : Either 
+newtype Obs templ ceq t a = Obs { run : ceq }
+-}
 
-
-{-
 data Observation t a
   = Identity
   | Const a
@@ -60,4 +66,3 @@ class ObservationOrd a where
 instance Ord a => ObservationOrd (Observation t a) where
   (<=) = LiftA2 Lte
   (==) = LiftA2 Eq'
--}

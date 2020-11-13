@@ -1,33 +1,39 @@
 module DvPExamples where
 
 {-# LANGUAGE ApplicativeDo #-} --for scripts?
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE LiberalTypeSynonyms #-}
 
 import Prelude hiding (and, or, time, (.))
--- import Daml.Script
 import Obligation
 import FinancialObligation
 import DA.Date (date, Month(..)) --, toDateUTC)
 import Category
--- import Recursion (cata, Fix)
--- import Id
+import DA.Next.Map
+import Recursion
+import Kleisli
 
 -- Specialized effect-less obligation for DvP
---type Kleisli m a b = a -> m b
+type Monad = Action
+type (~>) = Kleisli Update
 type ISIN = Text
-type Asset = Either Ccy Security
-type Obligations = Obligation (->) Date Asset
+type Asset = Either Currency ISIN
+type Obligations = Obligation (~>) Date Asset
 
 -- Asset types
-data Ccy = GBP | USD deriving  (Eq, Show)
+data Currency = GBP | USD deriving  (Eq, Show)
 
-data Security = Security with
-    isin: ISIN
-    claims: Obligations
--- Note you have to explicitly specify the type
+-- EXample: Note you have to explicitly specify the type
 
 myZcb : Obligations  = when (at $ date 2020 Dec 1) (scale (pure 100.0) . one . Left $ GBP)
 
+type Charges = Map Text Decimal -- Used to enrich a payment with commission, market charges etc.
+data Claim = Claim deriving (Eq, Show)
+data SSI = SSI deriving (Eq, Show)
 
+type CountryISO = Text -- Two char code
+
+{-
 template Quote 
   with
     isin: ISIN
@@ -38,53 +44,121 @@ template Quote
     signatory source
     key (isin, quoteDate, source) : (ISIN, Date, Party)
     maintainer key._3
+-}
 
+template Security
+  with
+    registrar: Party
+    isin: ISIN
+    countryOfIssue: CountryISO
+    currency: Currency
+  where
+    signatory registrar
 
-template FinancialContract 
+template ChargeRule
+  with 
+    operator : Party
+    isin: ISIN
+    commissionPerNominal: Decimal -- bps
+    commissionPerUnit: Decimal
+  where
+    signatory operator
+    key (isin, operator) : (ISIN, Party)
+    maintainer key._2
+
+template SettlementRule
+  with
+    operator: Party
+    countryOfIssue: CountryISO
+    ccy: Currency
+  where
+    signatory operator
+       
+scalek : forall f t a . (Applicative (f t)) => Decimal -> Obligation f t a -> Obligation f t a
+scalek = scale . pure
+
+isBearerExecutor : forall f t a . Obligation f t a -> Bool
+isBearerExecutor = cata \case 
+                    OneF _ -> True
+                    GiveF p -> not p
+                    ScaleF _ p -> True
+                    AndF p _ -> True
+                    ZeroF -> undefined
+                    _ -> undefined
+
+template DvP
   with
     bearer: Party
     counterparty: Party
+    -- Below this line is state required to re-create the obligation at time t.
     valueDate : Date
+    isin: ISIN
+    price: (Decimal, Currency)
+    quantity: Decimal
+    elections: [Bool] -- whether the left branch was taken
+    paymentClaims: [Claim] -- claims from external payment system
   where
-    let obligations : ISIN -> Date -> Obligation _ Date ISIN
-        obligations isin t = european t (one isin)
+    -- Note interestingly that `scale` is not distributive when clearing - charges may depend on nominal
+    let obligations : forall f . ISIN -> Date -> Obligation f Date Asset
+        obligations isin t = 
+           give (scalek       quantity  (one (Right isin)) : Obligation (->) Date Asset) -- delivery
+           `and` scalek (px * quantity) (one (Left ccy))    -- payment
+           where (px, ccy) = price
 
-        recepient : Obligation _ _ _ -> Party --TODO: global scope; return type BOOL to signify receipt or rights
-        recepient (One _)  = bearer
-        recepient (Give _) = counterparty --FIXME: recurse
-        recepient _ = undefined
+        executor = if isBearerExecutor (obligations isin valueDate) then bearer else counterparty
 
     signatory bearer, counterparty
 
     choice
-      Price : Decimal with -- The value of the security
-        t : Date           -- The date of valuation
-        isin: ISIN         -- The security ISIN code
-        ccy: Ccy           -- The currency of valuation (or take off the security?)
-      controller recepient undefined
+      Election : ContractId DvP with t : Date
+      controller executor
         do return undefined
 
     choice
-      Election : ContractId FinancialContract with
-        t : Date
-        isin: ISIN
-        ccy: Ccy
-     controller (recepient ((obligations: ISIN -> Date -> Obligation (->) Date ISIN) isin t)) -- coersion necessary due to bug #7902
-       do return undefined
-       
- 
-      
+      Clear : ContractId DvP with t: Date
+      controller executor
+        do 
+        let enrich : (Obligation (->) Date Asset) -> (Obligation (->) Date (Update (Charges, Asset)))
+            enrich = undefined
+              where calcCharges : (Obligation (~>) Date Asset) -> Update (Charges, Asset)
+                    calcCharges = undefined
+                    x : ObligationF (~>) Date (Date ~> (Charges, Asset)) (Date ~> (Charges, Asset)) -> Date ~> (Charges, Asset)
+                    x = \case
+                        OneF (m: Date ~> (Charges, Asset)) -> Kleisli \t -> do
+                            (_, isinOrCcy) <- m.run t
+                            case isinOrCcy of 
+                                Right isin -> do
+                                  (_, ChargeRule{..}) <- fetchByKey (isin, executor)
+                                  return ( fromList [("comm (per $)", commissionPerNominal),
+                                                     ("comm (per unit)", commissionPerUnit)]
+                                         , Right isin)
+                                Left ccy -> return (mempty, Left ccy)
+{-
+
+                        ScaleF k (_, Right isin) -> do
+                          k' <- k
+                          return $ (fromList [("comm (per unit)", k')]
+                                   , Right isin)
+
+                        ScaleF k (_, Left ccy) -> do
+                          k' <- k
+                          return $ (fromList [("comm (per $)", k')]
+                                   , Left ccy)
+
+                        AndF (a, Right isin) (b, _) -> do
+                          return $ (merge (const None) (const None) (const (*)) a b, isin)
+                    noCharges = mempty
+-}
+                        
+            confirm : (Obligation (~>) t (Charges, Asset)) -> (Obligation (~>) t (SSI, (Charges, Asset)))
+            confirm = undefined
+
+            settle : SSI -> Charges -> Asset ~> Claim
+            settle = undefined
+        return undefined
      
         
 {-
--- Some helper functions for defining obligations
-pay amt = give . scale (pure amt) . one . Left
-
-receive amt = scale (pure amt) . one . Right
-
-dividend : Decimal -> Ccy -> Date -> Obligations
-dividend px ccy t = when undefined (scale (pure px) . one $ Left ccy)
-
 
 -- Example of how this would be used
 

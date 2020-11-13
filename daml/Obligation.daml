@@ -59,7 +59,7 @@ data ObligationF f t a x
   | UntilF with predicate: (f t Bool), obligation: x
   deriving Functor
 
-instance Base (Obligation f t a) (ObligationF f t a) where
+instance Recursive (Obligation f t a) (ObligationF f t a) where
   project Zero = ZeroF
   project (One x) = OneF x
   project (Give a) = GiveF a
@@ -71,7 +71,7 @@ instance Base (Obligation f t a) (ObligationF f t a) where
   project (Anytime o x) = AnytimeF o x
   project (Until o x) = UntilF o x
 
-instance Cobase (Obligation f t a) (ObligationF f t a) where
+instance Corecursive (Obligation f t a) (ObligationF f t a) where
   embed ZeroF = Zero
   embed (OneF x) = One x
   embed (GiveF a) = Give a
