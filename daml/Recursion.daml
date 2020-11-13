@@ -4,16 +4,19 @@ import Category ((>>>),(<<<))
 
 newtype Fix f = Fix { unfix : f (Fix f) }
 
-class Functor f => Recursive b f | b -> f b where
-  project: b -> f b
+class Functor f => Recursive t f | t -> f t where
+  project: t -> f t
 
-  cata : (f a -> a) -> b -> a
+  cata : (f a -> a) -> t -> a
   cata f = project >>> fmap (cata f) >>> f
 
-class Functor f => Corecursive b f where
-  embed: f b -> b
+  para : (f (t, a) -> a) -> t -> a
+  para f = project >>> fmap ((,) <*> para f) >>> f
 
-  ana : (a -> f a) -> a -> b
+class Functor f => Corecursive t f where
+  embed: f t -> t
+
+  ana : (a -> f a) -> a -> t
   ana f = embed <<< fmap (ana f) <<< f
 
 -- Standard Base Functors
