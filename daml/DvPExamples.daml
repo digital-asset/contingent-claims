@@ -2,14 +2,14 @@ module DvPExamples where
 
 {-# LANGUAGE ApplicativeDo #-} --for scripts?
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE LiberalTypeSynonyms #-}
 
-import Prelude hiding (and, or, time, (.))
+import Prelude hiding (and, or, time, (.), lookup, foldl, merge)
 import Obligation
 import FinancialObligation
 import DA.Date (date, Month(..)) --, toDateUTC)
 import Category
-import DA.Next.Map
+import DA.Next.Map (Map, MapKey, merge, insert, lookup, fromList)
+import DA.Foldable (foldl)
 import Recursion
 import Kleisli
 
@@ -74,6 +74,10 @@ template SettlementRule
   where
     signatory operator
        
+modify : forall k v . (MapKey k) => (v -> v) -> k -> Map k v -> Map k v
+modify f k kvs = foldl (\kvs v -> insert k (f v) kvs) kvs v
+                 where v = f <$> lookup k kvs
+
 scalek : forall f t a . (Applicative (f t)) => Decimal -> Obligation f t a -> Obligation f t a
 scalek = scale . pure
 
@@ -120,35 +124,30 @@ template DvP
         do 
         let enrich : (Obligation (->) Date Asset) -> (Obligation (->) Date (Update (Charges, Asset)))
             enrich = undefined
-              where calcCharges : (Obligation (~>) Date Asset) -> Update (Charges, Asset)
-                    calcCharges = undefined
-                    x : ObligationF (~>) Date (Date ~> (Charges, Asset)) (Date ~> (Charges, Asset)) -> Date ~> (Charges, Asset)
-                    x = \case
-                        OneF (m: Date ~> (Charges, Asset)) -> Kleisli \t -> do
-                            (_, isinOrCcy) <- m.run t
-                            case isinOrCcy of 
-                                Right isin -> do
-                                  (_, ChargeRule{..}) <- fetchByKey (isin, executor)
-                                  return ( fromList [("comm (per $)", commissionPerNominal),
-                                                     ("comm (per unit)", commissionPerUnit)]
-                                         , Right isin)
-                                Left ccy -> return (mempty, Left ccy)
-{-
+              where calcCharges : (Obligation (~>) Date Asset) -> Date ~> Charges
+                    calcCharges = para \case
+                        OneF (Right isin) -> do
+                          (_, ChargeRule{..}) <- lift $ fetchByKey (isin, executor)
+                          return $ fromList [("comm (per $)", commissionPerNominal),
+                                             ("comm (per unit)", commissionPerUnit)]
 
-                        ScaleF k (_, Right isin) -> do
+                        ScaleF k (One (Right _isin), _) -> do
                           k' <- k
-                          return $ (fromList [("comm (per unit)", k')]
-                                   , Right isin)
-
-                        ScaleF k (_, Left ccy) -> do
+                          return $ fromList [("comm (per unit)", k')]
+                            
+                        ScaleF k (One (Left _ccy), _) -> do
                           k' <- k
-                          return $ (fromList [("comm (per $)", k')]
-                                   , Left ccy)
+                          return $ fromList [("comm (per $)", k')]
 
-                        AndF (a, Right isin) (b, _) -> do
-                          return $ (merge (const None) (const None) (const (*)) a b, isin)
-                    noCharges = mempty
--}
+                        AndF (_, comms1) (_, comms2) -> do
+                          comms1' <- comms1
+                          comms2' <- comms2
+                          return $ merge skip skip (\_ c c' -> Some $ c * c') comms1' comms2'
+                                   where skip = const . const $ None
+     
+                        _ -> error "Malformed DvP transaction. Should be : And (Scale (One ccy), Scale (One asset))"
+                    lift : Update b -> Date ~> b
+                    lift fb = Kleisli $ const fb
                         
             confirm : (Obligation (~>) t (Charges, Asset)) -> (Obligation (~>) t (SSI, (Charges, Asset)))
             confirm = undefined

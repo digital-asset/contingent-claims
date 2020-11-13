@@ -15,6 +15,9 @@ instance Applicative (Kleisli f a) where
   pure = undefined
   (<*>) = undefined
 
+instance Action (Kleisli f a) where
+  (>>=) = undefined
+
 instance Category (Kleisli f) where
   id = undefined
   (.) = undefined
