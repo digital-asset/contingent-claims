@@ -4,16 +4,32 @@ import Category ((>>>),(<<<))
 
 newtype Fix f = Fix { unfix : f (Fix f) }
 
-class Base b f where
+class Functor f => Recursive b f | b -> f b where
   project: b -> f b
 
-class Cobase b f where
-  embed: f b -> b
-
-class (Base b f, Functor f) => Recursive b f where
   cata : (f a -> a) -> b -> a
   cata f = project >>> fmap (cata f) >>> f
 
-class (Cobase b f, Functor f) => Corecursive b f where
+class Functor f => Corecursive b f where
+  embed: f b -> b
+
   ana : (a -> f a) -> a -> b
   ana f = embed <<< fmap (ana f) <<< f
+
+-- Standard Base Functors
+
+data ListF a x = Nil | Cons with value: a, pattern: x deriving Functor
+
+instance Recursive [a] (ListF a) where
+  project [] = Nil
+  project (a :: as) = Cons a as
+
+instance Corecursive [a] (ListF a) where
+  embed Nil = []
+  embed (Cons a as) = a :: as
+
+oursum = cata \case
+           Nil -> 0
+           Cons x acc -> acc + x
+
+s = oursum [1..20]
