@@ -15,10 +15,10 @@ import Kleisli
 
 -- Specialized effect-less obligation for DvP
 type Monad = Action
-type (~>) = Kleisli Update
+type (>=>) = Kleisli Update
 type ISIN = Text
 type Asset = Either Currency ISIN
-type Obligations = Obligation (~>) Date Asset
+type Obligations = Obligation (>=>) Date Asset
 
 -- Asset types
 data Currency = GBP | USD deriving  (Eq, Show)
@@ -103,7 +103,7 @@ isBearerExecutor = cata \case
                     ZeroF -> undefined
                     _ -> undefined
 
-lift : Update b -> Date ~> b
+lift : Update b -> Date >=> b
 lift fb = Kleisli $ const fb
 
 template DvP
@@ -119,7 +119,7 @@ template DvP
     paymentClaims: [Claim] -- claims from external payment system
   where
     -- Note interestingly that `scale` is not distributive when clearing - charges may depend on nominal
-    let spot : ISIN -> Date ~> Decimal
+    let spot : ISIN -> Date >=> Decimal
         spot isin = Kleisli \t -> do
           (_, Quote{close}) <- fetchByKey (isin, t, executor)
           return $ close
@@ -145,7 +145,7 @@ template DvP
         do
         let enrich : (Obligation (->) Date Asset) -> (Obligation (->) Date (Update (Charges, Asset)))
             enrich = undefined
-              where calcCharges : (Obligation (~>) Date Asset) -> Date ~> Charges
+              where calcCharges : (Obligation (>=>) Date Asset) -> Date >=> Charges
                     calcCharges = para \case
                         OneF (Right isin) -> do
                           (_, ChargeRule{..}) <- lift $ fetchByKey (isin, executor)
@@ -168,7 +168,7 @@ template DvP
 
                         _ -> error "Malformed DvP transaction. Should be : And (Scale (One ccy), Scale (One asset))"
 
-            confirm : (Obligation (~>) t Asset) -> Date ~> SSI
+            confirm : (Obligation (>=>) t Asset) -> Date >=> SSI
             confirm = cata \case
                OneF (Right isin) -> do
                  (rulesSingletonId, _) <- lift $ fetchByKey @SettlementRule executor
@@ -177,7 +177,7 @@ template DvP
                  (rulesSingletonId, _) <- lift $ fetchByKey @SettlementRule executor
                  lift $ exercise rulesSingletonId $ PaymentInstructions ccy
 
-            settle : SSI -> Charges -> Asset ~> Claim
+            settle : SSI -> Charges -> Asset >=> Claim
             settle = undefined
         return undefined
 
