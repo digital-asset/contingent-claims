@@ -33,8 +33,7 @@ data SSI = SSI deriving (Eq, Show)
 
 type CountryISO = Text -- Two char code
 
-{-
-template Quote 
+template Quote
   with
     isin: ISIN
     quoteDate: Date
@@ -44,19 +43,21 @@ template Quote
     signatory source
     key (isin, quoteDate, source) : (ISIN, Date, Party)
     maintainer key._3
--}
 
 template Security
   with
     registrar: Party
+    csd: Party
     isin: ISIN
     countryOfIssue: CountryISO
     currency: Currency
   where
     signatory registrar
+    key (isin, registrar) : (ISIN, Party)
+    maintainer key._2
 
 template ChargeRule
-  with 
+  with
     operator : Party
     isin: ISIN
     commissionPerNominal: Decimal -- bps
@@ -69,11 +70,23 @@ template ChargeRule
 template SettlementRule
   with
     operator: Party
-    countryOfIssue: CountryISO
-    ccy: Currency
   where
     signatory operator
-       
+    key operator: Party
+    maintainer key
+    controller operator can
+      nonconsuming SettlementInstructions : SSI with isin: ISIN
+        do
+        (_, Security{countryOfIssue}) <- fetchByKey (isin, undefined)
+        _ <- pure "Do something to derive the SSIs"
+        return SSI
+      nonconsuming PaymentInstructions : SSI with ccy: Currency
+        do
+        return $ case ccy of
+          USD -> SSI -- fedwire
+          GBP -> SSI -- BACS
+
+
 modify : forall k v . (MapKey k) => (v -> v) -> k -> Map k v -> Map k v
 modify f k kvs = foldl (\kvs v -> insert k (f v) kvs) kvs v
                  where v = f <$> lookup k kvs
@@ -82,13 +95,16 @@ scalek : forall f t a . (Applicative (f t)) => Decimal -> Obligation f t a -> Ob
 scalek = scale . pure
 
 isBearerExecutor : forall f t a . Obligation f t a -> Bool
-isBearerExecutor = cata \case 
+isBearerExecutor = cata \case
                     OneF _ -> True
                     GiveF p -> not p
                     ScaleF _ p -> True
                     AndF p _ -> True
                     ZeroF -> undefined
                     _ -> undefined
+
+lift : Update b -> Date ~> b
+lift fb = Kleisli $ const fb
 
 template DvP
   with
@@ -103,10 +119,15 @@ template DvP
     paymentClaims: [Claim] -- claims from external payment system
   where
     -- Note interestingly that `scale` is not distributive when clearing - charges may depend on nominal
-    let obligations : forall f . ISIN -> Date -> Obligation f Date Asset
-        obligations isin t = 
-           give (scalek       quantity  (one (Right isin)) : Obligation (->) Date Asset) -- delivery
-           `and` scalek (px * quantity) (one (Left ccy))    -- payment
+    let spot : ISIN -> Date ~> Decimal
+        spot isin = Kleisli \t -> do
+          (_, Quote{close}) <- fetchByKey (isin, t, executor)
+          return $ close
+
+        obligations : forall f . ISIN -> Date -> Obligation f Date Asset
+        obligations isin t =
+           give (scalek (     quantity)  (one (Right isin)) : Obligation (->) Date Asset) -- delivery
+           `and` scalek (px * quantity)  (one (Left ccy))    -- payment
            where (px, ccy) = price
 
         executor = if isBearerExecutor (obligations isin valueDate) then bearer else counterparty
@@ -121,7 +142,7 @@ template DvP
     choice
       Clear : ContractId DvP with t: Date
       controller executor
-        do 
+        do
         let enrich : (Obligation (->) Date Asset) -> (Obligation (->) Date (Update (Charges, Asset)))
             enrich = undefined
               where calcCharges : (Obligation (~>) Date Asset) -> Date ~> Charges
@@ -134,7 +155,7 @@ template DvP
                         ScaleF k (One (Right _isin), _) -> do
                           k' <- k
                           return $ fromList [("comm (per unit)", k')]
-                            
+
                         ScaleF k (One (Left _ccy), _) -> do
                           k' <- k
                           return $ fromList [("comm (per $)", k')]
@@ -144,19 +165,23 @@ template DvP
                           comms2' <- comms2
                           return $ merge skip skip (\_ c c' -> Some $ c * c') comms1' comms2'
                                    where skip = const . const $ None
-     
+
                         _ -> error "Malformed DvP transaction. Should be : And (Scale (One ccy), Scale (One asset))"
-                    lift : Update b -> Date ~> b
-                    lift fb = Kleisli $ const fb
-                        
-            confirm : (Obligation (~>) t (Charges, Asset)) -> (Obligation (~>) t (SSI, (Charges, Asset)))
-            confirm = undefined
+
+            confirm : (Obligation (~>) t Asset) -> Date ~> SSI
+            confirm = cata \case
+               OneF (Right isin) -> do
+                 (rulesSingletonId, _) <- lift $ fetchByKey @SettlementRule executor
+                 lift $ exercise rulesSingletonId $ SettlementInstructions isin
+               OneF (Left ccy) -> do
+                 (rulesSingletonId, _) <- lift $ fetchByKey @SettlementRule executor
+                 lift $ exercise rulesSingletonId $ PaymentInstructions ccy
 
             settle : SSI -> Charges -> Asset ~> Claim
             settle = undefined
         return undefined
-     
-        
+
+
 {-
 
 -- Example of how this would be used
