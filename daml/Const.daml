@@ -1,0 +1,10 @@
+module Const where
+
+newtype Const a b = Const { run : a }
+
+instance Functor (Const a) where
+  fmap _ (Const a) = Const a
+
+instance Monoid m => Applicative (Const m) where
+  pure _ = Const mempty
+  liftA2 _ (Const x) (Const y) = Const (x <> y)
