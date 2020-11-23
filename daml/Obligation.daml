@@ -2,6 +2,7 @@ module Obligation where
 
 import Prelude hiding (or, and)
 import Recursion
+import Observation
 
 -- | In Petyon-Jones' paper, this is called 'Contract'.
 -- We renamed it to avoid ambiguity
@@ -22,7 +23,7 @@ data Obligation f t a
   | Anytime with predicate: f t Bool, obligation: Obligation f t a
   | Until with predicate: f t Bool, obligation: Obligation f t a
 
--- zero : Obligation f a
+-- zero : Obligation f t a
 -- zero = Zero
 
 one ccy = One ccy
@@ -45,10 +46,19 @@ until o c1 = Until o c1
 
 expiry o = undefined
 
+-- Serializable version of Obligation, with concrete types
+data ObligationS t a
+  = ZeroS
+  | OneS a
+  | GiveS (ObligationS t a)
+  | AndS with lhs: ObligationS t a, rhs: ObligationS t a
+  | ScaleS with k: ObsArrow t a Bool, obligation: ObligationS t a
+  deriving (Eq, Show)
+
 -- Pattern functor on Obligation, needed by the Rercursion package
 data ObligationF f t a x
   = ZeroF
-  | OneF a 
+  | OneF a
   | GiveF x
   | AndF with lhs: x, rhs: x
   | OrF with lhs: x, rhs: x

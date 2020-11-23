@@ -1,0 +1,23 @@
+module Observable where
+
+import Prelude
+import Prelude qualified ((+), (<=), (==), pure)
+
+class TimeF f t where
+  time : f t t
+
+class PointF f t a where
+  pure : a -> f t a
+
+class NumberF f a where
+  zero : f a
+  (+) : f a -> f a -> f a
+
+class InequalityF f a where
+  (<=) : f a -> f a -> f Bool
+  (==) : f a -> f a -> f Bool
+
+{-
+class LogicF f where
+  (&&) : f Bool -> f Bool -> f Bool
+-}

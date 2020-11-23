@@ -1,7 +1,9 @@
-module DvPExamples where
-
 {-# LANGUAGE ApplicativeDo #-} --for scripts?
 {-# LANGUAGE TypeOperators #-}
+
+module DvPExamples where
+
+import Daml.Script
 
 import Prelude hiding (and, or, time, (.), lookup, foldl, merge)
 import Obligation
@@ -12,20 +14,26 @@ import DA.Next.Map (Map, MapKey, merge, insert, lookup, fromList)
 import DA.Foldable (foldl)
 import Recursion
 import Kleisli
+import Observation (ObsArrow)
+import ObservableFunctions
 
 -- Specialized effect-less obligation for DvP
 type Monad = Action
 type (>=>) = Kleisli Update
 type ISIN = Text
 type Asset = Either Currency ISIN
-type Obligations = Obligation (>=>) Date Asset
+-- type Obligations = Obligation (>=>) Date Asset
+type Obligations = ObligationS Date Asset
 
--- Asset types
+-- ISO Currencies
 data Currency = GBP | USD deriving  (Eq, Show)
 
 -- EXample: Note you have to explicitly specify the type
 
-myZcb : Obligations  = when (at $ date 2020 Dec 1) (scale (pure 100.0) . one . Left $ GBP)
+scalek : forall f t a . (Applicative (f t)) => Decimal -> Obligation f t a -> Obligation f t a
+scalek = scale . pure
+
+myZcb : Obligation (>=>) Date Asset = zcb (date 2020 Dec 1) 100.0 (Left GBP) 
 
 type Charges = Map Text Decimal -- Used to enrich a payment with commission, market charges etc.
 data Claim = Claim deriving (Eq, Show)
@@ -47,10 +55,11 @@ template Quote
 template Security
   with
     registrar: Party
-    csd: Party
+    -- csd: Party
     isin: ISIN
     countryOfIssue: CountryISO
-    currency: Currency
+    -- currency: Currency
+    claims: Obligations
   where
     signatory registrar
     key (isin, registrar) : (ISIN, Party)
@@ -91,9 +100,6 @@ modify : forall k v . (MapKey k) => (v -> v) -> k -> Map k v -> Map k v
 modify f k kvs = foldl (\kvs v -> insert k (f v) kvs) kvs v
                  where v = f <$> lookup k kvs
 
-scalek : forall f t a . (Applicative (f t)) => Decimal -> Obligation f t a -> Obligation f t a
-scalek = scale . pure
-
 isBearerExecutor : forall f t a . Obligation f t a -> Bool
 isBearerExecutor = cata \case
                     OneF _ -> True
@@ -106,31 +112,41 @@ isBearerExecutor = cata \case
 lift : Update b -> Date >=> b
 lift fb = Kleisli $ const fb
 
+deserialize : ObligationS t a -> Obligation (>=>) t a
+deserialize = undefined
+
+serialize : Obligation (>=>) t a -> ObligationS t a
+serialize = undefined
+
 template DvP
   with
     bearer: Party
     counterparty: Party
-    -- Below this line is state required to re-create the obligation at time t.
+
+{-
     valueDate : Date
     isin: ISIN
     price: (Decimal, Currency)
     quantity: Decimal
-    elections: [Bool] -- whether the left branch was taken
-    paymentClaims: [Claim] -- claims from external payment system
+-}
+    obligations : Obligations
   where
     -- Note interestingly that `scale` is not distributive when clearing - charges may depend on nominal
     let spot : ISIN -> Date >=> Decimal
         spot isin = Kleisli \t -> do
           (_, Quote{close}) <- fetchByKey (isin, t, executor)
           return $ close
+   
+        obligations = deserialize this.obligations
 
-        obligations : forall f . ISIN -> Date -> Obligation f Date Asset
+        {-obligations : forall f . ISIN -> Date -> Obligation f Date Asset
         obligations isin t =
            give (scalek (     quantity)  (one (Right isin)) : Obligation (->) Date Asset) -- delivery
            `and` scalek (px * quantity)  (one (Left ccy))    -- payment
            where (px, ccy) = price
+        -}
 
-        executor = if isBearerExecutor (obligations isin valueDate) then bearer else counterparty
+        executor = if isBearerExecutor obligations then bearer else counterparty
 
     signatory bearer, counterparty
 
@@ -182,29 +198,35 @@ template DvP
         return undefined
 
 
-{-
-
 -- Example of how this would be used
 
 x = script do
-  buyer <- allocateParty "Alice"
-  seller <- allocateParty "Bob"
-  let vod = Security with
+  buyer <- allocateParty "Buyer"
+  seller <- allocateParty "Seller"
+  registrar <- allocateParty "Registrar"
+  let dividend price ccy date = when (at date) (scalek price (one . Left $ ccy))
+      pay qty ccy = give (scalek qty (one . Left $ ccy))
+      receive qty sec = scalek qty (one . Right $ sec)
+      vod = Security with
+              registrar = registrar
               isin = "GB01234567890" 
+              countryOfIssue = "GB"
               claims 
-                =     dividend 0.65 GBP (date 2020 Dec 1)
-                `and` dividend 0.65 GBP (date 2021 Jan 30)
+                = serialize (
+                          dividend 0.65 GBP (date 2020 Dec 1)
+                    `and` dividend 0.65 GBP (date 2021 Jan 30)
+                  )
   submit buyer do 
-    createCmd DeliveryVersusPayment with
+    createCmd DvP with
       bearer = buyer
       counterparty = seller
-      obligations = pay 10000.0 GBP `and` receive 200.0 vod
+      obligations = serialize (pay 10000.0 GBP `and` receive 200.0 vod.isin)
   submit buyer do 
-    createCmd DeliveryVersusPayment with
+    createCmd DvP with
       bearer = buyer
       counterparty = seller
       obligations 
-        =     pay 10000.0 GBP 
-        `and` when (liftA2 (==) t (pure $ date 2020 Dec 1)) (receive 200.0 vod)
-     
--}
+        = serialize (
+                pay 10000.0 GBP 
+          `and` when (at $ date 2020 Dec 1) (receive 200.0 vod.isin)
+        )

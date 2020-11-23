@@ -1,6 +1,6 @@
 module Const where
 
-newtype Const a b = Const { run : a }
+newtype Const a b = Const { run : a } deriving (Eq, Show)
 
 instance Functor (Const a) where
   fmap _ (Const a) = Const a
