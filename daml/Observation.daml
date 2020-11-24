@@ -15,9 +15,13 @@ data Observation t a
   | Equ with lhs: Observation t a, rhs: Observation t a
   deriving (Eq, Show)
 
+{- We use a trick to control the output type of the effect.
+   The type @ObsArrow a@ is our f, so we have type @Obligation (ObsArrow a) t b@.
+   We can 'rig' the result type @b@ by mapping over @Const@ (see below).
+-}
 newtype ObsArrow a t b = ObsArrow (Const (Observation t a) b) deriving (Eq, Show)
 
-instance forall t . TimeF (ObsArrow t) t where
+instance forall t a . TimeF (ObsArrow a) t where
   time = ObsArrow . Const $ Identity
 
 instance forall t a . PointF (ObsArrow a) t a where

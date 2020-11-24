@@ -12,3 +12,4 @@ dependencies:
 - daml-prim
 - daml-stdlib
 - daml-script
+init-script: DvPExamples:createObligations

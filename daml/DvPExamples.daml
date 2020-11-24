@@ -7,6 +7,7 @@ import Daml.Script
 
 import Prelude hiding (and, or, time, (.), lookup, foldl, merge)
 import Obligation
+import qualified Obligation.Serializable
 import FinancialObligation
 import DA.Date (date, Month(..)) --, toDateUTC)
 import Category
@@ -14,8 +15,10 @@ import DA.Next.Map (Map, MapKey, merge, insert, lookup, fromList)
 import DA.Foldable (foldl)
 import Recursion
 import Kleisli
-import Observation (ObsArrow)
-import ObservableFunctions
+import Observation
+import Observable (PointF)
+import Observable qualified as O (pure)
+-- import ObservableFunctions
 
 -- Specialized effect-less obligation for DvP
 type Monad = Action
@@ -23,17 +26,17 @@ type (>=>) = Kleisli Update
 type ISIN = Text
 type Asset = Either Currency ISIN
 -- type Obligations = Obligation (>=>) Date Asset
-type Obligations = ObligationS Date Asset
+type Obligations = Obligation.Serializable.T Date Asset
 
 -- ISO Currencies
 data Currency = GBP | USD deriving  (Eq, Show)
 
 -- EXample: Note you have to explicitly specify the type
 
-scalek : forall f t a . (Applicative (f t)) => Decimal -> Obligation f t a -> Obligation f t a
-scalek = scale . pure
+scalek : forall f t a . (PointF f t Decimal) => Decimal -> Obligation f t a -> Obligation f t a
+scalek = scale . O.pure
 
-myZcb : Obligation (>=>) Date Asset = zcb (date 2020 Dec 1) 100.0 (Left GBP) 
+myZcb : Obligation (ObsArrow Asset) Date Asset = zcb (date 2020 Dec 1) 100.0 (Left GBP) 
 
 type Charges = Map Text Decimal -- Used to enrich a payment with commission, market charges etc.
 data Claim = Claim deriving (Eq, Show)
@@ -112,10 +115,10 @@ isBearerExecutor = cata \case
 lift : Update b -> Date >=> b
 lift fb = Kleisli $ const fb
 
-deserialize : ObligationS t a -> Obligation (>=>) t a
+deserialize : Obligation.Serializable.T t a -> Obligation (ObsArrow a) t a
 deserialize = undefined
 
-serialize : Obligation (>=>) t a -> ObligationS t a
+serialize : Obligation (ObsArrow a) t a -> Obligation.Serializable.T t a
 serialize = undefined
 
 template DvP
@@ -200,7 +203,7 @@ template DvP
 
 -- Example of how this would be used
 
-x = script do
+createObligations = script do
   buyer <- allocateParty "Buyer"
   seller <- allocateParty "Seller"
   registrar <- allocateParty "Registrar"
@@ -215,7 +218,7 @@ x = script do
                 = serialize (
                           dividend 0.65 GBP (date 2020 Dec 1)
                     `and` dividend 0.65 GBP (date 2021 Jan 30)
-                  )
+                )
   submit buyer do 
     createCmd DvP with
       bearer = buyer

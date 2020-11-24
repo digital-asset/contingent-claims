@@ -2,15 +2,16 @@ module Obligation where
 
 import Prelude hiding (or, and)
 import Recursion
-import Observation
+
+type T = Obligation
+type F = ObligationF
 
 -- | In Petyon-Jones' paper, this is called 'Contract'.
 -- We renamed it to avoid ambiguity
 -- @f@ is the effect
 -- @t@ is time
 -- @a@ is the asset
--- Finally, for this to be useful, @t `f` a@ should form a category.
--- TODO: f should depend on t
+-- TODO: f should depend on t ?
 data Obligation f t a
   = Zero
   | One a
@@ -23,6 +24,7 @@ data Obligation f t a
   | Anytime with predicate: f t Bool, obligation: Obligation f t a
   | Until with predicate: f t Bool, obligation: Obligation f t a
 
+-- FIXME: why doesn't this work?
 -- zero : Obligation f t a
 -- zero = Zero
 
@@ -46,15 +48,6 @@ until o c1 = Until o c1
 
 expiry o = undefined
 
--- Serializable version of Obligation, with concrete types
-data ObligationS t a
-  = ZeroS
-  | OneS a
-  | GiveS (ObligationS t a)
-  | AndS with lhs: ObligationS t a, rhs: ObligationS t a
-  | ScaleS with k: ObsArrow t a Bool, obligation: ObligationS t a
-  deriving (Eq, Show)
-
 -- Pattern functor on Obligation, needed by the Rercursion package
 data ObligationF f t a x
   = ZeroF
@@ -69,6 +62,7 @@ data ObligationF f t a x
   | UntilF with predicate: (f t Bool), obligation: x
   deriving Functor
 
+-- TODO: rename variables to be consistent with the types
 instance Recursive (Obligation f t a) (ObligationF f t a) where
   project Zero = ZeroF
   project (One x) = OneF x

@@ -1,0 +1,49 @@
+module Obligation.Serializable where 
+
+{- 
+
+We require a separate data type for a serializable obligation, because DAML
+does not support serialization of higher kinds. i.e. the @f@ in @Obligation@.
+Here we replace it with the concrete `Observation`.
+
+-}
+
+import Recursion
+import Observation
+
+type T = Serializable
+type F = SerializableF
+
+data Serializable t a
+  = Zero
+  | One a
+  | Give (Serializable t a)
+  | And with lhs: Serializable t a, rhs: Serializable t a
+  | When with predicate: Observation t Bool, obligation: Serializable t a
+  | Scale with k: Observation t Decimal, obligation: Serializable t a
+  deriving (Eq, Show)
+
+data SerializableF t a x
+  = ZeroF
+  | OneF a
+  | GiveF x
+  | AndF with lhs: x, rhs: x
+  | WhenF with predicate: Observation t Bool, obligation: x
+  | ScaleF with k: Observation t Decimal, obligation: x
+  deriving Functor
+
+instance Recursive (Serializable t a) (SerializableF t a) where
+  project Zero = ZeroF
+  project (One a) = OneF a
+  project (Give x) = GiveF x
+  project (And x x') = AndF x x'
+  project (When k x) = WhenF k x
+  project (Scale k x) = ScaleF k x
+
+instance Corecursive (Serializable t a) (SerializableF t a) where
+  embed ZeroF = Zero
+  embed (OneF a) = One a
+  embed (GiveF x) = Give x
+  embed (AndF x x') = And x x'
+  embed (WhenF k x) = When k x
+  embed (ScaleF k x) = Scale k x
