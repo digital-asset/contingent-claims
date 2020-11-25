@@ -1,57 +1,83 @@
 module Observation where
 
 import Const
-import Observable
-import Observable qualified as O (pure,(<=), (==),(+))
-import Prelude
-import Prelude qualified (pure, (<=),(==))
-import DA.Date (Month(..), date)
+import Observable qualified as O
 
-data Observation t a
-  = Identity
-  | Konst a
-  | Sum with lhs: Observation t a, rhs: Observation t a
-  | Lte with lhs: Observation t a, rhs: Observation t a
-  | Equ with lhs: Observation t a, rhs: Observation t a
-  deriving (Eq, Show)
+import DA.Record (HasField)
+import Kleisli
+-- import DA.Generics
 
-{- We use a trick to control the output type of the effect.
-   The type @ObsArrow a@ is our f, so we have type @Obligation (ObsArrow a) t b@.
-   We can 'rig' the result type @b@ by mapping over @Const@ (see below).
--}
-newtype ObsArrow a t b = ObsArrow (Const (Observation t a) b) deriving (Eq, Show)
+eval : (Template t, HasField "lhs" t a) => ContractId t -> Update a
+eval = fmap (.lhs) . fetch
 
-instance forall t a . TimeF (ObsArrow a) t where
-  time = ObsArrow . Const $ Identity
+data ObservationWrapper a
+  = BooleanObservation_ (ContractId BooleanObservation) --TODO: consider removing ContractId. That would allow pure values.
+  | DecimalObservation_ (ContractId DecimalObservation)
+  | DateObservation_ (ContractId DateObservation)
 
-instance forall t a . PointF (ObsArrow a) t a where
-  pure = ObsArrow . Const . Konst
+template BooleanObservation
+  with
+    provider: Party
+    lhs: Bool
+  where
+    signatory provider
+    controller provider can
+      And: ContractId BooleanObservation with rhs: ContractId BooleanObservation do
+        rhs <- eval rhs
+        create BooleanObservation with provider, lhs = lhs && rhs
 
-instance forall t a b . Additive a => NumberF (ObsArrow a t) b where
-  zero = ObsArrow . Const $ Konst aunit
-  ObsArrow (Const fa) + ObsArrow (Const fa') = ObsArrow . Const $ Sum fa fa'
+template DecimalObservation
+  with
+    provider: Party
+    lhs: Decimal
+  where 
+    signatory provider
+    controller provider can
+      DecimalAdd : ContractId DecimalObservation with rhs: ContractId DecimalObservation do
+        rhs <- eval rhs
+        create DecimalObservation with provider, lhs = lhs + rhs
+      DecimalLte : ContractId BooleanObservation with rhs: ContractId DecimalObservation do
+        rhs <- eval rhs
+        create BooleanObservation with provider, lhs = lhs <= rhs
 
-instance forall t a b . Ord a => InequalityF (ObsArrow a t) b where
-  ObsArrow (Const fb) <= ObsArrow (Const fb') = ObsArrow $ fmap (const True) (Const (Lte fb fb'))
-  ObsArrow (Const fb) == ObsArrow (Const fb') = ObsArrow $ fmap (const True) (Const (Equ fb fb'))
+template DateObservation
+  with 
+    provider: Party
+    lhs: Date
+  where
+    signatory provider
+    controller provider can
+      DateLte : ContractId BooleanObservation with rhs: ContractId DateObservation do
+        rhs <- eval rhs
+        create BooleanObservation with provider, lhs = lhs < rhs
+    
+newtype UpdateT m a = UpdateT { run : Update (m a) }
 
--- x : ObsArrow Date Date Bool = time O.<= O.pure (date 2020 Nov 23)
--- y : ObsArrow Int Date Int = O.pure 1 O.+ O.pure 2
+instance O.TimeF (Kleisli (UpdateT ObservationWrapper)) (Party, Date) where
+  time = Kleisli \(provider, t) -> UpdateT do
+    cid <- create DateObservation with provider, lhs = t
+    return $ DateObservation_ cid
 
-{-
-This works:
+instance O.PointF (Kleisli (UpdateT ObservationWrapper)) (Party, t) Decimal where
+  pure d = Kleisli \(provider, _t) ->  UpdateT do
+    cid <- create DecimalObservation with provider, lhs = d
+    return $ DecimalObservation_ cid
 
-x : ObsArrow Date Date Bool = time O.<= O.pure (date 2020 Nov 23)
+instance O.PointF (Kleisli (UpdateT ObservationWrapper)) (Party, t) Date where
+  pure d = Kleisli \(provider, _t) ->  UpdateT do
+    cid <- create DateObservation with provider, lhs = d
+    return $ DateObservation_ cid
 
-But this doesn't:
-
-x : ObsArrow Date Date Bool = (time O.<= O.pure (date 2020 Nov 23) O.== True)
-
-i.e. you can only nest an inequality _once_ inside an addition. This is the
-tradeoff we have for being able lift _any_ type into our representation, rather
-than using a fixed algebra (i.e. BoolLte, IntLte etc.). 
-
-It may be possible to somehow capture the depth of the expressions in an HList in
-the @a@ position, to allow an arbitrary depth.
-
--}
+instance O.InequalityF (Kleisli (UpdateT ObservationWrapper)) (Party, t) Decimal where
+  lhs <= rhs = Kleisli \x -> UpdateT do
+    rhs <- (rhs.runKleisli x).run
+    lhs <- (lhs.runKleisli x).run
+    case (lhs, rhs) of
+      (DecimalObservation_ lhsCid, DecimalObservation_ rhsCid) -> do
+         resCid <- exercise lhsCid DecimalLte with rhs = rhsCid
+         pure $ BooleanObservation_ resCid
+      (DateObservation_ lhsCid, DateObservation_ rhsCid) -> do
+         resCid <- exercise lhsCid DateLte with rhs = rhsCid
+         pure $ BooleanObservation_ resCid
+      _ -> error "Inequality between different types" -- this should be impossible, provided you use the smart constructors
+  (==) = undefined

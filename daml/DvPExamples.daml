@@ -22,11 +22,11 @@ import Observable qualified as O (pure)
 
 -- Specialized effect-less obligation for DvP
 type Monad = Action
-type (>=>) = Kleisli Update
+type (>=>) = Kleisli (UpdateT ObservationWrapper)
 type ISIN = Text
 type Asset = Either Currency ISIN
 -- type Obligations = Obligation (>=>) Date Asset
-type Obligations = Obligation.Serializable.T Date Asset
+type Obligations = (>=>) (Party, Date) Asset
 
 -- ISO Currencies
 data Currency = GBP | USD deriving  (Eq, Show)
@@ -36,7 +36,7 @@ data Currency = GBP | USD deriving  (Eq, Show)
 scalek : forall f t a . (PointF f t Decimal) => Decimal -> Obligation f t a -> Obligation f t a
 scalek = scale . O.pure
 
-myZcb : Obligation (ObsArrow Asset) Date Asset = zcb (date 2020 Dec 1) 100.0 (Left GBP) 
+myZcb : Obligation (>=>) (Date, Party) Asset = zcb (date 2020 Dec 1) 100.0 (Left GBP) 
 
 type Charges = Map Text Decimal -- Used to enrich a payment with commission, market charges etc.
 data Claim = Claim deriving (Eq, Show)
@@ -62,7 +62,7 @@ template Security
     isin: ISIN
     countryOfIssue: CountryISO
     -- currency: Currency
-    claims: Obligations
+    claims: Obligation.Serializable.T
   where
     signatory registrar
     key (isin, registrar) : (ISIN, Party)
@@ -113,12 +113,12 @@ isBearerExecutor = cata \case
                     _ -> undefined
 
 lift : Update b -> Date >=> b
-lift fb = Kleisli $ const fb
+lift fb = undefined -- Kleisli $ const fb
 
-deserialize : Obligation.Serializable.T t a -> Obligation (ObsArrow a) t a
+deserialize : Obligation.Serializable.T -> Obligation (>=>) t a
 deserialize = undefined
 
-serialize : Obligation (ObsArrow a) t a -> Obligation.Serializable.T t a
+serialize : Obligation (>=>) t a -> Obligation.Serializable.T
 serialize = undefined
 
 template DvP
@@ -132,7 +132,7 @@ template DvP
     price: (Decimal, Currency)
     quantity: Decimal
 -}
-    obligations : Obligations
+    obligations : Obligation.Serializable.T
   where
     -- Note interestingly that `scale` is not distributive when clearing - charges may depend on nominal
     let spot : ISIN -> Date >=> Decimal
