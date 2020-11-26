@@ -8,17 +8,19 @@ Here we replace it with the concrete `Observation`.
 
 -}
 
+import Currency
 import Observation
 import DA.Next.Set
 
 type T = Obligation
-type A = ()
+type A = Either Currency Text
 
 data Obligation 
   = Zero_
-  | One_ One
-  | Give_ Give
-  | Scale_ Scale
+  | One_ (ContractId One)
+  | Give_ (ContractId Give)
+  | Scale_ (ContractId Scale)
+  | When_ (ContractId When)
   deriving (Eq, Show)
 
 template One 
@@ -33,7 +35,7 @@ template Give
   with
     bearer: Party
     counterparty: Party
-    obligation: ContractId Obligation
+    obligation: T
   where
     signatory fromList [bearer, counterparty]
   
@@ -42,7 +44,7 @@ template Scale
     bearer: Party
     counterparty: Party
     predicate: ContractId DecimalObservation
-    obligation: ContractId Obligation
+    obligation: T
   where
     signatory fromList [bearer, counterparty]
 
@@ -51,6 +53,6 @@ template When
     bearer: Party
     counterparty: Party
     predicate: ContractId BooleanObservation
-    obligation: ContractId Obligation
+    obligation: T
   where
     signatory fromList [bearer, counterparty]

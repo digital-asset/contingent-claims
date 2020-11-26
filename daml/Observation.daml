@@ -1,11 +1,13 @@
 module Observation where
 
-import Const
 import Observable qualified as O
 
 import DA.Record (HasField)
 import Kleisli
 -- import DA.Generics
+
+-- Party -> t -> Update Observation a
+newtype Observation t a = Observation { run : Kleisli (Kleisli (UpdateT ObservationWrapper) t) Party a }
 
 eval : (Template t, HasField "lhs" t a) => ContractId t -> Update a
 eval = fmap (.lhs) . fetch
@@ -53,31 +55,51 @@ template DateObservation
     
 newtype UpdateT m a = UpdateT { run : Update (m a) }
 
-instance O.TimeF (Kleisli (UpdateT ObservationWrapper)) (Party, Date) where
-  time = Kleisli \(provider, t) -> UpdateT do
-    cid <- create DateObservation with provider, lhs = t
-    return $ DateObservation_ cid
+instance O.TimeF Observation Date where
+  time = Observation $
+    Kleisli \provider -> 
+      Kleisli \t -> UpdateT do
+        cid <- create DateObservation with provider, lhs = t
+        return $ DateObservation_ cid
 
-instance O.PointF (Kleisli (UpdateT ObservationWrapper)) (Party, t) Decimal where
-  pure d = Kleisli \(provider, _t) ->  UpdateT do
-    cid <- create DecimalObservation with provider, lhs = d
-    return $ DecimalObservation_ cid
+instance O.PointF Observation t Decimal where
+  pure d = Observation $
+    Kleisli \provider ->
+      Kleisli \_t ->  UpdateT do
+        cid <- create DecimalObservation with provider, lhs = d
+        return $ DecimalObservation_ cid
 
-instance O.PointF (Kleisli (UpdateT ObservationWrapper)) (Party, t) Date where
-  pure d = Kleisli \(provider, _t) ->  UpdateT do
-    cid <- create DateObservation with provider, lhs = d
-    return $ DateObservation_ cid
+instance O.PointF Observation t Date where
+  pure d = Observation $
+    Kleisli \provider ->
+      Kleisli \_t ->  UpdateT do
+        cid <- create DateObservation with provider, lhs = d
+        return $ DateObservation_ cid
 
-instance O.InequalityF (Kleisli (UpdateT ObservationWrapper)) (Party, t) Decimal where
-  lhs <= rhs = Kleisli \x -> UpdateT do
-    rhs <- (rhs.runKleisli x).run
-    lhs <- (lhs.runKleisli x).run
-    case (lhs, rhs) of
-      (DecimalObservation_ lhsCid, DecimalObservation_ rhsCid) -> do
-         resCid <- exercise lhsCid DecimalLte with rhs = rhsCid
-         pure $ BooleanObservation_ resCid
-      (DateObservation_ lhsCid, DateObservation_ rhsCid) -> do
-         resCid <- exercise lhsCid DateLte with rhs = rhsCid
-         pure $ BooleanObservation_ resCid
-      _ -> error "Inequality between different types" -- this should be impossible, provided you use the smart constructors
+instance O.InequalityF Observation t Decimal where
+  lhs <= rhs = Observation $ 
+    Kleisli \provider -> 
+      Kleisli \t -> UpdateT do
+        rhs <- ((rhs.run.runKleisli provider).runKleisli t).run
+        lhs <- ((lhs.run.runKleisli provider).runKleisli t).run
+        case (lhs, rhs) of
+          (DecimalObservation_ lhsCid, DecimalObservation_ rhsCid) -> do
+             resCid <- exercise lhsCid DecimalLte with rhs = rhsCid
+             pure $ BooleanObservation_ resCid
+          _ -> error "Inequality between different types" 
+          -- ^ this should be impossible, provided you use the smart constructors
+  (==) = undefined
+
+instance O.InequalityF Observation t Date where
+  lhs <= rhs = Observation $ 
+    Kleisli \provider -> 
+      Kleisli \t -> UpdateT do
+        rhs <- ((rhs.run.runKleisli provider).runKleisli t).run
+        lhs <- ((lhs.run.runKleisli provider).runKleisli t).run
+        case (lhs, rhs) of
+          (DateObservation_ lhsCid, DateObservation_ rhsCid) -> do
+             resCid <- exercise lhsCid DateLte with rhs = rhsCid
+             pure $ BooleanObservation_ resCid
+          _ -> error "Inequality between different types" 
+          -- ^ this should be impossible, provided you use the smart constructors
   (==) = undefined

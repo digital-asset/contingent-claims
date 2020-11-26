@@ -6,6 +6,7 @@ module DvPExamples where
 import Daml.Script
 
 import Prelude hiding (and, or, time, (.), lookup, foldl, merge)
+import Currency
 import Obligation
 import qualified Obligation.Serializable
 import FinancialObligation
@@ -21,22 +22,17 @@ import Observable qualified as O (pure)
 -- import ObservableFunctions
 
 -- Specialized effect-less obligation for DvP
-type Monad = Action
-type (>=>) = Kleisli (UpdateT ObservationWrapper)
 type ISIN = Text
 type Asset = Either Currency ISIN
+type (>=>) = Kleisli Update
 -- type Obligations = Obligation (>=>) Date Asset
-type Obligations = (>=>) (Party, Date) Asset
-
--- ISO Currencies
-data Currency = GBP | USD deriving  (Eq, Show)
 
 -- EXample: Note you have to explicitly specify the type
 
 scalek : forall f t a . (PointF f t Decimal) => Decimal -> Obligation f t a -> Obligation f t a
 scalek = scale . O.pure
 
-myZcb : Obligation (>=>) (Date, Party) Asset = zcb (date 2020 Dec 1) 100.0 (Left GBP) 
+myZcb : Obligation Observation Date Asset = zcb (date 2020 Dec 1) 100.0 (Left GBP) 
 
 type Charges = Map Text Decimal -- Used to enrich a payment with commission, market charges etc.
 data Claim = Claim deriving (Eq, Show)
@@ -115,11 +111,28 @@ isBearerExecutor = cata \case
 lift : Update b -> Date >=> b
 lift fb = undefined -- Kleisli $ const fb
 
-deserialize : Obligation.Serializable.T -> Obligation (>=>) t a
+deserialize : Party -> Party -> Obligation.Serializable.T -> Obligation Observation Date Asset
 deserialize = undefined
 
-serialize : Obligation (>=>) t a -> Obligation.Serializable.T
-serialize = undefined
+serialize : HasSubmit m cmds => Party -> Party -> Obligation Observation Date Asset -> m Obligation.Serializable.T
+seriallze _ _ Zero = pure Obligation.Serializable.Zero_
+serialize bearer counterparty (One asset) = do 
+  cid <- submit bearer . createCmd $ 
+    Obligation.Serializable.One with bearer, counterparty, asset
+  return . Obligation.Serializable.One_ $ cid
+serialize bearer counterparty (Give obligation) = do
+  serialized <- serialize bearer counterparty obligation
+  cid <- submit bearer . createCmd $
+    Obligation.Serializable.Give with bearer, counterparty, obligation = serialized
+  return . Obligation.Serializable.Give_ $ cid
+serialize bearer counterparty (Scale predicate obligation) = do
+  serialized <- serialize bearer counterparty obligation
+  let t = undefined
+  unwrappedPredicate <- submit bearer ((predicate.run.runKleisli bearer).runKleisli t).run
+  cid <- submit bearer . createCmd $
+    Obligation.Serializable.Scale with bearer
+  return $ Obligation.Serializable.Scale_ cid
+serialize _ _ _ = undefined
 
 template DvP
   with
@@ -140,7 +153,7 @@ template DvP
           (_, Quote{close}) <- fetchByKey (isin, t, executor)
           return $ close
    
-        obligations = deserialize this.obligations
+        obligations = deserialize bearer counterparty this.obligations
 
         {-obligations : forall f . ISIN -> Date -> Obligation f Date Asset
         obligations isin t =
@@ -196,7 +209,7 @@ template DvP
                  (rulesSingletonId, _) <- lift $ fetchByKey @SettlementRule executor
                  lift $ exercise rulesSingletonId $ PaymentInstructions ccy
 
-            settle : SSI -> Charges -> Asset >=> Claim
+            settle : SSI -> Charges -> Asset `Observation` Claim
             settle = undefined
         return undefined
 
@@ -210,26 +223,27 @@ createObligations = script do
   let dividend price ccy date = when (at date) (scalek price (one . Left $ ccy))
       pay qty ccy = give (scalek qty (one . Left $ ccy))
       receive qty sec = scalek qty (one . Right $ sec)
-      vod = Security with
-              registrar = registrar
-              isin = "GB01234567890" 
-              countryOfIssue = "GB"
-              claims 
-                = serialize (
+  claims <- serialize registrar buyer (
                           dividend 0.65 GBP (date 2020 Dec 1)
                     `and` dividend 0.65 GBP (date 2021 Jan 30)
                 )
+  let vod = Security with
+              registrar = registrar
+              isin = "GB01234567890" 
+              countryOfIssue = "GB"
+              claims
+  dvp <- serialize buyer seller (pay 10000.0 GBP `and` receive 200.0 vod.isin)
   submit buyer do 
     createCmd DvP with
       bearer = buyer
       counterparty = seller
-      obligations = serialize (pay 10000.0 GBP `and` receive 200.0 vod.isin)
-  submit buyer do 
-    createCmd DvP with
-      bearer = buyer
-      counterparty = seller
-      obligations 
-        = serialize (
+      obligations = dvp
+  loan <- serialize buyer seller (
                 pay 10000.0 GBP 
           `and` when (at $ date 2020 Dec 1) (receive 200.0 vod.isin)
         )
+  submit buyer do 
+    createCmd DvP with
+      bearer = buyer
+      counterparty = seller
+      obligations = loan
