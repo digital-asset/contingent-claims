@@ -1,107 +1,34 @@
-module Observation where
+module Observation (Observation) where
 
-import Kleisli
 import Observable qualified as O
-import Currency (Currency)
 
--- Party -> t -> Update Observation a
-newtype Observation t a = Observation { run : Kleisli (UpdateT Wrapper) Party a }
-type Asset = Either Currency Text
+type ISIN = Text
 
-data Wrapper a
-  = BoolConst_ (ContractId BoolConst) --TODO: consider storing pure values directly
-  | DecimalConst_ (ContractId DecimalConst)
-  | DecimalSpot_ (ContractId DecimalSpot)
-  | DecimalLte_ (ContractId DecimalLte)
-  | DateIdentity_ (ContractId DateIdentity)
-  | DateConst_ (ContractId DateConst)
-  | DateEqu_ (ContractId DateEqu)
+data Observation t a
+  = DecimalConst Decimal
+  | DecimalSpot ISIN
+  | DecimalLte (Observation t Decimal, Observation t Decimal)
+  | DecimalEqu (Observation t Decimal, Observation t Decimal)
+  | BoolConst Bool
+  | DateIdentity
+  | DateConst Date
+  | DateLte (Observation t Date, Observation t Date)
+  | DateEqu (Observation t Date, Observation t Date)
   deriving (Eq, Show)
 
-template DecimalConst
-  with
-    provider: Party
-    k: Decimal
-  where 
-    signatory provider
-
-template DecimalSpot
-  with
-    provider: Party
-    asset: Text
-  where
-    signatory provider
-
-template DecimalLte
-  with
-    provider: Party
-    lhs: Wrapper Decimal
-    rhs: Wrapper Decimal
-  where
-    signatory provider
-
-template BoolConst
-  with
-    provider: Party
-    k: Bool
-  where
-    signatory provider
-
-template DateIdentity
-  with
-    provider: Party
-  where 
-    signatory provider
-
-template DateConst
-  with
-    provider: Party
-    k: Date
-  where 
-    signatory provider
-
-template DateEqu
-  with
-    provider: Party
-    lhs: Wrapper Date
-    rhs: Wrapper Date
-  where
-    signatory provider
-   
-newtype UpdateT m a = UpdateT { run : Update (m a) }
-
 instance O.TimeF Observation Date where
-  time = Observation $
-    Kleisli \provider -> UpdateT do
-        cid <- create (DateIdentity with provider)
-        pure $ DateIdentity_ cid
+  time = DateIdentity
 
 instance O.PointF Observation t Date where
-  pure k = Observation $
-    Kleisli \provider -> UpdateT do
-        cid <- create (DateConst with provider, k)
-        pure $ DateConst_ cid
+  pure = DateConst
 
 instance O.InequalityF Observation t Date where
-  o <= o' = error "Undefined: Date <="
-  o == o' = Observation $ 
-    Kleisli \provider -> UpdateT do
-        lhs <- (o.run.runKleisli provider).run -- yuck!
-        rhs <- (o'.run.runKleisli provider).run
-        cid <- create DateEqu with provider, lhs, rhs
-        return $ DateEqu_ cid
+  (<=) = curry DateLte
+  (==) = curry DateEqu
 
 instance O.PointF Observation t Decimal where
-  pure k = Observation $
-    Kleisli \provider -> UpdateT do
-        cid <- create (DecimalConst with provider, k)
-        pure $ DecimalConst_ cid
+  pure = DecimalConst
 
 instance O.InequalityF Observation t Decimal where
-  o <= o' = Observation $ 
-    Kleisli \provider -> UpdateT do
-        lhs <- (o.run.runKleisli provider).run -- yuck!
-        rhs <- (o'.run.runKleisli provider).run
-        cid <- create DecimalLte with provider, lhs, rhs
-        return $ DecimalLte_ cid
-  (==) = error "Undefined: Decimal =="
+  (<=) = curry DecimalLte
+  (==) = curry DecimalEqu
