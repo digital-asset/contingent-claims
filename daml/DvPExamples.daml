@@ -13,7 +13,6 @@ import FinancialObligation
 import DA.Date (date, Month(..)) --, toDateUTC)
 import Category
 import DA.Next.Map (Map, MapKey, merge, insert, lookup, fromList)
-import DA.Next.Set qualified as Set
 import DA.Foldable (foldl)
 import Recursion
 import Kleisli
@@ -30,10 +29,11 @@ type (>=>) = Kleisli Update
 
 -- EXample: Note you have to explicitly specify the type
 
+-- TODO: move out into FinancialContracts or another mobdule
 scalek : forall f t a . (PointF f t Decimal) => Decimal -> Obligation f t a -> Obligation f t a
 scalek = scale . O.pure
 
-myZcb : Obligation Observation Date Asset = zcb (date 2020 Dec 1) 100.0 (Left GBP) 
+-- myZcb : Obligation Observation Date Asset = zcb (date 2020 Dec 1) 100.0 (Left GBP) 
 
 type Charges = Map Text Decimal -- Used to enrich a payment with commission, market charges etc.
 data Claim = Claim deriving (Eq, Show)
@@ -95,11 +95,6 @@ template SettlementRule
           USD -> SSI -- fedwire
           GBP -> SSI -- BACS
 
-
-modify : forall k v . (MapKey k) => (v -> v) -> k -> Map k v -> Map k v
-modify f k kvs = foldl (\kvs v -> insert k (f v) kvs) kvs v
-                 where v = f <$> lookup k kvs
-
 isBearerExecutor : forall f t a . Obligation f t a -> Bool
 isBearerExecutor = cata \case
                     OneF _ -> True
@@ -145,33 +140,13 @@ template DvP
     bearer: Party
     counterparty: Party
 
-{-
-    valueDate : Date
-    isin: ISIN
-    price: (Decimal, Currency)
-    quantity: Decimal
--}
     obligations : Serialized.Obligation Date Asset
   where
-    -- Note interestingly that `scale` is not distributive when clearing - charges may depend on nominal
-    let spot : ISIN -> Date >=> Decimal
-        spot isin = Kleisli \t -> do
-          (_, Quote{close}) <- fetchByKey (isin, t, executor)
-          return $ close
-   
-        obligations = deserialize this.obligations
-
-        {-obligations : forall f . ISIN -> Date -> Obligation f Date Asset
-        obligations isin t =
-           give (scalek (     quantity)  (one (Right isin)) : Obligation (->) Date Asset) -- delivery
-           `and` scalek (px * quantity)  (one (Left ccy))    -- payment
-           where (px, ccy) = price
-        -}
-
+    let obligations = deserialize this.obligations
         executor = if isBearerExecutor obligations then bearer else counterparty
 
     signatory bearer, counterparty
-
+{-
     choice
       Election : ContractId DvP with t : Date
       controller executor
@@ -218,38 +193,12 @@ template DvP
             settle : SSI -> Charges -> Asset `Observation` Claim
             settle = undefined
         return undefined
-
-{-
-template MasterAgreement
-  with
-    bearer: Party
-    counterparty: Party
-  where
-    signatory Set.fromList [bearer, counterparty]
-
-    controller bearer can
-      Zcb : Serialized.Obligation with maturity: Date, nominal: Decimal, ccy: Currency do
-        serialize bearer bearer $ zcb maturity nominal (Left ccy)
-
-template FinancialContractProposal
-  with
-    requestor: Party
-    counterparty: Party
-    proposal: Serialized.Obligation
-  where 
-    signatory requestor
-    observer counterparty
-    controller counterparty can
-      AcceptFinancialContract : Serialized.Obligation do
-        deserialize
 -}
 
--- Example of how this would be used
--- Note this can't be written as a script because of the naked 'serialize' call.
-createObligations : Scenario () = do
-  buyer <- getParty "Buyer"
-  seller <- getParty "Seller"
-  registrar <- getParty "Registrar"
+createObligations = script do
+  buyer <- allocateParty "Buyer"
+  seller <- allocateParty "Seller"
+  registrar <- allocateParty "Registrar"
   let dividend price ccy date = when (at date) (scalek price (one . Left $ ccy))
       pay qty ccy = give (scalek qty (one . Left $ ccy))
       receive qty sec = scalek qty (one . Right $ sec)
@@ -262,12 +211,12 @@ createObligations : Scenario () = do
                     `and` dividend 0.65 GBP (date 2021 Jan 30)
                 )
   submit buyer do 
-    create DvP with
+    createCmd DvP with
       bearer = buyer
       counterparty = buyer
       obligations = serialize (pay 10000.0 GBP `and` receive 200.0 vod.isin)
   submit buyer do 
-    create DvP with
+    createCmd DvP with
       bearer = buyer
       counterparty = buyer
       obligations = serialize (
