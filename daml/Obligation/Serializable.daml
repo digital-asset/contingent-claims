@@ -19,6 +19,7 @@ data Obligation
   = Zero_
   | One_ (ContractId One)
   | Give_ (ContractId Give)
+  | And_ (ContractId And)
   | Scale_ (ContractId Scale)
   | When_ (ContractId When)
   deriving (Eq, Show)
@@ -38,12 +39,21 @@ template Give
     obligation: T
   where
     signatory fromList [bearer, counterparty]
+
+template And
+  with
+    bearer: Party
+    counterparty: Party
+    lhs: T
+    rhs: T
+  where
+    signatory fromList [bearer, counterparty]
   
 template Scale
   with
     bearer: Party
     counterparty: Party
-    predicate: ContractId DecimalObservation
+    predicate: Observation.Wrapper Decimal
     obligation: T
   where
     signatory fromList [bearer, counterparty]
@@ -52,7 +62,7 @@ template When
   with
     bearer: Party
     counterparty: Party
-    predicate: ContractId BooleanObservation
+    predicate: Observation.Wrapper Bool
     obligation: T
   where
     signatory fromList [bearer, counterparty]

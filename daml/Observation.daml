@@ -1,105 +1,107 @@
 module Observation where
 
-import Observable qualified as O
-
-import DA.Record (HasField)
 import Kleisli
--- import DA.Generics
+import Observable qualified as O
+import Currency (Currency)
 
 -- Party -> t -> Update Observation a
-newtype Observation t a = Observation { run : Kleisli (Kleisli (UpdateT ObservationWrapper) t) Party a }
+newtype Observation t a = Observation { run : Kleisli (UpdateT Wrapper) Party a }
+type Asset = Either Currency Text
 
-eval : (Template t, HasField "lhs" t a) => ContractId t -> Update a
-eval = fmap (.lhs) . fetch
+data Wrapper a
+  = BoolConst_ (ContractId BoolConst) --TODO: consider storing pure values directly
+  | DecimalConst_ (ContractId DecimalConst)
+  | DecimalSpot_ (ContractId DecimalSpot)
+  | DecimalLte_ (ContractId DecimalLte)
+  | DateIdentity_ (ContractId DateIdentity)
+  | DateConst_ (ContractId DateConst)
+  | DateEqu_ (ContractId DateEqu)
+  deriving (Eq, Show)
 
-data ObservationWrapper a
-  = BooleanObservation_ (ContractId BooleanObservation) --TODO: consider removing ContractId. That would allow pure values.
-  | DecimalObservation_ (ContractId DecimalObservation)
-  | DateObservation_ (ContractId DateObservation)
-
-template BooleanObservation
+template DecimalConst
   with
     provider: Party
-    lhs: Bool
-  where
-    signatory provider
-    controller provider can
-      And: ContractId BooleanObservation with rhs: ContractId BooleanObservation do
-        rhs <- eval rhs
-        create BooleanObservation with provider, lhs = lhs && rhs
-
-template DecimalObservation
-  with
-    provider: Party
-    lhs: Decimal
+    k: Decimal
   where 
     signatory provider
-    controller provider can
-      DecimalAdd : ContractId DecimalObservation with rhs: ContractId DecimalObservation do
-        rhs <- eval rhs
-        create DecimalObservation with provider, lhs = lhs + rhs
-      DecimalLte : ContractId BooleanObservation with rhs: ContractId DecimalObservation do
-        rhs <- eval rhs
-        create BooleanObservation with provider, lhs = lhs <= rhs
 
-template DateObservation
-  with 
+template DecimalSpot
+  with
     provider: Party
-    lhs: Date
+    asset: Text
   where
     signatory provider
-    controller provider can
-      DateLte : ContractId BooleanObservation with rhs: ContractId DateObservation do
-        rhs <- eval rhs
-        create BooleanObservation with provider, lhs = lhs < rhs
-    
+
+template DecimalLte
+  with
+    provider: Party
+    lhs: Wrapper Decimal
+    rhs: Wrapper Decimal
+  where
+    signatory provider
+
+template BoolConst
+  with
+    provider: Party
+    k: Bool
+  where
+    signatory provider
+
+template DateIdentity
+  with
+    provider: Party
+  where 
+    signatory provider
+
+template DateConst
+  with
+    provider: Party
+    k: Date
+  where 
+    signatory provider
+
+template DateEqu
+  with
+    provider: Party
+    lhs: Wrapper Date
+    rhs: Wrapper Date
+  where
+    signatory provider
+   
 newtype UpdateT m a = UpdateT { run : Update (m a) }
 
 instance O.TimeF Observation Date where
   time = Observation $
-    Kleisli \provider -> 
-      Kleisli \t -> UpdateT do
-        cid <- create DateObservation with provider, lhs = t
-        return $ DateObservation_ cid
-
-instance O.PointF Observation t Decimal where
-  pure d = Observation $
-    Kleisli \provider ->
-      Kleisli \_t ->  UpdateT do
-        cid <- create DecimalObservation with provider, lhs = d
-        return $ DecimalObservation_ cid
+    Kleisli \provider -> UpdateT do
+        cid <- create (DateIdentity with provider)
+        pure $ DateIdentity_ cid
 
 instance O.PointF Observation t Date where
-  pure d = Observation $
-    Kleisli \provider ->
-      Kleisli \_t ->  UpdateT do
-        cid <- create DateObservation with provider, lhs = d
-        return $ DateObservation_ cid
-
-instance O.InequalityF Observation t Decimal where
-  lhs <= rhs = Observation $ 
-    Kleisli \provider -> 
-      Kleisli \t -> UpdateT do
-        rhs <- ((rhs.run.runKleisli provider).runKleisli t).run
-        lhs <- ((lhs.run.runKleisli provider).runKleisli t).run
-        case (lhs, rhs) of
-          (DecimalObservation_ lhsCid, DecimalObservation_ rhsCid) -> do
-             resCid <- exercise lhsCid DecimalLte with rhs = rhsCid
-             pure $ BooleanObservation_ resCid
-          _ -> error "Inequality between different types" 
-          -- ^ this should be impossible, provided you use the smart constructors
-  (==) = undefined
+  pure k = Observation $
+    Kleisli \provider -> UpdateT do
+        cid <- create (DateConst with provider, k)
+        pure $ DateConst_ cid
 
 instance O.InequalityF Observation t Date where
-  lhs <= rhs = Observation $ 
-    Kleisli \provider -> 
-      Kleisli \t -> UpdateT do
-        rhs <- ((rhs.run.runKleisli provider).runKleisli t).run
-        lhs <- ((lhs.run.runKleisli provider).runKleisli t).run
-        case (lhs, rhs) of
-          (DateObservation_ lhsCid, DateObservation_ rhsCid) -> do
-             resCid <- exercise lhsCid DateLte with rhs = rhsCid
-             pure $ BooleanObservation_ resCid
-          _ -> error "Inequality between different types" 
-          -- ^ this should be impossible, provided you use the smart constructors
-  (==) = undefined
+  o <= o' = error "Undefined: Date <="
+  o == o' = Observation $ 
+    Kleisli \provider -> UpdateT do
+        lhs <- (o.run.runKleisli provider).run -- yuck!
+        rhs <- (o'.run.runKleisli provider).run
+        cid <- create DateEqu with provider, lhs, rhs
+        return $ DateEqu_ cid
+
+instance O.PointF Observation t Decimal where
+  pure k = Observation $
+    Kleisli \provider -> UpdateT do
+        cid <- create (DecimalConst with provider, k)
+        pure $ DecimalConst_ cid
+
+instance O.InequalityF Observation t Decimal where
+  o <= o' = Observation $ 
+    Kleisli \provider -> UpdateT do
+        lhs <- (o.run.runKleisli provider).run -- yuck!
+        rhs <- (o'.run.runKleisli provider).run
+        cid <- create DecimalLte with provider, lhs, rhs
+        return $ DecimalLte_ cid
+  (==) = error "Undefined: Decimal =="

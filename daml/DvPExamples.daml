@@ -13,10 +13,11 @@ import FinancialObligation
 import DA.Date (date, Month(..)) --, toDateUTC)
 import Category
 import DA.Next.Map (Map, MapKey, merge, insert, lookup, fromList)
+import DA.Next.Set qualified as Set
 import DA.Foldable (foldl)
 import Recursion
 import Kleisli
-import Observation
+import Observation hiding (Asset)
 import Observable (PointF)
 import Observable qualified as O (pure)
 -- import ObservableFunctions
@@ -85,7 +86,7 @@ template SettlementRule
     controller operator can
       nonconsuming SettlementInstructions : SSI with isin: ISIN
         do
-        (_, Security{countryOfIssue}) <- fetchByKey (isin, undefined)
+        (_, Security{countryOfIssue}) <- fetchByKey (isin, error "Undefined: fetchByKey maintainer")
         _ <- pure "Do something to derive the SSIs"
         return SSI
       nonconsuming PaymentInstructions : SSI with ccy: Currency
@@ -105,34 +106,45 @@ isBearerExecutor = cata \case
                     GiveF p -> not p
                     ScaleF _ p -> True
                     AndF p _ -> True
-                    ZeroF -> undefined
-                    _ -> undefined
+                    WhenF p _ -> True
+                    ZeroF -> error "Undefined: ZeroF"
+                    _ -> error "Undefined: isBearerExecutor"
 
 lift : Update b -> Date >=> b
-lift fb = undefined -- Kleisli $ const fb
+lift fb = error "Undefined: lift" -- Kleisli $ const fb
 
 deserialize : Party -> Party -> Obligation.Serializable.T -> Obligation Observation Date Asset
-deserialize = undefined
+deserialize = error "Undefined: deserialize"
 
-serialize : HasSubmit m cmds => Party -> Party -> Obligation Observation Date Asset -> m Obligation.Serializable.T
-seriallze _ _ Zero = pure Obligation.Serializable.Zero_
+serialize : Party -> Party -> Obligation Observation Date Asset -> Update Obligation.Serializable.T
+-- seriallze _ _ Zero = pure Obligation.Serializable.Zero_
 serialize bearer counterparty (One asset) = do 
-  cid <- submit bearer . createCmd $ 
-    Obligation.Serializable.One with bearer, counterparty, asset
+  cid <- create $ Obligation.Serializable.One with bearer, counterparty, asset
   return . Obligation.Serializable.One_ $ cid
 serialize bearer counterparty (Give obligation) = do
   serialized <- serialize bearer counterparty obligation
-  cid <- submit bearer . createCmd $
-    Obligation.Serializable.Give with bearer, counterparty, obligation = serialized
+  cid <- create $ Obligation.Serializable.Give with bearer, counterparty, obligation = serialized
   return . Obligation.Serializable.Give_ $ cid
 serialize bearer counterparty (Scale predicate obligation) = do
   serialized <- serialize bearer counterparty obligation
-  let t = undefined
-  unwrappedPredicate <- submit bearer ((predicate.run.runKleisli bearer).runKleisli t).run
-  cid <- submit bearer . createCmd $
-    Obligation.Serializable.Scale with bearer
+  unwrappedPredicate <- (predicate.run.runKleisli bearer).run
+  cid <- create $ Obligation.Serializable.Scale with bearer, counterparty, predicate = unwrappedPredicate, obligation = serialized
   return $ Obligation.Serializable.Scale_ cid
-serialize _ _ _ = undefined
+serialize bearer counterparty (When predicate obligation) = do
+  serialized <- serialize bearer counterparty obligation
+  unwrappedPredicate <- (predicate.run.runKleisli bearer).run
+  cid <- create $ Obligation.Serializable.When with bearer, counterparty, predicate = unwrappedPredicate, obligation = serialized
+  return $ Obligation.Serializable.When_ cid
+serialize bearer counterparty (And obligation obligation') = do
+  serialized <- serialize bearer counterparty obligation
+  serialized' <- serialize bearer counterparty obligation'
+  cid <- create $ Obligation.Serializable.And with bearer, counterparty, lhs = serialized, rhs = serialized'
+  return $ Obligation.Serializable.And_ cid
+serialize _ _ Zero = error "Undefined: serialize Zero"
+serialize _ _ (Or _ _) = error "Undefined: serialize Or"
+serialize _ _ (Cond _ _ _) = error "Undefined: serialize Cond"
+serialize _ _ (Anytime _ _) = error "Undefined: serialize Anytime"
+serialize _ _ (Until _ _) = error "Undefined: serialize Until"
 
 template DvP
   with
@@ -213,17 +225,41 @@ template DvP
             settle = undefined
         return undefined
 
+{-
+template MasterAgreement
+  with
+    bearer: Party
+    counterparty: Party
+  where
+    signatory Set.fromList [bearer, counterparty]
+
+    controller bearer can
+      Zcb : Obligation.Serializable.T with maturity: Date, nominal: Decimal, ccy: Currency do
+        serialize bearer bearer $ zcb maturity nominal (Left ccy)
+
+template FinancialContractProposal
+  with
+    requestor: Party
+    counterparty: Party
+    proposal: Obligation.Serializable.T
+  where 
+    signatory requestor
+    observer counterparty
+    controller counterparty can
+      AcceptFinancialContract : Obligation.Serializable.T do
+        deserialize
+-}
 
 -- Example of how this would be used
-
-createObligations = script do
-  buyer <- allocateParty "Buyer"
-  seller <- allocateParty "Seller"
-  registrar <- allocateParty "Registrar"
+-- Note this can't be written as a script because of the naked 'serialize' call.
+createObligations : Scenario () = do
+  buyer <- getParty "Buyer"
+  seller <- getParty "Seller"
+  registrar <- getParty "Registrar"
   let dividend price ccy date = when (at date) (scalek price (one . Left $ ccy))
       pay qty ccy = give (scalek qty (one . Left $ ccy))
       receive qty sec = scalek qty (one . Right $ sec)
-  claims <- serialize registrar buyer (
+  claims <- submit buyer $ serialize buyer buyer (
                           dividend 0.65 GBP (date 2020 Dec 1)
                     `and` dividend 0.65 GBP (date 2021 Jan 30)
                 )
@@ -232,18 +268,19 @@ createObligations = script do
               isin = "GB01234567890" 
               countryOfIssue = "GB"
               claims
-  dvp <- serialize buyer seller (pay 10000.0 GBP `and` receive 200.0 vod.isin)
+  dvp <- submit buyer $ serialize buyer buyer (pay 10000.0 GBP `and` receive 200.0 vod.isin)
   submit buyer do 
-    createCmd DvP with
+    create DvP with
       bearer = buyer
-      counterparty = seller
+      counterparty = buyer
       obligations = dvp
-  loan <- serialize buyer seller (
+  loan <- submit buyer $ serialize buyer buyer (
                 pay 10000.0 GBP 
           `and` when (at $ date 2020 Dec 1) (receive 200.0 vod.isin)
         )
   submit buyer do 
-    createCmd DvP with
+    create DvP with
       bearer = buyer
-      counterparty = seller
+      counterparty = buyer
       obligations = loan
+  return ()

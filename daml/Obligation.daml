@@ -46,7 +46,7 @@ anytime o c1 = Anytime o c1
 
 until o c1 = Until o c1
 
-expiry o = undefined
+expiry o = error "Undefined: expiry"
 
 -- Pattern functor on Obligation, needed by the Rercursion package
 data ObligationF f t a x
