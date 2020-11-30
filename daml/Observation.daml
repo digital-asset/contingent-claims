@@ -1,0 +1,34 @@
+module Observation (Observation) where
+
+import Observable qualified as O
+
+type ISIN = Text
+
+data Observation t a
+  = DecimalConst Decimal
+  | DecimalSpot ISIN
+  | DecimalLte (Observation t Decimal, Observation t Decimal)
+  | DecimalEqu (Observation t Decimal, Observation t Decimal)
+  | BoolConst Bool
+  | DateIdentity
+  | DateConst Date
+  | DateLte (Observation t Date, Observation t Date)
+  | DateEqu (Observation t Date, Observation t Date)
+  deriving (Eq, Show)
+
+instance O.TimeF Observation Date where
+  time = DateIdentity
+
+instance O.PointF Observation t Date where
+  pure = DateConst
+
+instance O.InequalityF Observation t Date where
+  (<=) = curry DateLte
+  (==) = curry DateEqu
+
+instance O.PointF Observation t Decimal where
+  pure = DecimalConst
+
+instance O.InequalityF Observation t Decimal where
+  (<=) = curry DecimalLte
+  (==) = curry DecimalEqu

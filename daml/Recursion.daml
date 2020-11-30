@@ -1,9 +1,38 @@
-daml 1.2
 module Recursion where
 
-newtype Fix f = Fix { unfix : f (Fix f) }
+import Category ((>>>),(<<<))
+
+-- newtype Fix f = Fix { unfix : f (Fix f) }
 
 class Functor f => Recursive b f | b -> f b where
   project: b -> f b
+
   cata : (f a -> a) -> b -> a
-  cata f = f . fmap (cata f) . project
+  cata f x = (project >>> fmap (cata f) >>> f) x
+
+  para : (f (b, a) -> a) -> b -> a
+  para f x = (project >>> fmap ((,) <*> para f) >>> f) x
+
+class Functor f => Corecursive b f where
+  embed: f b -> b
+
+  ana : (a -> f a) -> a -> b
+  ana f x = (embed <<< fmap (ana f) <<< f) x
+
+-- Standard Base Functors
+
+data ListF a x = Nil | Cons with value: a, pattern: x deriving Functor
+
+instance Recursive [a] (ListF a) where
+  project [] = Nil
+  project (a :: as) = Cons a as
+
+instance Corecursive [a] (ListF a) where
+  embed Nil = []
+  embed (Cons a as) = a :: as
+
+oursum = cata \case
+           Nil -> 0
+           Cons x acc -> acc + x
+
+s = oursum [1..20]

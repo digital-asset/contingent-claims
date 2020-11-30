@@ -1,0 +1,53 @@
+module Kleisli where
+
+import Category
+
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Control.Arrow
+-- Copyright   :  (c) Ross Paterson 2002
+-- License     :  BSD-style (see the LICENSE file in the distribution)
+--
+-- Maintainer  :  libraries@haskell.org
+-- Stability   :  provisional
+-- Portability :  portable
+--
+-- Basic arrow definitions, based on
+--
+--  * /Generalising Actions to Arrows/, by John Hughes,
+--    /Science of Computer Programming/ 37, pp67-111, May 2000.
+--
+-- plus a couple of definitions ('returnA' and 'loop') from
+--
+--  * /A New Notation for Arrows/, by Ross Paterson, in /ICFP 2001/,
+--    Firenze, Italy, pp229-240.
+--
+-- These papers and more information on arrows can be found at
+-- <http://www.haskell.org/arrows/>.
+
+-- | Kleisli arrows of a monad.
+newtype Kleisli m a b = Kleisli { runKleisli : a -> m b }
+
+-- | @since 4.14.0.0
+deriving instance Functor m => Functor (Kleisli m a)
+
+-- | @since 4.14.0.0
+instance Applicative m => Applicative (Kleisli m a) where
+  pure = Kleisli <<< const <<< pure
+  {-# INLINE pure #-}
+  Kleisli f <*> Kleisli g = Kleisli $ \x -> f x <*> g x
+  {-# INLINE (<*>) #-}
+  Kleisli f *> Kleisli g = Kleisli $ \x -> f x *> g x
+  {-# INLINE (*>) #-}
+  Kleisli f <* Kleisli g = Kleisli $ \x -> f x <* g x
+  {-# INLINE (<*) #-}
+
+-- | @since 4.14.0.0
+instance Action m => Action (Kleisli m a) where
+  Kleisli f >>= k = Kleisli $ \x -> f x >>= \a -> runKleisli (k a) x
+  {-# INLINE (>>=) #-}
+
+-- | @since 3.0
+instance Action m => Category (Kleisli m) where
+    id = Kleisli return
+    (Kleisli f) . (Kleisli g) = Kleisli (\b -> g b >>= f)

@@ -1,13 +1,16 @@
-sdk-version: 1.0.0
+sdk-version: 1.6.0
 name: financial-contracts
 version: 0.0.1
 source: daml/
-scenario: Scenarios:spMini
+#scenario: DvpExample:createObligations
+init-script: DvPExamples:createObligations
 parties:
-- Alice
-- Bob
-exposed-modules:
-- Finance
+- Buyer
+- Seller
+- Registrar
+#exposed-modules:
+#- Finance
 dependencies:
 - daml-prim
 - daml-stdlib
+- daml-script
