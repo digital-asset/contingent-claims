@@ -95,45 +95,8 @@ template SettlementRule
           USD -> SSI -- fedwire
           GBP -> SSI -- BACS
 
-isBearerExecutor : forall f t a . Obligation f t a -> Bool
-isBearerExecutor = cata \case
-                    OneF _ -> True
-                    GiveF p -> not p
-                    ScaleF _ p -> True
-                    AndF p _ -> True
-                    WhenF p _ -> True
-                    ZeroF -> error "Undefined: ZeroF"
-                    _ -> error "Undefined: isBearerExecutor"
-
 lift : Update b -> Date >=> b
 lift fb = error "Undefined: lift" -- Kleisli $ const fb
-
-deserialize : Serialized.Obligation t a -> Obligation Observation t a
-deserialize = ana \case
-  Serialized.Zero -> ZeroF
-  Serialized.One a -> OneF a
-  Serialized.Give o -> GiveF o
-  Serialized.And o o' -> AndF o o'
-  Serialized.Or o o' -> OrF o o'
-  Serialized.Cond k o o' -> CondF k o o'
-  Serialized.Scale k o -> ScaleF k o
-  Serialized.When p o -> WhenF p o
-  Serialized.Anytime p o -> AnytimeF p o
-  Serialized.Until p o -> UntilF p o
-  
-serialize : Obligation Observation t a -> Serialized.Obligation t a
-serialize = ana \case
-  Zero -> Serialized.ZeroF
-  One a -> Serialized.OneF a
-  Give o -> Serialized.GiveF o
-  And o o' -> Serialized.AndF o o'
-  Or o o' -> Serialized.OrF o o'
-  Cond k o o' -> Serialized.CondF k o o'
-  Scale k o -> Serialized.ScaleF k o
-  When p o -> Serialized.WhenF p o
-  Anytime p o -> Serialized.AnytimeF p o
-  Until p o -> Serialized.UntilF p o
-
 
 template DvP
   with
