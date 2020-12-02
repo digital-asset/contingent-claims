@@ -1,8 +1,10 @@
-module Observation (Observation) where
+module Observation (Observation, expiry) where
 
 import Observable qualified as O
 
 type ISIN = Text
+
+type T = Observation
 
 data Observation t a
   = DecimalConst Decimal
@@ -11,18 +13,18 @@ data Observation t a
   | DecimalEqu (Observation t Decimal, Observation t Decimal)
   | BoolConst Bool
   | DateIdentity
-  | DateConst Date
-  | DateLte (Observation t Date, Observation t Date)
-  | DateEqu (Observation t Date, Observation t Date)
+  | DateConst t
+  | DateLte (Observation t t, Observation t t)
+  | DateEqu (Observation t t, Observation t t)
   deriving (Eq, Show)
 
-instance O.TimeF Observation Date where
+instance O.TimeF Observation t where
   time = DateIdentity
 
-instance O.PointF Observation t Date where
+instance O.PointF Observation t t where
   pure = DateConst
 
-instance O.InequalityF Observation t Date where
+instance O.InequalityF Observation t t where
   (<=) = curry DateLte
   (==) = curry DateEqu
 
@@ -32,3 +34,18 @@ instance O.PointF Observation t Decimal where
 instance O.InequalityF Observation t Decimal where
   (<=) = curry DecimalLte
   (==) = curry DecimalEqu
+
+-- Derive the expiry date from a boolean expression
+expiry : Observation t Bool -> Optional t
+expiry (DateLte (DateIdentity, o)) = expiryDt o
+expiry (DateEqu (DateIdentity, o)) = expiryDt o
+expiry o = error "Error in  expression structure"
+
+-- Helper function. TODO: exclude from exports, or move into @Observation@ module.
+expiryDt (DateLte (DateIdentity, o)) = expiryDt o
+expiryDt (DateEqu (DateIdentity, o)) = expiryDt o
+expiryDt DateIdentity = None
+expiryDt (DateConst t) = Some t
+expiryDt _ = error "Error in  expression structure"
+
+

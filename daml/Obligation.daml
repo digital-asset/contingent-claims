@@ -3,6 +3,8 @@ module Obligation where
 import Prelude hiding (or, and)
 import Recursion
 import Obligation.Serializable qualified as Serialized
+import Observation (Observation)
+import qualified Observation (expiry)
 
 type T = Obligation
 type F = ObligationF
@@ -47,6 +49,19 @@ anytime o c1 = Anytime o c1
 
 until o c1 = Until o c1
 
+-- Return the time of expiry; @None@ if it cannot be determined
+expiry : forall t a . Ord t => Obligation Observation t a -> Optional t
+expiry = cata \case
+           ZeroF -> None
+           OneF _ -> None
+           GiveF t -> t
+           AndF t t' -> liftA2 max t t'
+           OrF t t' -> liftA2 max t t'
+           CondF _ t t' -> liftA2 max t t'
+           ScaleF _ t -> t
+           WhenF p _ -> Observation.expiry p
+           AnytimeF p _ -> Observation.expiry p
+           UntilF p _ -> Observation.expiry p
 
 isBearerExecutor : forall f t a . Obligation f t a -> Bool
 isBearerExecutor = cata \case
