@@ -1,6 +1,6 @@
 module Obligation.Serializable where 
 
-{- 
+{-
 
 We require a separate data type for a serializable obligation, because DAML
 does not support serialization of higher kinds. i.e. the @f@ in @Obligation@.
@@ -25,7 +25,7 @@ data Obligation t a
   | When with predicate: Observation t Bool, obligation: Obligation t a
   | Anytime with predicate: Observation t Bool, obligation: Obligation t a
   | Until with predicate: Observation t Bool, obligation: Obligation t a
-  deriving (Eq, Show)
+  deriving (Eq, Show, Functor)
 
 data ObligationF t a x
   = ZeroF

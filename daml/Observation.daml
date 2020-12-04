@@ -1,9 +1,12 @@
+{-# LANGUAGE TypeOperators #-}
+
 module Observation (Observation, expiry) where
 
 import Observable qualified as O
+import Kleisli
 
 type ISIN = Text
-
+type (>=>) = Kleisli Update
 type T = Observation
 
 data Observation t a
@@ -41,11 +44,9 @@ expiry (DateLte (DateIdentity, o)) = expiryDt o
 expiry (DateEqu (DateIdentity, o)) = expiryDt o
 expiry o = error "Error in  expression structure"
 
--- Helper function. TODO: exclude from exports, or move into @Observation@ module.
+-- Helper function
 expiryDt (DateLte (DateIdentity, o)) = expiryDt o
 expiryDt (DateEqu (DateIdentity, o)) = expiryDt o
 expiryDt DateIdentity = None
 expiryDt (DateConst t) = Some t
 expiryDt _ = error "Error in  expression structure"
-
-
