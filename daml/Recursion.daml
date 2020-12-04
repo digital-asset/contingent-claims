@@ -19,6 +19,9 @@ class Functor f => Corecursive b f where
   ana : (a -> f a) -> a -> b
   ana f x = (embed <<< fmap (ana f) <<< f) x
 
+  apo : (a -> f (Either b a)) -> a -> b
+  apo f x = (embed <<< fmap (either identity (apo f)) <<< f) x
+
 -- Standard Base Functors
 
 data ListF a x = Nil | Cons with value: a, pattern: x deriving Functor
