@@ -1,0 +1,49 @@
+{-# LANGUAGE TypeOperators #-}
+
+module Interpreters where
+
+import Obligation (Obligation, Obligation(..), ObligationF(..))
+import Observation (Observation, eval)
+import Kleisli
+import Recursion
+-- import DA.Action ((<=<))
+import Profunctor
+
+type (>=>) = Kleisli Update
+
+-- Returns a function that executes 'runClear' on nodes that are current. Uses 'runSpot' to lookup spot prices.
+clear :  (a -> Decimal -> Date -> Update c) 
+      -> (Text -> Date -> Update Decimal) 
+      -> Obligation Observation Date a 
+      -> Date -> Update [c]
+clear runClear runSpot o = runKleisli (runKleisli (cata reify o) 1.0)
+  where 
+    -- reify : ObligationF Observation t a (Kleisli (Kleisli Update t) Decimal [c]) -> (Kleisli (Kleisli Update t) Decimal [c])
+    -- ^ Uses an continuation to 'bubble up' the scale factor.
+    reify = \case
+              ZeroF -> skip
+              OneF a -> do 
+                c <- runClear' a
+                return [c]
+              GiveF _ -> skip
+              AndF g g' -> liftA2 (++) g g'
+              OrF _ _ -> error "clear: 'Or' unimplemented" -- TODO: another param, allowing you to pass the 'g' to match
+              CondF p g g' -> conditionally p g g'
+              ScaleF k g -> do
+                k <- lift . eval runSpot $ k
+                lmap (k *) g
+              WhenF p g -> conditionally p g skip
+              AnytimeF p g -> conditionally p g skip
+              UntilF p g -> conditionally p g skip
+
+    conditionally p g g' = do
+      p <- lift . eval runSpot $ p
+      if p then g else g'
+   
+    skip = pure []
+                
+    -- runClear' : a -> (Kleisli (Kleisli Update t) Decimal c)
+    runClear' a =  Kleisli (rmap Kleisli (runClear a))
+
+    lift : (t >=> m) -> Kleisli (Kleisli Update t) Decimal m
+    lift = Kleisli . const
