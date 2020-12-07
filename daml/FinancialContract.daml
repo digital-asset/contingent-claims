@@ -1,11 +1,11 @@
 module FinancialContract where
 
-import Obligation.Serializable (Obligation, Obligation(..), ObligationF(..))
-import Obligation (isBearerExecutor, deserialize, executorOf)
+import Obligation.Serializable (Obligation, Obligation(Give))
+import Obligation (deserialize, executorOf)
 import DA.Next.Set qualified as Set
 import DA.Date
 import Currency
-import Recursion
+import Interpreters (clear)
 
 type T = FinancialContract
 type Days = Int
@@ -36,6 +36,17 @@ template MasterAgreement
       controller requestor
         do create MasterAgreement with bearer = requestor, counterparty
 
+template Quote
+  with
+    isin: ISIN
+    quoteDate: Date
+    close: Decimal
+    source: Party
+  where
+    signatory source
+    key (isin, quoteDate, source) : (ISIN, Date, Party)
+    maintainer key._3
+
 template FinancialContract
   with
     bearer: Party
@@ -44,93 +55,30 @@ template FinancialContract
   where
     signatory Set.fromList [bearer, counterparty]
 
-    choice Lifecycle: ContractId FinancialContract
-      controller executorOf bearer counterparty $ deserialize obligations
-        do case obligations of
-             Give o -> do
-               cid <- create FinancialContract with
-                        bearer = counterparty
-                        counterparty = bearer
-                        obligations = o
-               archive self
-               return cid
-             And Zero o -> do
-               cid <- create this with obligations = o
-               archive self
-               return cid
-             _ -> pure $ self
+    let obligations = deserialize this.obligations
+        executor = executorOf bearer counterparty obligations 
 
-    choice Elect: ContractId FinancialContract with branch: Obligations
-      controller executorOf bearer counterparty $ deserialize obligations
-        do case obligations of
-             Or o o' -> if (o == branch || o' == branch)
-                          then create this with obligations = branch
-                          else error "Elect: Non-existant branch choice passed."
-             _ -> error "Elect: Tree doesn't have an Or _ _ node in the root"
+    choice Clear : [ContractId ProposeSettlement]
+      controller executor
+        do t <- toDateUTC <$> getTime
+           let createPending asset quantity tradeDate = create ProposeSettlement 
+                 with 
+                   payer = counterparty --FIXME: this breaks with a Give Node
+                   receiver = bearer
+                   asset
+                   quantity
+                   tradeDate
+               getSpotRate isin t = do
+                 (_, Quote{close}) <- fetchByKey (isin, t, bearer) -- FIXME: maintainer should be the market data provider
+                 pure close
+           clear createPending getSpotRate obligations t
 
-
--- Although this settlement model decouples the fin contract and the act of clearing, it creates
-
--- a race condition.
-template FedWire
-  with
-    service: Party
-  where
-    signatory service
-
-    choice ClearPayment : ContractId FedWireSettlement with
-        provenance: ContractId FinancialContract
-        payer: Party
-        receiver: Party
-        obligation: Obligation Date Currency -- must be a subtree of provenance.obligations
-        -- here the @a@ is specific to this type of clearing service
-        -- currency only, in this case.
-      controller executorOf receiver payer $ deserialize obligation
-        do case obligation of
-             When _ (Scale _ (One USD)) -> create FedWireSettlement with provenance, payer, receiver, obligation
-             When _ (Scale _ (One _)) -> error "Fedwire: can only settle USD"
-             _ -> error "Fedwire: invalid obligation structure, must be 'When _ $ Scale _ $ One USD'"
-
--- Off chain settlement
-template FedWireSettlement
-  with
-    provenance: ContractId FinancialContract
+template ProposeSettlement
+  with 
     payer: Party
     receiver: Party
-    obligation: Obligation Date Currency
-  where
-    signatory Set.fromList [payer, receiver]
-
-    let obligation' = fmap Left this.obligation
-
-    controller receiver can
-      Confirm: ContractId FinancialContract
-        do contract <- fetch provenance
-           let prunedObligations = apo findIt contract.obligations --FIXME: this will prune ALL branches (think coupon bearing bond)
-               findIt o = if o == obligation' then Left <$> ZeroF else Right <$> project o
-           cid <- create contract with obligations = prunedObligations
-           archive provenance
-           return cid
-
-
-template DTCC
-  with
-    service: Party
-  where
-    signatory service
-
-    choice ClearDvP : DTCCSettlementContract with
-        provenance: ContractId FinancialContract
-        bearer: Party
-        counterparty: Party
-        obligation: Obligation Date Asset
-      controller executorOf bearer counterparty $ deserialize obligation
-        do return undefined
-
-template DTCCSettlementContract with
-    provenance: ContractId FinancialContract
-    payer: Party
-    receiver: Party
-    obligation: Obligation Date Asset
+    quantity: Decimal
+    asset: Asset
+    tradeDate : Date
   where
     signatory Set.fromList [payer, receiver]
