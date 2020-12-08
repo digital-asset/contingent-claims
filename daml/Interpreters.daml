@@ -11,7 +11,8 @@ import Profunctor
 
 type (>=>) = Kleisli Update
 
--- Returns a function that executes 'runClear' on nodes that are current. Uses 'runSpot' to lookup spot prices.
+-- Returns a function that executes 'runClear' on nodes that are 'current' at time t.
+-- Uses 'runSpot' to lookup spot prices.
 clear :  (a -> Decimal -> Date -> Update c) 
       -> (Text -> Date -> Update Decimal) 
       -> Obligation Observation Date a 
@@ -20,6 +21,8 @@ clear runClear runSpot o = runKleisli (runKleisli (cata reify o) 1.0)
   where 
     -- reify : ObligationF Observation t a (Kleisli (Kleisli Update t) Decimal [c]) -> (Kleisli (Kleisli Update t) Decimal [c])
     -- ^ Uses an continuation to 'bubble up' the scale factor.
+    -- | TODO: re-write to evalute observations eagerly, and prune stale nodes top-down. Currently this traverses the entire tree (even stale nodes).
+    -- | FIXME: For some reason the signatures aren't compiling.
     reify = \case
               ZeroF -> skip
               OneF a -> do 
@@ -34,7 +37,7 @@ clear runClear runSpot o = runKleisli (runKleisli (cata reify o) 1.0)
                 lmap (k *) g
               WhenF p g -> conditionally p g skip
               AnytimeF p g -> conditionally p g skip
-              UntilF p g -> conditionally p g skip
+              UntilF p g -> conditionally p g skip --FIXME: this is incorrect
 
     conditionally p g g' = do
       p <- lift . eval runSpot $ p

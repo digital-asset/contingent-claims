@@ -58,7 +58,8 @@ template FinancialContract
     let obligations = deserialize this.obligations
         executor = executorOf bearer counterparty obligations 
 
-    choice Clear : [ContractId ProposeSettlement]
+    -- Create dummy contracts to clear 'current' obligations
+    nonconsuming choice Clear : [ContractId ProposeSettlement]
       controller executor
         do t <- toDateUTC <$> getTime
            let createPending asset quantity tradeDate = create ProposeSettlement 
@@ -73,6 +74,7 @@ template FinancialContract
                  pure close
            clear createPending getSpotRate obligations t
 
+-- Dummy contract to propose settlement
 template ProposeSettlement
   with 
     payer: Party
