@@ -5,6 +5,8 @@ import Obligation
 import Observable qualified as O
 import Observable (TimeF, PointF, NumberF, InequalityF)
 import Category
+import Recursion
+import DA.Date (date, Month)
 
 at
   : forall f t . (TimeF f t, PointF f t t, InequalityF f t t)
@@ -14,7 +16,21 @@ at t = O.time O.== (O.pure t)
 zcb
   : forall f t a . (TimeF f t, PointF f t t, PointF f t Decimal, InequalityF f t t)
   => t -> Decimal -> a -> Obligation f t a
-zcb maturity payoff asset = when (at maturity) $ scale (O.pure payoff) (one asset)
+zcb maturity principal asset = when (at maturity) $ scale (O.pure principal) (one asset)
+
+couponDates : Int -> Int -> [Month] -> Int -> [Date]
+couponDates issueYear maturityYear couponMonths couponDay =
+  date <$> [issueYear .. maturityYear] <*> couponMonths <*> [couponDay]
+
+cpb 
+  : forall f t a . (TimeF f t, PointF f t t, PointF f t Decimal, InequalityF f t t)
+  => Decimal -> Decimal -> a -> [t] -> Obligation f t a
+cpb principal coupon asset = apo g 
+   where 
+     g : [t] -> ObligationF f t a (Either (Obligation f t a) [t]) -- signature needed for inference
+     g [maturity] = Left (zcb maturity coupon asset) `AndF` Left (zcb maturity principal asset)
+     g (t :: ts) = Left (zcb t coupon asset) `AndF` Right ts 
+     g [] = ZeroF
 
 european
   : forall f t a . (TimeF f t, PointF f t t, InequalityF f t t)
