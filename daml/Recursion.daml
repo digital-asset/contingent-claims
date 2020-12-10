@@ -1,6 +1,7 @@
 module Recursion where
 
 import Category ((>>>),(<<<))
+import Arrow ((&&&),(|||))
 
 -- newtype Fix f = Fix { unfix : f (Fix f) }
 
@@ -11,7 +12,7 @@ class Functor f => Recursive b f | b -> f b where
   cata f x = (project >>> fmap (cata f) >>> f) x
 
   para : (f (b, a) -> a) -> b -> a
-  para f x = (project >>> fmap ((,) <*> para f) >>> f) x
+  para f x = (project >>> fmap (identity &&& para f) >>> f) x
 
 class Functor f => Corecursive b f where
   embed: f b -> b
@@ -20,7 +21,7 @@ class Functor f => Corecursive b f where
   ana f x = (embed <<< fmap (ana f) <<< f) x
 
   apo : (a -> f (Either b a)) -> a -> b
-  apo f x = (embed <<< fmap (either identity (apo f)) <<< f) x
+  apo f x = (embed <<< fmap (identity ||| apo f) <<< f) x
 
 -- Standard Base Functors
 
