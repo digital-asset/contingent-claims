@@ -14,7 +14,7 @@ class Functor f => Recursive b f | b -> f b where
   para : (f (b, a) -> a) -> b -> a
   para f x = (project >>> fmap (identity &&& para f) >>> f) x
 
-class Functor f => Corecursive b f where
+class Functor f => Corecursive b f | f -> b where
   embed: f b -> b
 
   ana : (a -> f a) -> a -> b
