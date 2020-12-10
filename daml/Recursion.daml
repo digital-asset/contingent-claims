@@ -3,7 +3,15 @@ module Recursion where
 import Category ((>>>),(<<<))
 import Arrow ((&&&),(|||))
 
--- newtype Fix f = Fix { unfix : f (Fix f) }
+newtype Fix f = Fix { unfix : f (Fix f) }
+data Free f a 
+  = Pure a
+  | Impure (f (Free f a))
+
+data Cofree f a = Cofree {
+  attribute : a,
+  hole : f (Cofree f a)
+}
 
 class Functor f => Recursive b f | b -> f b where
   project: b -> f b
@@ -13,6 +21,13 @@ class Functor f => Recursive b f | b -> f b where
 
   para : (f (b, a) -> a) -> b -> a
   para f x = (project >>> fmap (identity &&& para f) >>> f) x
+
+  histo : (f (Cofree f a) -> a) -> b -> a
+  histo f x = (_histo f >>> (.attribute)) x
+
+-- Helper for histo, can't be inlined as it's self-referencing.
+_histo : Recursive b f => (f (Cofree f a) -> a) -> b -> Cofree f a
+_histo f b = (project >>> fmap (_histo f) >>> (f &&& identity) >>> uncurry Cofree) b
 
 class Functor f => Corecursive b f | f -> b where
   embed: f b -> b
