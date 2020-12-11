@@ -23,16 +23,16 @@ class Functor f => Recursive b f | b -> f b where
   project: b -> f b
 
   cata : (f a -> a) -> b -> a
-  cata f x = (project >>> fmap (cata f) >>> f) x
+  cata f b = (project >>> fmap (cata f) >>> f) b
 
   para : (f (b, a) -> a) -> b -> a
-  para f x = (project >>> fmap (identity &&& para f) >>> f) x
+  para f b = (project >>> fmap (identity &&& para f) >>> f) b
 
   histo : (f (Cofree f a) -> a) -> b -> a
   histo = gcata seqCofree
 
   gcata : Comonad w => (forall z . f (w z) -> w (f z)) -> (f (w a) -> a) -> b -> a
-  gcata sequence f x = (_gcata sequence f >>> extract >>> f) x
+  gcata sequence f b = (_gcata sequence f >>> extract >>> f) b
 
 seqCofree : Functor f => f (Cofree f a) -> Cofree f (f a)
 seqCofree w = Cofree (fmap extract w) (fmap (seqCofree . unwrap) w)
@@ -43,16 +43,16 @@ _gcata
   -> (f (w a) -> a) 
   -> b 
   -> w (f (w a))
-_gcata sequence f x = (project >>> fmap (_gcata sequence f >>> fmap f >>> duplicate) >>> sequence) x
+_gcata sequence f b = (project >>> fmap (_gcata sequence f >>> fmap f >>> duplicate) >>> sequence) b
 
 class Functor f => Corecursive b f | f -> b where
   embed: f b -> b
 
   ana : (a -> f a) -> a -> b
-  ana f x = (embed <<< fmap (ana f) <<< f) x
+  ana f b = (embed <<< fmap (ana f) <<< f) b
 
   apo : (a -> f (Either b a)) -> a -> b
-  apo f x = (embed <<< fmap (identity ||| apo f) <<< f) x
+  apo f b = (embed <<< fmap (identity ||| apo f) <<< f) b
 
 -- Standard Base Functors
 
