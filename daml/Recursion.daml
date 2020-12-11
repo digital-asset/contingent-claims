@@ -2,16 +2,22 @@ module Recursion where
 
 import Category ((>>>),(<<<))
 import Arrow ((&&&),(|||))
+import Comonad
 
-newtype Fix f = Fix { unfix : f (Fix f) }
+-- newtype Fix f = Fix { unfix : f (Fix f) }
+
 data Free f a 
   = Pure a
   | Impure (f (Free f a))
 
 data Cofree f a = Cofree {
   attribute : a,
-  hole : f (Cofree f a)
-}
+  unwrap : f (Cofree f a)
+} deriving Functor
+
+instance Functor f => Comonad (Cofree f) where
+  extract (Cofree a _) = a
+  duplicate f = Cofree f $ fmap duplicate f.unwrap
 
 class Functor f => Recursive b f | b -> f b where
   project: b -> f b
@@ -23,11 +29,21 @@ class Functor f => Recursive b f | b -> f b where
   para f x = (project >>> fmap (identity &&& para f) >>> f) x
 
   histo : (f (Cofree f a) -> a) -> b -> a
-  histo f x = (_histo f >>> (.attribute)) x
+  histo = gcata seqCofree
 
--- Helper for histo, can't be inlined as it's self-referencing.
-_histo : Recursive b f => (f (Cofree f a) -> a) -> b -> Cofree f a
-_histo f b = (project >>> fmap (_histo f) >>> (f &&& identity) >>> uncurry Cofree) b
+  gcata : Comonad w => (forall z . f (w z) -> w (f z)) -> (f (w a) -> a) -> b -> a
+  gcata sequence f x = (_gcata sequence f >>> extract >>> f) x
+
+seqCofree : Functor f => f (Cofree f a) -> Cofree f (f a)
+seqCofree w = Cofree (fmap extract w) (fmap (seqCofree . unwrap) w)
+
+_gcata 
+  : (Recursive b f , Comonad w)
+  => (forall z . f (w z) -> w (f z)) 
+  -> (f (w a) -> a) 
+  -> b 
+  -> w (f (w a))
+_gcata sequence f x = (project >>> fmap (_gcata sequence f >>> fmap f >>> duplicate) >>> sequence) x
 
 class Functor f => Corecursive b f | f -> b where
   embed: f b -> b

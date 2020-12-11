@@ -1,0 +1,7 @@
+module Comonad where
+
+class Functor f => Comonad f where
+  extract : f a -> a
+  duplicate : f a -> f (f a)
+  extend : (f a -> a) -> f a -> f a
+  extend f = fmap f . duplicate
