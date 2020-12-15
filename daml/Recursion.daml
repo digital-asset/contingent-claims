@@ -66,6 +66,9 @@ class Functor f => Corecursive b f | f -> b where
   apo : (a -> f (Either b a)) -> a -> b
   apo f b = (embed <<< fmap (identity ||| apo f) <<< f) b
 
+  futu : (a -> f (Free f a)) -> a -> b
+  futu = undefined
+
   gana : Monad m => (forall z . m (f z) -> f (m z)) -> (a -> f (m a)) -> a -> b
   gana cosequence f a = (_gana cosequence f <<< pure <<< f) a
 
