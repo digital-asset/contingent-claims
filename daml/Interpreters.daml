@@ -1,5 +1,5 @@
 -- {-# LANGUAGE TypeOperators #-}
-module Interpreters where
+module Interpreters (clear, prune) where
 
 import Obligation (Obligation, Obligation(..), ObligationF(..))
 import Observation (Observation, eval)
@@ -50,28 +50,6 @@ clear runClear runSpot o = runKleisli (runKleisli (cata reify o) 1.0)
 
 lift : Kleisli Update t m -> Kleisli (Kleisli Update t) Decimal m
 lift = Kleisli . const 
-
-data StateT m s a = StateT (m (s, a))
-
-instance Functor (StateT m s) where
-  fmap = undefined
-
-instance Applicative (StateT m s) where
-  pure = undefined
-  (<*>) = undefined
-
-instance Action (StateT m s) where
-  (>>=) = undefined
-
-{-
-reify : (x -> ObligationF Observation t a (StateT Update Decimal x)) -> x -> StateT Update Decimal x
-reify = undefined
-
-x tradeDate = reify \case
-            Scale k o -> ScaleF k $ StateT $ fmap (,o) (runKleisli . eval lookup k $ tradeDate)
-            When p o -> WhenF p $ StateT $ fmap (\p -> (1.0, if p then o else Zero)) (runKleisli . eval lookup p $ tradeDate)
-          (undefined: Obligation Observation Date Text)
--}
 
 -- Prune the node with given asset/quantity/date
 -- FIXME: this should only prune a _single_ instance of that node.
