@@ -1,11 +1,11 @@
 module FinancialContract where
 
 import Obligation.Serializable (Obligation, Obligation(Give))
-import Obligation (deserialize, executorOf)
+import Obligation (deserialize, serialize, executorOf)
 import DA.Next.Set qualified as Set
 import DA.Date
 import Currency
-import Interpreters (clear)
+import Interpreters (clear, prune)
 
 type T = FinancialContract
 type Days = Int
@@ -84,3 +84,22 @@ template ProposeSettlement
     tradeDate : Date
   where
     signatory Set.fromList [payer, receiver]
+
+    controller receiver can
+      Confirm : ContractId FinancialContract
+        with
+          cid: ContractId FinancialContract
+        do let getSpotRate isin t = do
+                 (_, Quote{close}) <- fetchByKey (isin, t, payer) -- FIXME: maintainer should be the market data provider
+                 pure close
+           contract <- fetch cid
+           obl <- prune getSpotRate asset quantity (deserialize contract.obligations) tradeDate
+           let obl' = serialize obl
+           if obl' == contract.obligations 
+             then return cid
+             else do
+               cid' <- create contract with obligations = obl'
+               archive cid
+               return cid'
+      
+

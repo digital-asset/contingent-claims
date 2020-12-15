@@ -15,5 +15,5 @@ createContracts = script do
   buyer <- allocatePartyWithHint "Buyer" (PartyIdHint "Buyer")
   let mkContract = submit buyer . createCmd . FinancialContract buyer buyer . serialize
   mkContract $ zcb (date 2021 Mar 3) 3400.0 (Left USD)
-  mkContract $ cpb 100.0 4.0 (Left GBP) (couponDates 2021 2031 [Jan, Aug] 5)
+  mkContract $ cpb 100.0 4.0 (Left GBP) (couponDates 2021 2025 [Jan, Aug] 5) -- large # of coupons causes API to crash
 
