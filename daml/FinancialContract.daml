@@ -96,7 +96,7 @@ template ProposeSettlement
            obl <- prune getSpotRate asset quantity (deserialize contract.obligations) tradeDate
            let obl' = serialize obl
            if obl' == contract.obligations 
-             then return cid
+             then fail "ProposeSettlement.Confirm: No matching obligation"
              else do
                cid' <- create contract with obligations = obl'
                archive cid
