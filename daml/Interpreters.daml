@@ -1,5 +1,5 @@
 -- {-# LANGUAGE TypeOperators #-}
-module Interpreters (clear, prune) where
+module Interpreters (clear, pruneLeaf, pruneOr) where
 
 import Obligation (Obligation, Obligation(..), ObligationF(..))
 import Observation (Observation, eval)
@@ -53,32 +53,45 @@ lift = Kleisli . const
 
 -- Prune the node with given asset/quantity/date
 -- FIXME: this should only prune a _single_ instance of that node.
-prune
+pruneLeaf
   : Eq a 
   => (Text -> Date -> Update Decimal) 
   -> a -> Decimal
   -> Obligations a 
   -> Date -> Update (Obligations a)
-prune runSpot asset qty o = runKleisli (runKleisli (para prune' o) 1.0)
-  where {- prune' : ObligationsF a (Obligations a, Kleisli (Kleisli Update Date) Decimal (Obligations a)) 
+pruneLeaf runSpot asset qty o = runKleisli (runKleisli (para prune o) 1.0)
+  where {- prune : ObligationsF a (Obligations a, Kleisli (Kleisli Update Date) Decimal (Obligations a)) 
               -> Kleisli (Kleisli Update Date) Decimal (Obligations a) -}
-        prune' ZeroF = pure Zero
-        prune' (OneF a') = 
+        prune ZeroF = pure Zero
+        prune (OneF a') = 
           Kleisli \qty' ->
             Kleisli \_ ->
               if qty' == qty && asset == a' then pure Zero else pure $ One a'
-        prune' (ScaleF k (_, g)) = do
+        prune (ScaleF k (_, g)) = do
           k <- lift . eval runSpot $ k
           lmap (k *) g
-        prune' (WhenF p (o, g)) = do
+        prune (WhenF p (o, g)) = do
           b <- lift . eval runSpot $ p
           if b then g else pure $ When p o
-        prune' (AndF (o, g) (o', g')) = do -- TODO: this can be optimized to eval rhs lazily
+        prune (AndF (o, g) (o', g')) = do -- TODO: this can be optimized to eval rhs lazily
           trimmed <- g
           trimmed' <- g'
           case (trimmed, trimmed') of 
             (Zero, _) -> pure trimmed'
             (_, Zero) -> pure trimmed
             _ -> pure $ And o o' 
-        prune' _ = error "prune' : unimplemented"
+        prune _ = error "prune : unimplemented"
 
+deriving instance Eq a => Eq (Obligations a)
+
+-- Prunes *other* branch(es) in an 'Or' node, by structural equality.
+-- FIXME: ignores 'Give'
+pruneOr
+  : Eq a
+  => Obligations a
+  -> Obligations a
+  -> Obligations a
+pruneOr branchToKeep = apo \case
+  Or o o' | o == branchToKeep -> Left <$> project branchToKeep
+  Or o o' | o' == branchToKeep -> Left <$> project branchToKeep
+  other -> Right <$> project other
