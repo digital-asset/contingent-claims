@@ -1,0 +1,15 @@
+sdk-version: 1.7.0
+name: financial-contracts
+version: 0.0.1
+source: daml
+init-script: Initialization:createContracts
+parties:
+- Buyer
+- Seller
+- Registrar
+#exposed-modules:
+#- Finance
+dependencies:
+- daml-prim
+- daml-stdlib
+- daml-script
