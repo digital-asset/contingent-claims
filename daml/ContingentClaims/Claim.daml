@@ -1,14 +1,14 @@
-module ContingentClaims.Obligation where
+module ContingentClaims.Claim where
 
 import Prelude hiding (or, and)
 import Daml.Control.Recursion
-import ContingentClaims.Obligation.Serializable qualified as Serialized
+import ContingentClaims.Claim.Serializable qualified as Serialized
 import ContingentClaims.Observation (Observation)
 import qualified ContingentClaims.Observation as Observation (expiry)
 import DA.Next.Set qualified as Set
 
-type T = Obligation
-type F = ObligationF
+type T = Claim
+type F = ClaimF
 
 -- | In Petyon-Jones' paper, this is called 'Contract'.
 -- We renamed it to avoid ambiguity
@@ -16,20 +16,20 @@ type F = ObligationF
 -- @t@ is time
 -- @a@ is the asset
 -- TODO: f should depend on t ?
-data Obligation f t a
+data Claim f t a
   = Zero
   | One a
-  | Give (Obligation f t a)
-  | And with lhs: Obligation f t a, rhs: Obligation f t a
-  | Or with lhs: Obligation f t a, rhs: Obligation f t a
-  | Cond with predicate: f t Bool, success: Obligation f t a, failure: Obligation f t a
-  | Scale with k: f t Decimal, obligation: Obligation f t a
-  | When with predicate: f t Bool, obligation: Obligation f t a
-  | Anytime with predicate: f t Bool, obligation: Obligation f t a
-  | Until with predicate: f t Bool, obligation: Obligation f t a
+  | Give (Claim f t a)
+  | And with lhs: Claim f t a, rhs: Claim f t a
+  | Or with lhs: Claim f t a, rhs: Claim f t a
+  | Cond with predicate: f t Bool, success: Claim f t a, failure: Claim f t a
+  | Scale with k: f t Decimal, obligation: Claim f t a
+  | When with predicate: f t Bool, obligation: Claim f t a
+  | Anytime with predicate: f t Bool, obligation: Claim f t a
+  | Until with predicate: f t Bool, obligation: Claim f t a
 
 -- FIXME: why doesn't this work?
--- zero : Obligation f t a
+-- zero : Claim f t a
 -- zero = Zero
 
 one ccy = One ccy
@@ -52,7 +52,7 @@ until o c1 = Until o c1
 
 -- Return the upper time bound of the obligation; @None@ if it cannot be determined.
 -- This is called @horizon@ in the original paper
-expiry : forall t a . Ord t => Obligation Observation t a -> Optional t
+expiry : forall t a . Ord t => Claim Observation t a -> Optional t
 expiry = cata \case
            ZeroF -> None
            OneF _ -> None
@@ -66,7 +66,7 @@ expiry = cata \case
            UntilF p _ -> Observation.expiry p
 
 
-executorOf : Party -> Party -> Obligation f t a -> Set.Set Party
+executorOf : Party -> Party -> Claim f t a -> Set.Set Party
 executorOf bearer cpty = cata \case
   ZeroF -> mempty
   OneF _ -> Set.singleton bearer
@@ -82,7 +82,7 @@ executorOf bearer cpty = cata \case
   AnytimeF _ p -> p
   UntilF _ p -> p
 
-isBearerExecutor : forall f t a . Obligation f t a -> Bool
+isBearerExecutor : forall f t a . Claim f t a -> Bool
 isBearerExecutor = cata \case
                     OneF _ -> True
                     GiveF p -> not p
@@ -92,7 +92,7 @@ isBearerExecutor = cata \case
                     ZeroF -> error "Undefined: ZeroF"
                     _ -> error "Undefined: isBearerExecutor"
 
-deserialize : Serialized.Obligation t a -> Obligation Observation t a
+deserialize : Serialized.Claim t a -> Claim Observation t a
 deserialize = ana \case
   Serialized.Zero -> ZeroF
   Serialized.One a -> OneF a
@@ -105,7 +105,7 @@ deserialize = ana \case
   Serialized.Anytime p o -> AnytimeF p o
   Serialized.Until p o -> UntilF p o
   
-serialize : Obligation Observation t a -> Serialized.Obligation t a
+serialize : Claim Observation t a -> Serialized.Claim t a
 serialize = ana \case
   Zero -> Serialized.ZeroF
   One a -> Serialized.OneF a
@@ -119,8 +119,8 @@ serialize = ana \case
   Until p o -> Serialized.UntilF p o
 
 
--- Pattern functor on Obligation, needed by the Rercursion package
-data ObligationF f t a x
+-- Pattern functor on Claim, needed by the Rercursion package
+data ClaimF f t a x
   = ZeroF
   | OneF a
   | GiveF x
@@ -134,7 +134,7 @@ data ObligationF f t a x
   deriving Functor
 
 -- TODO: rename variables to be consistent with the types
-instance Recursive (Obligation f t a) (ObligationF f t a) where
+instance Recursive (Claim f t a) (ClaimF f t a) where
   project Zero = ZeroF
   project (One x) = OneF x
   project (Give a) = GiveF a
@@ -146,7 +146,7 @@ instance Recursive (Obligation f t a) (ObligationF f t a) where
   project (Anytime o x) = AnytimeF o x
   project (Until o x) = UntilF o x
 
-instance Corecursive (Obligation f t a) (ObligationF f t a) where
+instance Corecursive (Claim f t a) (ClaimF f t a) where
   embed ZeroF = Zero
   embed (OneF x) = One x
   embed (GiveF a) = Give a

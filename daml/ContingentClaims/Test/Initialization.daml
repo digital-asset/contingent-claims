@@ -5,9 +5,9 @@ module ContingentClaims.Test.Initialization where
 import Daml.Script
 import DA.Date (date, Month(..))
 import DA.Time (time)
-import ContingentClaims.Obligation
+import ContingentClaims.Claim
 import ContingentClaims.Test.FinancialContract
-import ContingentClaims.FinancialObligation
+import ContingentClaims.FinancialClaim
 import ContingentClaims.Test.Currency
 
 createContracts = script do

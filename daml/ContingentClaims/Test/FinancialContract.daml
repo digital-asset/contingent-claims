@@ -1,7 +1,7 @@
 module ContingentClaims.Test.FinancialContract where
 
-import ContingentClaims.Obligation.Serializable (Obligation, Obligation(Give))
-import ContingentClaims.Obligation (deserialize, serialize, executorOf)
+import ContingentClaims.Claim.Serializable (Claim, Claim(Give))
+import ContingentClaims.Claim (deserialize, serialize, executorOf)
 import DA.Next.Set qualified as Set
 import DA.Date
 import ContingentClaims.Test.Currency
@@ -11,7 +11,7 @@ type T = FinancialContract
 type Days = Int
 type ISIN = Text
 type Asset = Either Currency ISIN
-type Obligations = Obligation Date Asset
+type Claims = Claim Date Asset
 
 {- To use this, broker creates template with @bearer@ and @counterparty@ equal to themselves.
    Client then calls @EnterInto@.
@@ -26,10 +26,10 @@ template MasterAgreement
     signatory Set.fromList [bearer, counterparty]
 
     controller counterparty can
-      Sell : ContractId FinancialContract with obligations: Obligations do -- this might use relative time i.e. Int instead of Date?
+      Sell : ContractId FinancialContract with obligations: Claims do -- this might use relative time i.e. Int instead of Date?
         today <- fmap toDateUTC getTime
         create FinancialContract with bearer, counterparty, obligations
-      Buy : ContractId FinancialContract with obligations: Obligations do
+      Buy : ContractId FinancialContract with obligations: Claims do
         exercise self Sell with obligations = Give obligations
 
     choice EnterInto : ContractId MasterAgreement with requestor : Party
@@ -51,7 +51,7 @@ template FinancialContract
   with
     bearer: Party
     counterparty: Party
-    obligations: Obligation Date Asset
+    obligations: Claim Date Asset
   where
     signatory Set.fromList [bearer, counterparty]
 
@@ -75,7 +75,7 @@ template FinancialContract
            clear createPending getSpotRate obligations t
 
     choice Elect: ContractId FinancialContract -- FIXME: evaluate `When` to only only allow pruning at right time.
-       with election: Obligation Date Asset
+       with election: Claim Date Asset
       controller executor
         do create this with obligations = serialize $ pruneOr (deserialize election) obligations
 

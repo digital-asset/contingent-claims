@@ -1,9 +1,9 @@
-module ContingentClaims.Obligation.Serializable where 
+module ContingentClaims.Claim.Serializable where 
 
 {-
 
 We require a separate data type for a serializable obligation, because DAML
-does not support serialization of higher kinds. i.e. the @f@ in @Obligation@.
+does not support serialization of higher kinds. i.e. the @f@ in @Claim@.
 Here we replace it with the concrete `Observation`.
 
 -}
@@ -11,23 +11,23 @@ Here we replace it with the concrete `Observation`.
 import ContingentClaims.Observation
 import Daml.Control.Recursion
 
-type T = Obligation
-type F = ObligationF
+type T = Claim
+type F = ClaimF
 
-data Obligation t a
+data Claim t a
   = Zero
   | One a
-  | Give (Obligation t a)
-  | And with lhs: Obligation t a, rhs: Obligation t a
-  | Or with lhs: Obligation t a, rhs: Obligation t a
-  | Cond with predicate: Observation t Bool, success: Obligation t a, failure: Obligation t a
-  | Scale with k: Observation t Decimal, obligation: Obligation t a
-  | When with predicate: Observation t Bool, obligation: Obligation t a
-  | Anytime with predicate: Observation t Bool, obligation: Obligation t a
-  | Until with predicate: Observation t Bool, obligation: Obligation t a
+  | Give (Claim t a)
+  | And with lhs: Claim t a, rhs: Claim t a
+  | Or with lhs: Claim t a, rhs: Claim t a
+  | Cond with predicate: Observation t Bool, success: Claim t a, failure: Claim t a
+  | Scale with k: Observation t Decimal, obligation: Claim t a
+  | When with predicate: Observation t Bool, obligation: Claim t a
+  | Anytime with predicate: Observation t Bool, obligation: Claim t a
+  | Until with predicate: Observation t Bool, obligation: Claim t a
   deriving (Eq, Show, Functor)
 
-data ObligationF t a x
+data ClaimF t a x
   = ZeroF
   | OneF a
   | GiveF x
@@ -41,7 +41,7 @@ data ObligationF t a x
   deriving Functor
 
 -- TODO: rename variables to be consistent with the types
-instance Recursive (Obligation t a) (ObligationF t a) where
+instance Recursive (Claim t a) (ClaimF t a) where
   project Zero = ZeroF
   project (One x) = OneF x
   project (Give a) = GiveF a
@@ -53,7 +53,7 @@ instance Recursive (Obligation t a) (ObligationF t a) where
   project (Anytime o x) = AnytimeF o x
   project (Until o x) = UntilF o x
 
-instance Corecursive (Obligation t a) (ObligationF t a) where
+instance Corecursive (Claim t a) (ClaimF t a) where
   embed ZeroF = Zero
   embed (OneF x) = One x
   embed (GiveF a) = Give a

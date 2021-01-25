@@ -1,25 +1,25 @@
 -- {-# LANGUAGE TypeOperators #-}
 module ContingentClaims.Interpreters (clear, pruneLeaf, pruneOr) where
 
-import ContingentClaims.Obligation (Obligation, Obligation(..), ObligationF(..))
+import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..))
 import ContingentClaims.Observation (Observation, eval)
 import Daml.Control.Kleisli
 import Daml.Control.Recursion
 -- import DA.Action ((<=<))
 import Daml.Data.Profunctor
 
-type Obligations a = Obligation Observation Date a
-type ObligationsF a = ObligationF Observation Date a
+type Claims a = Claim Observation Date a
+type ClaimsF a = ClaimF Observation Date a
 
 -- Returns a function that executes 'runClear' on nodes that are 'current' at time t.
 -- Uses 'runSpot' to lookup spot prices.
 clear :  (a -> Decimal -> Date -> Update c) 
       -> (Text -> Date -> Update Decimal) 
-      -> Obligations a 
+      -> Claims a 
       -> Date -> Update [c]
 clear runClear runSpot o = runKleisli (runKleisli (cata reify o) 1.0)
   where 
-    -- reify : ObligationF Observation t a (Kleisli (Kleisli Update t) Decimal [c]) -> (Kleisli (Kleisli Update t) Decimal [c])
+    -- reify : ClaimF Observation t a (Kleisli (Kleisli Update t) Decimal [c]) -> (Kleisli (Kleisli Update t) Decimal [c])
     -- ^ Uses an continuation to 'bubble up' the scale factor.
     -- | TODO: re-write to evalute observations eagerly, and prune stale nodes top-down. Currently this traverses the entire tree (even stale nodes).
     -- | FIXME: For some reason the signatures aren't compiling.
@@ -57,11 +57,11 @@ pruneLeaf
   : Eq a 
   => (Text -> Date -> Update Decimal) 
   -> a -> Decimal
-  -> Obligations a 
-  -> Date -> Update (Obligations a)
+  -> Claims a 
+  -> Date -> Update (Claims a)
 pruneLeaf runSpot asset qty o = runKleisli (runKleisli (para prune o) 1.0)
-  where {- prune : ObligationsF a (Obligations a, Kleisli (Kleisli Update Date) Decimal (Obligations a)) 
-              -> Kleisli (Kleisli Update Date) Decimal (Obligations a) -}
+  where {- prune : ClaimsF a (Claims a, Kleisli (Kleisli Update Date) Decimal (Claims a)) 
+              -> Kleisli (Kleisli Update Date) Decimal (Claims a) -}
         prune ZeroF = pure Zero
         prune (OneF a') = 
           Kleisli \qty' ->
@@ -82,15 +82,15 @@ pruneLeaf runSpot asset qty o = runKleisli (runKleisli (para prune o) 1.0)
             _ -> pure $ And o o' 
         prune _ = error "prune : unimplemented"
 
-deriving instance Eq a => Eq (Obligations a)
+deriving instance Eq a => Eq (Claims a)
 
 -- Prunes *other* branch(es) in an 'Or' node, by structural equality.
 -- FIXME: ignores 'Give'
 pruneOr
   : Eq a
-  => Obligations a
-  -> Obligations a
-  -> Obligations a
+  => Claims a
+  -> Claims a
+  -> Claims a
 pruneOr branchToKeep = apo \case
   Or o o' | o == branchToKeep -> Left <$> project branchToKeep
   Or o o' | o' == branchToKeep -> Left <$> project branchToKeep
