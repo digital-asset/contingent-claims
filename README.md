@@ -1,7 +1,7 @@
 # Contingent Claims
 
 This is a library for modelling contingent claims i.e. derivatives. Briefly, a
-derivative is represnted by a tree of `Claim`s, which describe the futures
+derivative is represnted by a tree of `Claim`s, which describe the future
 cashflows between two (implicit) parties.
 
 The implementation follows closely the papers [[1]](#1), [[2]](#2).
