@@ -1,5 +1,5 @@
 sdk-version: 1.7.0
-name: financial-contracts
+name: contingent-claims
 version: 0.0.1
 source: daml/Main.daml
 parties:
