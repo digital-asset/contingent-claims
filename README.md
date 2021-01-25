@@ -12,11 +12,20 @@ Distributed under the Apache 2.0 License.
 
 # Dependencies
 
+There is a dependency on `Daml.Control.Recursion` which is currently provided
+through a [git submodule](https://git-scm.com/book/en/v2/Git-Tools-Submodules).
+
 # Building
 
+First off, if `daml-ctl` directory is empty, remember to:
+
+```
+git submodule init && git submodule update
+```
+
 You can build a release version (no tests in the `*.dar`) by running `daml
-build` in the `src/main` directory, or a dev version that includes test from
-`src/test`.
+build` in the root directory, or a dev version that includes test from
+`daml-test`.
 
 # References
 

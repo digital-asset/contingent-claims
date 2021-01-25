@@ -1,7 +1,7 @@
 sdk-version: 1.7.0
-name: financial-contracts
+name: financial-contracts-test
 version: 0.0.1
-source: daml
+source: ../daml/Test.daml
 init-script: Initialization:createContracts
 parties:
 - Buyer

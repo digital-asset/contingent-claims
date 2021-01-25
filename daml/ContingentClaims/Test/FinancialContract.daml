@@ -1,11 +1,11 @@
-module FinancialContract where
+module ContingentClaims.Test.FinancialContract where
 
-import Obligation.Serializable (Obligation, Obligation(Give))
-import Obligation (deserialize, serialize, executorOf)
+import ContingentClaims.Obligation.Serializable (Obligation, Obligation(Give))
+import ContingentClaims.Obligation (deserialize, serialize, executorOf)
 import DA.Next.Set qualified as Set
 import DA.Date
-import Currency
-import Interpreters (clear, pruneLeaf, pruneOr)
+import ContingentClaims.Test.Currency
+import ContingentClaims.Interpreters (clear, pruneLeaf, pruneOr)
 
 type T = FinancialContract
 type Days = Int

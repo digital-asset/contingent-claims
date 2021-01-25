@@ -1,14 +1,14 @@
 {-# LANGUAGE ApplicativeDo #-}
 
-module Initialization where
+module ContingentClaims.Test.Initialization where
 
 import Daml.Script
 import DA.Date (date, Month(..))
 import DA.Time (time)
-import Obligation
-import FinancialContract
-import FinancialObligation
-import Currency
+import ContingentClaims.Obligation
+import ContingentClaims.Test.FinancialContract
+import ContingentClaims.FinancialObligation
+import ContingentClaims.Test.Currency
 
 createContracts = script do
   setTime $ time (date 2020 Dec 9) 13 20 30

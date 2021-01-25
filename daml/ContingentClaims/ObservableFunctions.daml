@@ -1,11 +1,11 @@
-module ObservableFunctions where
+module ContingentClaims.ObservableFunctions where
 
 -- TODO: rename this module to something more appropriate
 
 import Daml.Control.Category (Category, id)
 import Prelude
 import Prelude qualified ((+),(<=),(==),pure,(&&))
-import Observable
+import ContingentClaims.Observable
 
 -- Default instances for applicative functors
 

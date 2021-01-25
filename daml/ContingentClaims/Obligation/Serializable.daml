@@ -1,4 +1,4 @@
-module Obligation.Serializable where 
+module ContingentClaims.Obligation.Serializable where 
 
 {-
 
@@ -8,7 +8,7 @@ Here we replace it with the concrete `Observation`.
 
 -}
 
-import Observation
+import ContingentClaims.Observation
 import Daml.Control.Recursion
 
 type T = Obligation

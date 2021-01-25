@@ -1,10 +1,10 @@
-module Obligation where
+module ContingentClaims.Obligation where
 
 import Prelude hiding (or, and)
 import Daml.Control.Recursion
-import Obligation.Serializable qualified as Serialized
-import Observation (Observation)
-import qualified Observation (expiry)
+import ContingentClaims.Obligation.Serializable qualified as Serialized
+import ContingentClaims.Observation (Observation)
+import qualified ContingentClaims.Observation as Observation (expiry)
 import DA.Next.Set qualified as Set
 
 type T = Obligation

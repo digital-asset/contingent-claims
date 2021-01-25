@@ -1,4 +1,4 @@
-module Observable where
+module ContingentClaims.Observable where
 
 import Prelude
 import Prelude qualified ((+), (<=), (==), pure)

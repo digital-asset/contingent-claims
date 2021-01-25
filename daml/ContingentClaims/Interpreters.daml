@@ -1,8 +1,8 @@
 -- {-# LANGUAGE TypeOperators #-}
-module Interpreters (clear, pruneLeaf, pruneOr) where
+module ContingentClaims.Interpreters (clear, pruneLeaf, pruneOr) where
 
-import Obligation (Obligation, Obligation(..), ObligationF(..))
-import Observation (Observation, eval)
+import ContingentClaims.Obligation (Obligation, Obligation(..), ObligationF(..))
+import ContingentClaims.Observation (Observation, eval)
 import Daml.Control.Kleisli
 import Daml.Control.Recursion
 -- import DA.Action ((<=<))
