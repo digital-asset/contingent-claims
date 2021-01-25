@@ -4,8 +4,8 @@
 module Observation (Observation, expiry, eval) where
 
 import Observable qualified as O
-import Kleisli
-import Category
+import Daml.Control.Kleisli
+import Daml.Control.Category
 
 type ISIN = Text
 type (>=>) = Kleisli Update

@@ -3,10 +3,10 @@ module Interpreters (clear, pruneLeaf, pruneOr) where
 
 import Obligation (Obligation, Obligation(..), ObligationF(..))
 import Observation (Observation, eval)
-import Kleisli
-import Recursion
+import Daml.Control.Kleisli
+import Daml.Control.Recursion
 -- import DA.Action ((<=<))
-import Profunctor
+import Daml.Data.Profunctor
 
 type Obligations a = Obligation Observation Date a
 type ObligationsF a = ObligationF Observation Date a

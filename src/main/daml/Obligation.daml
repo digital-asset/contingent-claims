@@ -1,7 +1,7 @@
 module Obligation where
 
 import Prelude hiding (or, and)
-import Recursion
+import Daml.Control.Recursion
 import Obligation.Serializable qualified as Serialized
 import Observation (Observation)
 import qualified Observation (expiry)

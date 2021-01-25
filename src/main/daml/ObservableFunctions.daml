@@ -2,7 +2,7 @@ module ObservableFunctions where
 
 -- TODO: rename this module to something more appropriate
 
-import Category (Category, id)
+import Daml.Control.Category (Category, id)
 import Prelude
 import Prelude qualified ((+),(<=),(==),pure,(&&))
 import Observable

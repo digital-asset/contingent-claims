@@ -9,7 +9,7 @@ Here we replace it with the concrete `Observation`.
 -}
 
 import Observation
-import Recursion
+import Daml.Control.Recursion
 
 type T = Obligation
 type F = ObligationF
