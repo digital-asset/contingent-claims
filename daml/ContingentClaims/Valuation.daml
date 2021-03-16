@@ -1,0 +1,33 @@
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+module ContingentClaims.Valuation where
+
+import ContingentClaims.Claim (Claim)
+import ContingentClaims.Math.Random qualified as Random
+import ContingentClaims.Math.Ring
+import ContingentClaims.Math.Ring qualified as Ring
+-- import ContingentClaims.Observable (Observable)
+import ContingentClaims.Observation (Observation(..))
+import ContingentClaims.Math.ADTaLaCarte
+import Daml.Control.Recursion (Fix(..))
+import Daml.Data.Functor.Const (Const(..))
+
+import Prelude (Decimal, Bool(..), undefined)
+
+point : forall f x . Const x :≺: f => x -> Fix f
+point x = inject (Const x)
+
+rv : Observation t Decimal -> Fix (Const Decimal :+: Const Bool :+: Random.VariableF θ :+: RingF)
+rv (DecimalConst x) = point x
+rv (DecimalObs key) = undefined
+rv (DecimalLte (lhs, rhs)) = undefined
+rv (DecimalEqu (lhs, rhs)) = undefined
+rv (DecimalAdd (lhs, rhs)) = rv lhs + rv rhs
+rv (DecimalNeg (lhs)) = Ring.negate (rv lhs)
+rv (DecimalMul (lhs, rhs)) = undefined
+rv (DecimalDiv (lhs, rhs)) = undefined
+rv (BoolConst b) = undefined
+rv (DateIdentity) = undefined
+rv (DateConst t) = undefined
+rv (DateLte (lhs, rhs)) = undefined
+rv (DateEqu (lhs, rhs)) = undefined

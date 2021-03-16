@@ -1,0 +1,26 @@
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE OverlappingInstances #-}
+
+-- Machinery needed to combine ADTs, after W. Sweirstra 2008, "Data Types a la Carte". 
+
+module ContingentClaims.Math.ADTaLaCarte where
+
+import Daml.Control.Recursion (Fix(..))
+
+infixr 5 :+:
+data (:+:) f g p = Inl (f p) | Inr (g p) deriving Functor
+
+class (Functor sub, Functor sup) => sub :≺: sup where
+  inj : sub a -> sup a
+
+instance Functor f => f :≺: f where
+  inj = identity
+
+instance (Functor f , Functor g) => f :≺: (f :+: g) where
+  inj = Inl
+
+instance (Functor f , Functor g, Functor h, f :≺: g) => f :≺: (h :+: g) where
+  inj = Inr . inj
+
+inject : g :≺: f => g (Fix f) -> Fix f
+inject = Fix . inj

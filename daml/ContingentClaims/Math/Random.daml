@@ -1,0 +1,27 @@
+module ContingentClaims.Math.Random where
+
+type Real = Decimal
+
+type Process t θ = (t, θ)
+
+data Gaussian = Gaussian { mean : Real, variance : Real }
+
+
+{-
+class Variable x where
+  probability : x -> Real
+  -- ^ The probability distribution function
+  distribution : x -> Real
+  -- ^ The cumulative distribution function
+  moment : n -> x -> Real
+  -- ^ The n'th moment; TODO: howto constrain n to be Nat?
+  expectation : x -> Real
+  -- ^ The first moment
+  variance : x -> Real
+  -- ^ The second moment
+-}
+
+data VariableF θ x
+ = DistributionF x
+ | ExpectationF x
+ deriving Functor
