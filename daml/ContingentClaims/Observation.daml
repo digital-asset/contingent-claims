@@ -1,6 +1,13 @@
 {-# OPTIONS -Wno-deprecations #-} -- To supress 'Monad' warnings
 
-module ContingentClaims.Observation (Observation(..), observe, expiry, eval, HasFixings(..)) where
+module ContingentClaims.Observation (
+    Observation(..)
+  , observe
+  , expiry
+  , eval
+  , HasFixings(..)
+  , Key
+) where
 
 import ContingentClaims.Observable qualified as O
 import Daml.Control.Arrow (Kleisli(..))

@@ -1,6 +1,10 @@
+{-# LANGUAGE TypeOperators #-}
+
 module ContingentClaims.Math.Random where
 
 import Daml.Control.Monad.Reader (Reader)
+import Daml.Control.Recursion (Fix(..))
+import ContingentClaims.Math.ADTaLaCarte
 import DA.Math
 
 type Real = Decimal
@@ -39,7 +43,13 @@ cumulativeStdNormal x =
     a₃ = 0.9372980
     n x = (2.0 * pi) ** (-0.5) * exp(- x ** 2.0 / 2.0)
 
-data VariableF θ x
+data VariableF x
  = DistributionF x
  | ExpectationF x
  deriving Functor
+
+cdf : forall f . VariableF :≺: f => Fix f -> Fix f
+cdf = inject . DistributionF
+
+_E : forall f . VariableF :≺: f => Fix f -> Fix f
+_E = inject . ExpectationF

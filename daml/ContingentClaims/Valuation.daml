@@ -2,22 +2,38 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 module ContingentClaims.Valuation where
 
-import ContingentClaims.Claim (Claim)
+import ContingentClaims.Claim (Claim(..), ClaimF(..))
+import ContingentClaims.Math.Random (_E, cdf)
 import ContingentClaims.Math.Random qualified as Random
 import ContingentClaims.Math.Ring
 import ContingentClaims.Math.Ring qualified as Ring
+import ContingentClaims.Math.Indicator
 -- import ContingentClaims.Observable (Observable)
-import ContingentClaims.Observation (Observation(..))
+import ContingentClaims.Observation (Observation(..), Key)
 import ContingentClaims.Math.ADTaLaCarte
-import Daml.Control.Recursion (Fix(..))
+import Daml.Control.Recursion (Fix(..),Recursive(..))
 import Daml.Data.Functor.Const (Const(..))
 
-import Prelude (Decimal, Bool(..), undefined)
+import Prelude (Decimal, undefined)
 
 point : forall f x . Const x :≺: f => x -> Fix f
 point x = inject (Const x)
 
-rv : Observation t Decimal -> Fix (Const Decimal :+: Const Bool :+: Random.VariableF θ :+: RingF)
+type ExprF = Const Decimal :+: IndicatorF :+: Random.VariableF :+: RingF
+
+-- lhs < rhs
+data Indicator x = Indicator { lhs : x, rhs: x }
+
+equation : (t -> Fix ExprF) -> (t -> Key -> Fix ExprF) -> Claim f t a -> Fix ExprF
+equation disc spot = cata (equation' disc spot)
+
+equation' : (t -> Fix ExprF) -> (t -> Key -> Fix ExprF) -> ClaimF f t a (Fix ExprF) -> Fix ExprF
+equation' _ _ (OrF c c') = max c c' where
+  max a b = a * indicator a b + b * indicator b a
+equation' disc _ (WhenF (DateEqu (DateIdentity, DateConst t)) c) = disc t * c
+equation' disc _ (ScaleF obs c) = _
+
+rv : Observation t Decimal -> Fix ExprF
 rv (DecimalConst x) = point x
 rv (DecimalObs key) = undefined
 rv (DecimalLte (lhs, rhs)) = undefined
