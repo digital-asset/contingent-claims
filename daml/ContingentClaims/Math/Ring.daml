@@ -21,3 +21,9 @@ x * y = inject (MulF x y)
 
 negate : forall f . RingF :≺: f => Fix f -> Fix f
 negate x = inject (NegF x)
+
+(-) : forall f . RingF :≺: f => Fix f -> Fix f -> Fix f
+x - y = inject (AddF x (inject $ NegF y))
+
+one : forall f . RingF :≺: f => Fix f
+one = inject OneF

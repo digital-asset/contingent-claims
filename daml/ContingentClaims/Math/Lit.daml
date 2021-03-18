@@ -1,0 +1,14 @@
+{-# LANGUAGE TypeOperators #-}
+
+module ContingentClaims.Math.Lit where
+
+import ContingentClaims.Math.ADTaLaCarte
+import Daml.Data.Functor.Const
+import Daml.Control.Recursion (Fix(..))
+
+type VarF = Const Text
+type ConstF = Const Decimal
+
+point : forall f x . Const x :≺: f => x -> Fix f
+point x = inject (Const x)
+
