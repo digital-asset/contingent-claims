@@ -1,0 +1,17 @@
+module ContingentClaims.MathML.Presentation where
+
+import ContingentClaims.MathML.XML
+import Prelude hiding (elem)
+import DA.Map (insert)
+
+math : Text -> XML
+math = elem "math" $ insert "display" "block" mempty
+
+mi : Text -> XML
+mi = elem_ "mi"
+
+mn : Text -> XML
+mn = elem_ "mn"
+
+mo : Text -> XML
+mo = elem_ "mo"
