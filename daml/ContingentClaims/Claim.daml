@@ -5,7 +5,7 @@ import Daml.Control.Recursion
 import ContingentClaims.Claim.Serializable qualified as Serialized
 import ContingentClaims.Observation (Observation)
 import qualified ContingentClaims.Observation as Observation (expiry)
-import DA.Next.Set qualified as Set
+import DA.Set qualified as Set
 import DA.Foldable (Foldable(..))
 import DA.Traversable (Traversable(..))
 

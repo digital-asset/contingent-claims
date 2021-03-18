@@ -19,14 +19,16 @@ import Prelude (Decimal, undefined)
 type ExprF = ConstF :+: IndicatorF :+: Random.VariableF :+: RingF
 
 fapf : (a -> Fix ExprF) -> (t -> Key -> Fix ExprF) -> Claim f t a -> Fix ExprF
-fapf disc spot = cata (fapf' disc spot)
+fapf disc spot = cata undefined --(fapf' disc spot)
 
+{-
 fapf' : (a -> Fix ExprF) -> (t -> Key -> Fix ExprF) -> ClaimF f t a (Fix ExprF) -> Fix ExprF
 fapf' _ _ (OrF c c') = max c c' where
   max a b = a * indicator a b + b * indicator b a
 fapf' disc _ (WhenF (DateEqu (DateIdentity, DateConst t)) c) = _ t c
 fapf' _ _ (ScaleF obs c) = rv obs * c
 fapf' disc _ _ (One asset) = disc asset
+-}
 
 rv : Observation t Decimal -> Fix ExprF
 rv (DecimalConst x) = point x
