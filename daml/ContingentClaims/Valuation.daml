@@ -6,18 +6,21 @@ import ContingentClaims.Claim (Claim(..), ClaimF(..))
 import ContingentClaims.Math.Random (_E, cdf)
 import ContingentClaims.Math.Random qualified as Random
 import ContingentClaims.Math.Ring
-import ContingentClaims.Math.Ring qualified as Ring
+import ContingentClaims.Math.Ring qualified as Ring (RingF(OneF, ZeroF), negate)
 import ContingentClaims.Math.Indicator
--- import ContingentClaims.Observable (Observable)
+import ContingentClaims.MathML.XML
+import ContingentClaims.MathML.Presentation
 import ContingentClaims.Observation (Observation(..), Key)
 import ContingentClaims.Math.ADTaLaCarte
 import Daml.Control.Recursion (Fix(..),Recursive(..))
+import Daml.Data.Functor.Const (Const(..))
 import ContingentClaims.Math.Lit
 
-import Prelude (Decimal, undefined)
+import Prelude hiding ((-),(+),(*))
 
 type ExprF = ConstF :+: IndicatorF :+: Random.VariableF :+: RingF
 
+-- Fundamental Asset Pricing Formula
 fapf : (a -> Fix ExprF) -> (t -> Key -> Fix ExprF) -> Claim f t a -> Fix ExprF
 fapf disc spot = cata undefined --(fapf' disc spot)
 
@@ -44,3 +47,15 @@ rv (DateIdentity) = undefined
 rv (DateConst t) = undefined
 rv (DateLte (lhs, rhs)) = undefined
 rv (DateEqu (lhs, rhs)) = undefined
+
+instance ToXML a => ToXML (RingF a) where
+  toXML Ring.ZeroF = mn "0"
+  toXML Ring.OneF = mn "1"
+  toXML (AddF x y) = toXML x <> mo "+" <> toXML y
+  -- toXML (AddF x (NegF y)) = toXML x <> mo "-" <> toXML y
+  toXML (NegF x) = mo "-" <> toXML x
+  toXML (MulF x y) = toXML x <> toXML y
+
+-- TODO : specialise for Decimal and String
+instance Show a => ToXML (Const a x) where
+  toXML (Const d) = show d

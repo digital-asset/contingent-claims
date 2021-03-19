@@ -7,11 +7,17 @@ import Prelude hiding (null, elem)
 type Attrs = Map Text Text
 type XML = Text
 
-elem : Text -> Attrs -> Text -> XML
-elem name attrs content = "<" <> name <> as <> ">" <> content <> "</" <> name <> ">"
+class ToXML a where
+  toXML: a -> XML
+
+instance ToXML Text where
+  toXML = identity
+
+elem : ToXML a => Text -> a -> Attrs -> XML
+elem name content attrs = "<" <> name <> as <> ">" <> toXML content <> "</" <> name <> ">"
   where as = if null attrs 
                then "" 
                else intercalate ";" . fmap (\(k,v) -> k <> "=" <> v) . toList $ attrs
 
-elem_ : Text -> Text -> XML
-elem_ name content = elem name mempty content
+elem_ : ToXML a => Text -> a -> XML
+elem_ name content = elem name content mempty 

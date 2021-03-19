@@ -4,8 +4,8 @@ import ContingentClaims.MathML.XML
 import Prelude hiding (elem)
 import DA.Map (insert)
 
-math : Text -> XML
-math = elem "math" $ insert "display" "block" mempty
+math : ToXML a => a -> XML
+math content = elem "math" content (insert "display" "block" mempty)
 
 mi : Text -> XML
 mi = elem_ "mi"
