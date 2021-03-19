@@ -1,6 +1,0 @@
-module ContingentClaims.Math.Var where
-
-newtype VarF x = VarF Text
-
-instance Functor VarF where
-  fmap _ (VarF name) = VarF name
