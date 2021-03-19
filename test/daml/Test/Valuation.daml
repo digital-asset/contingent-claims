@@ -4,9 +4,9 @@ import ContingentClaims.Claim
 import ContingentClaims.FinancialClaim
 import ContingentClaims.Observable qualified as O
 import ContingentClaims.Observation (observe)
-import ContingentClaims.Valuation (fapf)
-import ContingentClaims.Math.Random qualified as Random
-import DA.Assert ((===))
+-- import ContingentClaims.Valuation (fapf)
+-- import ContingentClaims.Math.Random qualified as Random
+-- import DA.Assert ((===))
 import DA.Date (date,Month(..))
 import Daml.Script
 

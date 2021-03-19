@@ -3,8 +3,9 @@
 module ContingentClaims.Valuation where
 
 import ContingentClaims.Claim (Claim(..), ClaimF(..))
-import ContingentClaims.Math.Random (_E, cdf)
-import ContingentClaims.Math.Random qualified as Random
+import ContingentClaims.Claim qualified as C
+-- import ContingentClaims.Math.Random (_E, cdf)
+-- import ContingentClaims.Math.Random qualified as Random
 import ContingentClaims.Math.Ring
 import ContingentClaims.Math.Ring qualified as Ring (RingF(OneF, ZeroF), negate)
 import ContingentClaims.Math.Indicator
@@ -18,20 +19,22 @@ import ContingentClaims.Math.Lit
 
 import Prelude hiding ((-),(+),(*))
 
-type ExprF = ConstF :+: IndicatorF :+: Random.VariableF :+: RingF
+type ExprF = ConstF :+: IndicatorF :+: VarF :+: RingF
 
 -- Fundamental Asset Pricing Formula
-fapf : (a -> Fix ExprF) -> (t -> Key -> Fix ExprF) -> Claim f t a -> Fix ExprF
-fapf disc spot = cata undefined --(fapf' disc spot)
+fapf : Show a => (a -> t -> Fix ExprF) -> (t -> Key -> Fix ExprF) -> Claim Observation t a -> Fix ExprF
+fapf disc spot = cata (fapf' disc spot)
 
-{-
-fapf' : (a -> Fix ExprF) -> (t -> Key -> Fix ExprF) -> ClaimF f t a (Fix ExprF) -> Fix ExprF
+fapf' : Show a
+      => (a -> t -> Fix ExprF)
+      -> (t -> Key -> Fix ExprF)
+      -> ClaimF Observation t a (Fix ExprF)
+      -> Fix ExprF
 fapf' _ _ (OrF c c') = max c c' where
   max a b = a * indicator a b + b * indicator b a
-fapf' disc _ (WhenF (DateEqu (DateIdentity, DateConst t)) c) = _ t c
+fapf' disc _ (WhenF (DateEqu (DateIdentity, DateConst t)) c) = c -- FIXME, somehow 'bind' t
 fapf' _ _ (ScaleF obs c) = rv obs * c
-fapf' disc _ _ (One asset) = disc asset
--}
+fapf' disc _ (C.OneF asset) = point (show asset)
 
 rv : Observation t Decimal -> Fix ExprF
 rv (DecimalConst x) = point x
