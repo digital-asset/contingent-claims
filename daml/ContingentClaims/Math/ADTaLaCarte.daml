@@ -8,7 +8,8 @@ module ContingentClaims.Math.ADTaLaCarte where
 import Daml.Control.Recursion (Fix(..))
 
 infixr 5 :+:
-data (:+:) f g p = Inl (f p) | Inr (g p) deriving Functor
+
+data (:+:) f g p = Inl (f p) | Inr (g p) deriving (Eq, Show, Functor)
 
 class (Functor sub, Functor sup) => sub :≺: sup where
   inj : sub a -> sup a

@@ -3,11 +3,11 @@
 module ContingentClaims.Valuation where
 
 import ContingentClaims.Claim (Claim(..), ClaimF(..))
-import ContingentClaims.Claim qualified as C
+import ContingentClaims.Claim qualified as Claim
 -- import ContingentClaims.Math.Random (_E, cdf)
 -- import ContingentClaims.Math.Random qualified as Random
 import ContingentClaims.Math.Ring
-import ContingentClaims.Math.Ring qualified as Ring (RingF(OneF, ZeroF), negate)
+import ContingentClaims.Math.Ring qualified as Ring (RingF(OneF, ZeroF), negate, zero)
 import ContingentClaims.Math.Indicator
 import ContingentClaims.MathML.XML
 import ContingentClaims.MathML.Presentation
@@ -22,7 +22,11 @@ import Prelude hiding ((-),(+),(*))
 type ExprF = ConstF :+: IndicatorF :+: VarF :+: RingF
 
 -- Fundamental Asset Pricing Formula
-fapf : Show a => (a -> t -> Fix ExprF) -> (t -> Key -> Fix ExprF) -> Claim Observation t a -> Fix ExprF
+fapf : Show a 
+     => (a -> t -> Fix ExprF) 
+     -> (t -> Key -> Fix ExprF) 
+     -> Claim Observation t a 
+     -> Fix ExprF
 fapf disc spot = cata (fapf' disc spot)
 
 fapf' : Show a
@@ -34,22 +38,23 @@ fapf' _ _ (OrF c c') = max c c' where
   max a b = a * indicator a b + b * indicator b a
 fapf' disc _ (WhenF (DateEqu (DateIdentity, DateConst t)) c) = c -- FIXME, somehow 'bind' t
 fapf' _ _ (ScaleF obs c) = rv obs * c
-fapf' disc _ (C.OneF asset) = point (show asset)
+fapf' disc _ (Claim.OneF asset) = point (show asset)
+fapf' _ _ Claim.ZeroF = Ring.zero
 
 rv : Observation t Decimal -> Fix ExprF
 rv (DecimalConst x) = point x
-rv (DecimalObs key) = undefined
-rv (DecimalLte (lhs, rhs)) = undefined
-rv (DecimalEqu (lhs, rhs)) = undefined
+rv (DecimalObs key) = point key
+rv (DecimalLte (lhs, rhs)) = error "rv: undefined DecimalLte case"
+rv (DecimalEqu (lhs, rhs)) = error "rv: undefined DecimalEqu case"
 rv (DecimalAdd (lhs, rhs)) = rv lhs + rv rhs
 rv (DecimalNeg (lhs)) = Ring.negate (rv lhs)
-rv (DecimalMul (lhs, rhs)) = undefined
-rv (DecimalDiv (lhs, rhs)) = undefined
-rv (BoolConst b) = undefined
-rv (DateIdentity) = undefined
-rv (DateConst t) = undefined
-rv (DateLte (lhs, rhs)) = undefined
-rv (DateEqu (lhs, rhs)) = undefined
+rv (DecimalMul (lhs, rhs)) = rv lhs * rv rhs
+rv (DecimalDiv (lhs, rhs)) = error "rv: undefined DecimalDiv case"
+rv (BoolConst b) = error "rv: undefined BoolConst"
+rv (DateIdentity) = error "rv: undefined DateIdentity"
+rv (DateConst t) = error "rv: undefined DateConst"
+rv (DateLte (lhs, rhs)) = error "rv: undefined DateLte"
+rv (DateEqu (lhs, rhs)) = error "rv: undefined DateEqu"
 
 instance ToXML a => ToXML (RingF a) where
   toXML Ring.ZeroF = mn "0"

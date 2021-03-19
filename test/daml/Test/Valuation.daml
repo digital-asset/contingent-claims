@@ -1,23 +1,38 @@
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE OverlappingInstances #-}
+
 module Test.Valuation where
 
 import ContingentClaims.Claim
 import ContingentClaims.FinancialClaim
 import ContingentClaims.Observable qualified as O
 import ContingentClaims.Observation (observe)
--- import ContingentClaims.Valuation (fapf)
--- import ContingentClaims.Math.Random qualified as Random
--- import DA.Assert ((===))
+import ContingentClaims.Valuation (ExprF, fapf)
+import ContingentClaims.Math.Lit
+import ContingentClaims.Math.Ring
+import ContingentClaims.Math.Processes (randomWalk)
+import ContingentClaims.Math.Ring qualified as Ring
+import Daml.Control.Recursion (Fix(..))
+import DA.Assert ((===))
 import DA.Date (date,Month(..))
 import Daml.Script
+import Prelude hiding ((+))
+
+deriving instance (Show (f (Fix f))) => Show (Fix f)
+deriving instance (Eq (f (Fix f))) => Eq (Fix f)
+
+deriving instance Show (Fix ExprF)
+deriving instance Eq (Fix ExprF)
 
 valueEuropeanCall = script do
   let k : Decimal = 123.0
       r : Decimal = 0.03
-      call = european (date 2021 Mar 15) (Scale (observe "VOD.L" O.+ (O.-) (O.pure k)) (One "GBP"))
-{-
-      disc = point exp (-r)
-      spot t "VOD.L" : Random.Process Date Random.Gaussian = reader \t -> _
-      s = spot t "VOD.L"
-  fapf disc spot call === disc t * (s - point k) * (indicator (point k) s)
--}
-  pure ()
+      t : Date = date 2021 Mar 15
+      call = european t (Scale (observe "VOD.L" O.+ (O.-) (O.pure k)) (One "GBP"))
+      disc : Text -> Date -> Fix ExprF
+      disc a t = point "B"
+      spot : Date -> Text -> Fix ExprF
+      spot t "VOD.L" = 
+        let r = randomWalk "θ" "μ" "S"
+        in r.dt + r.dX
+  fapf disc spot call === Ring.one

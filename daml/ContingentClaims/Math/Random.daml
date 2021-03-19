@@ -46,7 +46,7 @@ cumulativeStdNormal x =
 data VariableF x
  = DistributionF x
  | ExpectationF x
- deriving Functor
+ deriving (Eq, Show, Functor)
 
 cdf : forall f . VariableF :≺: f => Fix f -> Fix f
 cdf = inject . DistributionF
