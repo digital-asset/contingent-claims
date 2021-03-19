@@ -15,3 +15,9 @@ mn = elem_ "mn"
 
 mo : Text -> XML
 mo = elem_ "mo"
+
+msub : XML -> XML
+msub = elem_ "msub"
+
+mrow : XML -> XML
+mrow = elem_ "mrow"

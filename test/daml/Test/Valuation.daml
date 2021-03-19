@@ -12,6 +12,8 @@ import ContingentClaims.Math.Lit
 import ContingentClaims.Math.Ring
 import ContingentClaims.Math.Processes (randomWalk)
 import ContingentClaims.Math.Ring qualified as Ring
+import ContingentClaims.MathML.XML
+import ContingentClaims.MathML.Presentation qualified as MathML
 import Daml.Control.Recursion (Fix(..))
 import DA.Assert ((===))
 import DA.Date (date,Month(..))
@@ -20,9 +22,11 @@ import Prelude hiding ((+))
 
 deriving instance (Show (f (Fix f))) => Show (Fix f)
 deriving instance (Eq (f (Fix f))) => Eq (Fix f)
+deriving instance (ToXML (f (Fix f))) => ToXML (Fix f)
 
 deriving instance Show (Fix ExprF)
 deriving instance Eq (Fix ExprF)
+deriving instance ToXML (Fix ExprF)
 
 valueEuropeanCall = script do
   let k : Decimal = 123.0
@@ -35,4 +39,6 @@ valueEuropeanCall = script do
       spot t "VOD.L" = 
         let r = randomWalk "θ" "μ" "S"
         in r.dt + r.dX
-  fapf disc spot call === Ring.one
+      formula = fapf disc spot call 
+  MathML.math formula === "<math/>"
+  formula === Ring.one

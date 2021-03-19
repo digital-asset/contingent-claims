@@ -16,8 +16,9 @@ import ContingentClaims.Math.ADTaLaCarte
 import Daml.Control.Recursion (Fix(..),Recursive(..))
 import Daml.Data.Functor.Const (Const(..))
 import ContingentClaims.Math.Lit
+import DA.Map (insert)
 
-import Prelude hiding ((-),(+),(*))
+import Prelude hiding ((-),(+),(*), elem)
 
 type ExprF = ConstF :+: IndicatorF :+: VarF :+: RingF
 
@@ -56,7 +57,7 @@ rv (DateConst t) = error "rv: undefined DateConst"
 rv (DateLte (lhs, rhs)) = error "rv: undefined DateLte"
 rv (DateEqu (lhs, rhs)) = error "rv: undefined DateEqu"
 
-instance ToXML a => ToXML (RingF a) where
+instance ToXML f => ToXML (RingF f) where
   toXML Ring.ZeroF = mn "0"
   toXML Ring.OneF = mn "1"
   toXML (AddF x y) = toXML x <> mo "+" <> toXML y
@@ -64,6 +65,14 @@ instance ToXML a => ToXML (RingF a) where
   toXML (NegF x) = mo "-" <> toXML x
   toXML (MulF x y) = toXML x <> toXML y
 
--- TODO : specialise for Decimal and String
-instance Show a => ToXML (Const a x) where
-  toXML (Const d) = show d
+instance ToXML (Const Text x) where
+  toXML (Const s) = mi s
+
+instance ToXML (Const Decimal x) where
+  toXML (Const d) = mn . show $ d
+
+instance ToXML f => ToXML (IndicatorF f) where
+  toXML (IndicatorF x y) = msub $ _1 <> subscript 
+    where _1 = elem "mo" "1" $ insert "mathvariant" "double-struck" mempty
+          subscript = mrow $ toXML x <> mo "<" <> toXML y
+                          
