@@ -21,3 +21,6 @@ msub = elem_ "msub"
 
 mrow : XML -> XML
 mrow = elem_ "mrow"
+
+bracket: Text -> Text -> XML -> XML
+bracket open close xml = mrow (mo open <> mrow xml <> mo close)

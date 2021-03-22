@@ -4,8 +4,8 @@ module ContingentClaims.Valuation where
 
 import ContingentClaims.Claim (Claim(..), ClaimF(..))
 import ContingentClaims.Claim qualified as Claim
--- import ContingentClaims.Math.Random (_E, cdf)
--- import ContingentClaims.Math.Random qualified as Random
+import ContingentClaims.Math.Random (_E)
+import ContingentClaims.Math.Random qualified as Random (VariableF(..))
 import ContingentClaims.Math.Ring
 import ContingentClaims.Math.Ring qualified as Ring (RingF(OneF, ZeroF), negate, zero)
 import ContingentClaims.Math.Indicator
@@ -20,26 +20,26 @@ import DA.Map (insert)
 
 import Prelude hiding ((-),(+),(*), elem)
 
-type ExprF = ConstF :+: IndicatorF :+: VarF :+: RingF
+type ExprF = Random.VariableF :+: ConstF :+: IndicatorF :+: VarF :+: RingF
 
 -- Fundamental Asset Pricing Formula
 fapf : Show a 
-     => (a -> t -> Fix ExprF) 
-     -> (t -> Key -> Fix ExprF) 
+     => (a -> Key)
+     -> (Key -> Fix ExprF)
      -> Claim Observation t a 
      -> Fix ExprF
-fapf disc spot = cata (fapf' disc spot)
+fapf render env = _E . cata (fapf' render env)
 
 fapf' : Show a
-      => (a -> t -> Fix ExprF)
-      -> (t -> Key -> Fix ExprF)
+      => (a -> Key)
+      -> (Key -> Fix ExprF)
       -> ClaimF Observation t a (Fix ExprF)
       -> Fix ExprF
 fapf' _ _ (OrF c c') = max c c' where
   max a b = a * indicator a b + b * indicator b a
-fapf' disc _ (WhenF (DateEqu (DateIdentity, DateConst t)) c) = c -- FIXME, somehow 'bind' t
+fapf' _ _ (WhenF (DateEqu (DateIdentity, DateConst t)) c) = c -- FIXME, somehow 'bind' t
 fapf' _ _ (ScaleF obs c) = rv obs * c
-fapf' disc _ (Claim.OneF asset) = point (show asset)
+fapf' render _ (Claim.OneF asset) = point (render asset)
 fapf' _ _ Claim.ZeroF = Ring.zero
 
 rv : Observation t Decimal -> Fix ExprF
@@ -57,13 +57,19 @@ rv (DateConst t) = error "rv: undefined DateConst"
 rv (DateLte (lhs, rhs)) = error "rv: undefined DateLte"
 rv (DateEqu (lhs, rhs)) = error "rv: undefined DateEqu"
 
+instance ToXML f => ToXML (Random.VariableF f) where
+  toXML (Random.DistributionF x) = mo "N" <> bracket "(" ")" (toXML x)
+  toXML (Random.ExpectationF x) = _E <> bracket "[" "]" p
+    where _E = elem "mo" "E" $ insert "mathvariant" "double-struck" mempty
+          p = toXML x
+
 instance ToXML f => ToXML (RingF f) where
   toXML Ring.ZeroF = mn "0"
   toXML Ring.OneF = mn "1"
   toXML (AddF x y) = toXML x <> mo "+" <> toXML y
-  -- toXML (AddF x (NegF y)) = toXML x <> mo "-" <> toXML y
+  -- toXML (AddF x (NegF y)) = toXML x <> mo "-" <> toXML y -- TODO: reduce + - to just -
   toXML (NegF x) = mo "-" <> toXML x
-  toXML (MulF x y) = toXML x <> toXML y
+  toXML (MulF x y) = toXML x <> toXML y -- TODO: add brackets around compound expressions
 
 instance ToXML (Const Text x) where
   toXML (Const s) = mi s

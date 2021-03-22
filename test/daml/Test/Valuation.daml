@@ -33,12 +33,10 @@ valueEuropeanCall = script do
       r : Decimal = 0.03
       t : Date = date 2021 Mar 15
       call = european t (Scale (observe "VOD.L" O.+ (O.-) (O.pure k)) (One "GBP"))
-      disc : Text -> Date -> Fix ExprF
-      disc a t = point "B"
-      spot : Date -> Text -> Fix ExprF
-      spot t "VOD.L" = 
+      env : Text -> Fix ExprF
+      env "VOD.L" = 
         let r = randomWalk "θ" "μ" "S"
         in r.dt + r.dX
-      formula = fapf disc spot call 
+      formula = fapf identity env call 
   MathML.math formula === "<math/>"
   formula === Ring.one
