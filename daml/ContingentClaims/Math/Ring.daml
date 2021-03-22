@@ -13,6 +13,10 @@ data RingF f
   | MulF { lhs : f, rhs : f }
   deriving (Show, Eq, Functor)
 
+infix 6 +
+infix 6 -
+infix 7 *
+
 (+) : forall f . RingF :≺: f => Fix f -> Fix f -> Fix f
 x + y = inject (AddF x y)
 

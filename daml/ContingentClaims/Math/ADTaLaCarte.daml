@@ -13,15 +13,24 @@ data (:+:) f g p = Inl (f p) | Inr (g p) deriving (Eq, Show, Functor)
 
 class (Functor sub, Functor sup) => sub :≺: sup where
   inj : sub a -> sup a
+  prj : sup a -> Optional (sub a)
 
 instance Functor f => f :≺: f where
   inj = identity
+  prj = Some
 
 instance (Functor f , Functor g) => f :≺: (f :+: g) where
   inj = Inl
+  prj (Inl x) = Some x
+  prj (Inr _) = None
 
 instance (Functor f , Functor g, Functor h, f :≺: g) => f :≺: (h :+: g) where
   inj = Inr . inj
+  prj (Inl _) = None
+  prj (Inr coprod) = prj coprod
 
 inject : g :≺: f => g (Fix f) -> Fix f
 inject = Fix . inj
+
+project : g :≺: f => Fix f -> Optional (g (Fix f))
+project = prj . unfix

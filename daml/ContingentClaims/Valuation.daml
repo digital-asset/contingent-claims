@@ -13,6 +13,7 @@ import ContingentClaims.MathML.XML
 import ContingentClaims.MathML.Presentation
 import ContingentClaims.Observation (Observation(..), Key)
 import ContingentClaims.Math.ADTaLaCarte
+import ContingentClaims.Math.ADTaLaCarte qualified as Fix
 import Daml.Control.Recursion (Fix(..),Recursive(..))
 import Daml.Data.Functor.Const (Const(..))
 import ContingentClaims.Math.Lit
@@ -23,15 +24,13 @@ import Prelude hiding ((-),(+),(*), elem)
 type ExprF = Random.VariableF :+: ConstF :+: IndicatorF :+: VarF :+: RingF
 
 -- Fundamental Asset Pricing Formula
-fapf : Show a 
-     => (a -> Key)
+fapf : (a -> Key)
      -> (Key -> Fix ExprF)
      -> Claim Observation t a 
      -> Fix ExprF
 fapf render env = _E . cata (fapf' render env)
 
-fapf' : Show a
-      => (a -> Key)
+fapf' : (a -> Key)
       -> (Key -> Fix ExprF)
       -> ClaimF Observation t a (Fix ExprF)
       -> Fix ExprF
@@ -63,13 +62,15 @@ instance ToXML f => ToXML (Random.VariableF f) where
     where _E = elem "mo" "E" $ insert "mathvariant" "double-struck" mempty
           p = toXML x
 
-instance ToXML f => ToXML (RingF f) where
+instance (ToXML (Fix f), RingF :≺: f)  => ToXML (RingF (Fix f)) where
   toXML Ring.ZeroF = mn "0"
   toXML Ring.OneF = mn "1"
-  toXML (AddF x y) = toXML x <> mo "+" <> toXML y
-  -- toXML (AddF x (NegF y)) = toXML x <> mo "-" <> toXML y -- TODO: reduce + - to just -
+  toXML (AddF x (Fix.project -> Some (NegF y))) = toXML x <> mo "+" <> toXML y
+  toXML (AddF x positiveY) = toXML x <> mo "-" <> toXML positiveY
   toXML (NegF x) = mo "-" <> toXML x
-  toXML (MulF x y) = toXML x <> toXML y -- TODO: add brackets around compound expressions
+  toXML (MulF x y) = maybeBracket x <> maybeBracket y
+    where maybeBracket z@(Fix.project -> Some (AddF _ _)) = bracket "(" ")" (toXML z)
+          maybeBracket z = toXML z
 
 instance ToXML (Const Text x) where
   toXML (Const s) = mi s
