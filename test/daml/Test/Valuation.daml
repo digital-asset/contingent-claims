@@ -1,6 +1,4 @@
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE OverlappingInstances #-}
-
 module Test.Valuation where
 
 import ContingentClaims.Claim
@@ -8,7 +6,6 @@ import ContingentClaims.FinancialClaim
 import ContingentClaims.Observable qualified as O
 import ContingentClaims.Observation (observe)
 import ContingentClaims.Valuation (ExprF, fapf)
-import ContingentClaims.Math.Lit
 import ContingentClaims.Math.Ring
 import ContingentClaims.Math.Processes (randomWalk)
 import ContingentClaims.Math.Ring qualified as Ring
@@ -20,13 +17,13 @@ import DA.Date (date,Month(..))
 import Daml.Script
 import Prelude hiding ((+))
 
-deriving instance (Show (f (Fix f))) => Show (Fix f)
-deriving instance (Eq (f (Fix f))) => Eq (Fix f)
-deriving instance (ToXML (f (Fix f))) => ToXML (Fix f)
+deriving instance {-# OVERLAPPING #-} (Show (f (Fix f))) => Show (Fix f)
+deriving instance {-# OVERLAPPING #-} (Eq (f (Fix f))) => Eq (Fix f)
+deriving instance {-# OVERLAPPING #-} (ToXML (f (Fix f))) => ToXML (Fix f)
 
-deriving instance Show (Fix ExprF)
-deriving instance Eq (Fix ExprF)
-deriving instance ToXML (Fix ExprF)
+deriving instance {-# OVERLAPPING #-} Show (Fix ExprF)
+deriving instance {-# OVERLAPPING #-} Eq (Fix ExprF)
+deriving instance {-# OVERLAPPING #-} ToXML (Fix ExprF)
 
 valueEuropeanCall = script do
   let k : Decimal = 123.0

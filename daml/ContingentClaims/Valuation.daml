@@ -13,7 +13,7 @@ import ContingentClaims.MathML.XML
 import ContingentClaims.MathML.Presentation
 import ContingentClaims.Observation (Observation(..), Key)
 import ContingentClaims.Math.ADTaLaCarte
-import ContingentClaims.Math.ADTaLaCarte qualified as Fix
+import ContingentClaims.Math.ADTaLaCarte qualified as Fix (project)
 import Daml.Control.Recursion (Fix(..),Recursive(..))
 import Daml.Data.Functor.Const (Const(..))
 import ContingentClaims.Math.Lit
@@ -23,12 +23,28 @@ import Prelude hiding ((-),(+),(*), elem)
 
 type ExprF = Random.VariableF :+: ConstF :+: IndicatorF :+: VarF :+: RingF
 
+instance Functor f => Recursive (Fix f) f where
+  project = unfix
+
 -- Fundamental Asset Pricing Formula
 fapf : (a -> Key)
      -> (Key -> Fix ExprF)
      -> Claim Observation t a 
      -> Fix ExprF
-fapf render env = _E . cata (fapf' render env)
+fapf render env
+  = _E 
+  . cata (\expr -> optional (Fix expr) prodIdempotency (Fix.project (Fix expr)))
+  . cata (fapf' render env)
+
+{- TODO: it's really annoying that we can't fuse these ^^ operations. This is
+because 'fapf', in the `OrF` production, generates a subtree of multiple nodes,
+with an `AddF` at the root. Any algebra composed with this will only look at
+the top level node, so e.g. we can't reduce multiplication by zero, because `MulF`
+is one more level down. Perhaps this should be co-recursive instead? -}
+
+-- Helper function to allow composing algebras; this allows folding in a single pass
+fuse : forall g . g :≺: ExprF => (g (Fix ExprF) -> Fix ExprF) -> Fix ExprF -> Fix ExprF 
+fuse ff f = optional f ff (Fix.project f)
 
 fapf' : (a -> Key)
       -> (Key -> Fix ExprF)
@@ -40,6 +56,21 @@ fapf' _ _ (WhenF (DateEqu (DateIdentity, DateConst t)) c) = c -- FIXME, somehow 
 fapf' _ _ (ScaleF obs c) = rv obs * c
 fapf' render _ (Claim.OneF asset) = point (render asset)
 fapf' _ _ Claim.ZeroF = Ring.zero
+
+prodIdempotency : RingF (Fix ExprF) -> Fix ExprF
+prodIdempotency (MulF (Fix.project -> Some (Ring.ZeroF)) _) = zero
+prodIdempotency (MulF _ (Fix.project -> Some (Ring.ZeroF))) = zero
+prodIdempotency other = inject other
+
+addIdentity : RingF (Fix ExprF) -> Fix ExprF
+addIdentity (AddF (Fix.project -> Some (Ring.ZeroF)) x) = x
+addIdentity (AddF x (Fix.project -> Some (Ring.ZeroF))) = x
+addIdentity other = inject other
+
+prodIdentity : RingF (Fix ExprF) -> Fix ExprF
+prodIdentity (MulF (Fix.project -> Some (Ring.OneF)) x) = x
+prodIdentity (MulF x (Fix.project -> Some (Ring.OneF))) = x
+prodIdentity other = inject other
 
 rv : Observation t Decimal -> Fix ExprF
 rv (DecimalConst x) = point x
