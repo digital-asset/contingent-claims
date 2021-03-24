@@ -1,4 +1,5 @@
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeOperators #-}
 module Test.Valuation where
 
 import ContingentClaims.Claim
@@ -11,19 +12,28 @@ import ContingentClaims.Math.Processes (randomWalk)
 import ContingentClaims.Math.Ring qualified as Ring
 import ContingentClaims.MathML.XML
 import ContingentClaims.MathML.Presentation qualified as MathML
-import Daml.Control.Recursion (Fix(..))
+import Daml.Control.Recursion (Fix(..),ana, cata)
 import DA.Assert ((===))
 import DA.Date (date,Month(..))
 import Daml.Script
-import Prelude hiding ((+))
+import Prelude hiding ((+),(*))
 
-deriving instance {-# OVERLAPPING #-} (Show (f (Fix f))) => Show (Fix f)
-deriving instance {-# OVERLAPPING #-} (Eq (f (Fix f))) => Eq (Fix f)
-deriving instance {-# OVERLAPPING #-} (ToXML (f (Fix f))) => ToXML (Fix f)
+import ContingentClaims.Math.Lit
+import ContingentClaims.Valuation (ringDistr, injectAlgebra)
+
+deriving instance (Show (f (Fix f))) => Show (Fix f)
+deriving instance (Eq (f (Fix f))) => Eq (Fix f)
+deriving instance (ToXML (f (Fix f))) => ToXML (Fix f)
 
 deriving instance {-# OVERLAPPING #-} Show (Fix ExprF)
 deriving instance {-# OVERLAPPING #-} Eq (Fix ExprF)
 deriving instance {-# OVERLAPPING #-} ToXML (Fix ExprF)
+
+testDistr = script do
+  let f : Fix ExprF = (point (2.0 : Decimal) + point (3.0: Decimal)) * point (7.0: Decimal) * point (6.0: Decimal)
+      f' : Fix ExprF = point (2.0 : Decimal) * point (7.0: Decimal) * point (6.0: Decimal) + point (3.0: Decimal) * point (7.0: Decimal) * point (6.0: Decimal)
+  -- ana ringDistr f === MathML.math f' -- The below is more legible for debugging
+  MathML.math (cata (injectAlgebra ringDistr) f) === MathML.math f'
 
 valueEuropeanCall = script do
   let k : Decimal = 123.0
@@ -31,9 +41,10 @@ valueEuropeanCall = script do
       t : Date = date 2021 Mar 15
       call = european t (Scale (observe "TSLA" O.+ (O.-) (O.pure k)) (One "GBP"))
       env : Text -> Fix ExprF
-      env "TSLA" = 
+      env "TSLA" =
         let r = randomWalk "θ" "μ" "S"
         in r.dt + r.dX
-      formula = fapf identity env call 
+      env other = error $ "Variable not found: " <> show other
+      formula = fapf identity env call
   MathML.math (solve formula) === "<math/>"
   solve formula === Ring.one

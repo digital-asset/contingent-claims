@@ -37,10 +37,10 @@ instance Corecursive (Fix ExprF) ExprF where
 -- Fundamental Asset Pricing Formula
 fapf : (a -> Key)
      -> (Key -> Fix ExprF)
-     -> Claim Observation t a 
+     -> Claim Observation t a
      -> Fix ExprF
 fapf render env
-  = _E 
+  = _E
   . cata (removePlusZero . reduceMultByZero)
   . cata claimsToFormula
   where claimsToFormula = fapf' render env
@@ -51,10 +51,14 @@ fapf render env
 because 'fapf', in the `OrF` production, generates a subtree of multiple nodes,
 with an `AddF` at the root. Any algebra composed with this will only look at
 the top level node, so e.g. we can't reduce multiplication by zero, because `MulF`
-is one more level down. Perhaps this should be co-recursive instead? YES - SEE @solve@ FOR EXAMPLE -}
+is one more level down. Perhaps this should be co-recursive instead? -}
 
 solve : Fix ExprF -> Fix ExprF
-solve = ana (fuseCoalgebra expDistr . ringDistr)
+solve = ana (expDistr) . cata (injectAlgebra factorNeg) . cata (injectAlgebra ringDistr)
+
+{- TODO: again, supremely annoying that if we try and fuse the operations, then
+we are not getting the same result. I don't know why this is, and it requires
+some more investigation. -}
 
 {- cata (distributeExpectation . distributeAddition)
   where distributeAddition = injectAlgebra ringDistr
@@ -106,14 +110,21 @@ prodIdentity (MulF (Fix.project -> Some (Ring.OneF)) x) = x
 prodIdentity (MulF x (Fix.project -> Some (Ring.OneF))) = x
 prodIdentity other = inject other
 
-ringDistr : Fix ExprF -> ExprF (Fix ExprF)
-ringDistr (Fix.project -> Some (MulF c (Fix.project -> Some (AddF x y)))) = project $ c * x + c * y
-ringDistr (Fix.project -> Some (MulF (Fix.project -> Some (AddF x y)) c)) = project $ c * x + c * y
-ringDistr other = project other
+ringDistr : RingF (Fix ExprF) -> Fix ExprF
+ringDistr (MulF (Fix.project -> Some (AddF x y)) c) = x * c + y * c
+ringDistr (MulF c (Fix.project -> Some (AddF x y))) = c * x + c * y
+ringDistr other = inject other
 
 expDistr : Fix ExprF -> ExprF (Fix ExprF)
-expDistr (Fix.project -> Some (ExpectationF (Fix.project -> Some (AddF x y)))) = project $ _E x + _E y
+expDistr (Fix.project -> Some (ExpectationF (Fix.project -> Some (AddF x y)))) =
+  project $ _E x + _E y
 expDistr other = project other
+
+factorNeg : RingF (Fix ExprF) -> Fix ExprF
+factorNeg (MulF (Fix.project -> Some (NegF x)) (Fix.project -> Some (NegF y))) = inject $ MulF x y
+factorNeg (MulF (Fix.project -> Some (NegF x)) y) = inject $ NegF (inject $ MulF x y)
+factorNeg (MulF x (Fix.project -> Some (NegF y))) = inject $ NegF (inject $ MulF x y)
+factorNeg other = inject other
 
 rv : Observation t Decimal -> Fix ExprF
 rv (DecimalConst x) = point x
@@ -139,10 +150,10 @@ instance ToXML f => ToXML (Random.VariableF f) where
 instance (ToXML (Fix f), RingF :≺: f)  => ToXML (RingF (Fix f)) where
   toXML Ring.ZeroF = mn "0"
   toXML Ring.OneF = mn "1"
-  toXML (AddF x (Fix.project -> Some (NegF y))) = toXML x <> mo "+" <> toXML y
-  toXML (AddF x positiveY) = toXML x <> mo "-" <> toXML positiveY
+  toXML (AddF x (Fix.project -> Some (NegF y))) = toXML x <> mo "-" <> toXML y
+  toXML (AddF x positiveY) = toXML x <> mo "+" <> toXML positiveY
   toXML (NegF x) = mo "-" <> toXML x
-  toXML (MulF x y) = maybeBracket x <> maybeBracket y
+  toXML (MulF x y) = maybeBracket x <> mo "×" <> maybeBracket y
     where maybeBracket z@(Fix.project -> Some (AddF _ _)) = bracket "(" ")" (toXML z)
           maybeBracket z = toXML z
 
@@ -153,7 +164,6 @@ instance ToXML (Const Decimal x) where
   toXML (Const d) = mn . show $ d
 
 instance ToXML f => ToXML (IndicatorF f) where
-  toXML (IndicatorF x y) = msub $ _1 <> subscript 
+  toXML (IndicatorF x y) = msub $ _1 <> subscript
     where _1 = elem "mo" "1" $ insert "mathvariant" "double-struck" mempty
           subscript = mrow $ toXML x <> mo "<" <> toXML y
-                          
