@@ -13,13 +13,14 @@ import ContingentClaims.MathML.XML
 import ContingentClaims.MathML.Presentation
 import ContingentClaims.Observation (Observation(..), Key)
 import ContingentClaims.Math.ADTaLaCarte hiding (project)
-import ContingentClaims.Math.ADTaLaCarte qualified as Fix (project)
+import ContingentClaims.Math.ADTaLaCarte qualified as Fix (project, inject)
 import Daml.Control.Recursion
 import Daml.Control.Recursion qualified as R (project)
 import Daml.Data.Functor.Const (Const(..))
 import ContingentClaims.Math.Lit
 import DA.Map (Map, insert)
 import Daml.Control.Monad.Reader
+import Daml.Data.Functor.Contravariant (contramap)
 import DA.Optional (fromSome)
 import DA.Traversable (sequence)
 
@@ -50,12 +51,15 @@ fapf render env
 because 'fapf', in the `OrF` production, generates a subtree of multiple nodes,
 with an `AddF` at the root. Any algebra composed with this will only look at
 the top level node, so e.g. we can't reduce multiplication by zero, because `MulF`
-is one more level down. Perhaps this should be co-recursive instead? -}
+is one more level down. Perhaps this should be co-recursive instead? YES - SEE @solve@ FOR EXAMPLE -}
 
 solve : Fix ExprF -> Fix ExprF
-solve = cata (distributeExpectation . distributeAddition)
+solve = ana (fuseCoalgebra expDistr . ringDistr)
+
+{- cata (distributeExpectation . distributeAddition)
   where distributeAddition = injectAlgebra ringDistr
         distributeExpectation = fuseAlgebra expDistr
+-}
 
 -- Helper function to inject a specific algebra e.g. RingF into a ExprF-algebra.
 injectAlgebra : forall g . g :≺: ExprF => (g (Fix ExprF) -> Fix ExprF) -> ExprF (Fix ExprF) -> Fix ExprF
@@ -64,6 +68,17 @@ injectAlgebra φ f = fuseAlgebra φ (embed f)
 -- Helper function to allow composing algebras; this allows folding in a single pass
 fuseAlgebra : forall g . g :≺: ExprF => (g (Fix ExprF) -> Fix ExprF) -> Fix ExprF -> Fix ExprF 
 fuseAlgebra φ f = optional f φ (Fix.project f)
+
+{- TODO: this fails with overlapping instances error, although as far as I can see it shouldn't.
+fuseCoalgebra : forall g . g :≺: ExprF => (Fix ExprF -> g (Fix ExprF)) -> ExprF (Fix ExprF) -> ExprF (Fix ExprF)
+fuseCoalgebra ψ = project . Fix.inject . ψ . embed
+-}
+
+fuseCoalgebra : (Fix ExprF -> ExprF (Fix ExprF)) -> ExprF (Fix ExprF) -> ExprF (Fix ExprF)
+fuseCoalgebra ψ = ψ . embed
+
+injectCoalgebra : forall g . g :≺: ExprF => (Fix ExprF -> g (Fix ExprF)) -> Fix ExprF -> ExprF (Fix ExprF)
+injectCoalgebra ψ = project . Fix.inject . ψ
 
 fapf' : (a -> Key)
       -> (Key -> Fix ExprF)
@@ -91,14 +106,14 @@ prodIdentity (MulF (Fix.project -> Some (Ring.OneF)) x) = x
 prodIdentity (MulF x (Fix.project -> Some (Ring.OneF))) = x
 prodIdentity other = inject other
 
-ringDistr : RingF (Fix ExprF) -> Fix ExprF
-ringDistr (MulF (Fix.project -> Some (AddF x y)) c) = c * x + c * y
-ringDistr (MulF c (Fix.project -> Some (AddF x y))) = c * x + c * y
-ringDistr other = inject other
+ringDistr : Fix ExprF -> ExprF (Fix ExprF)
+ringDistr (Fix.project -> Some (MulF c (Fix.project -> Some (AddF x y)))) = project $ c * x + c * y
+ringDistr (Fix.project -> Some (MulF (Fix.project -> Some (AddF x y)) c)) = project $ c * x + c * y
+ringDistr other = project other
 
-expDistr : Random.VariableF (Fix ExprF) -> Fix ExprF
-expDistr (ExpectationF (Fix.project -> Some (AddF x y))) = _E x + _E y
-expDistr other = inject other
+expDistr : Fix ExprF -> ExprF (Fix ExprF)
+expDistr (Fix.project -> Some (ExpectationF (Fix.project -> Some (AddF x y)))) = project $ _E x + _E y
+expDistr other = project other
 
 rv : Observation t Decimal -> Fix ExprF
 rv (DecimalConst x) = point x
