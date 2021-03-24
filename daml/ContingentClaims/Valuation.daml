@@ -4,27 +4,34 @@ module ContingentClaims.Valuation where
 
 import ContingentClaims.Claim (Claim(..), ClaimF(..))
 import ContingentClaims.Claim qualified as Claim
-import ContingentClaims.Math.Random (_E)
-import ContingentClaims.Math.Random qualified as Random (VariableF(..))
+import ContingentClaims.Math.Random (_E, VariableF(..))
+import ContingentClaims.Math.Random qualified as Random (VariableF)
 import ContingentClaims.Math.Ring
 import ContingentClaims.Math.Ring qualified as Ring (RingF(OneF, ZeroF), negate, zero)
 import ContingentClaims.Math.Indicator
 import ContingentClaims.MathML.XML
 import ContingentClaims.MathML.Presentation
 import ContingentClaims.Observation (Observation(..), Key)
-import ContingentClaims.Math.ADTaLaCarte
+import ContingentClaims.Math.ADTaLaCarte hiding (project)
 import ContingentClaims.Math.ADTaLaCarte qualified as Fix (project)
-import Daml.Control.Recursion (Fix(..),Recursive(..))
+import Daml.Control.Recursion
+import Daml.Control.Recursion qualified as R (project)
 import Daml.Data.Functor.Const (Const(..))
 import ContingentClaims.Math.Lit
-import DA.Map (insert)
+import DA.Map (Map, insert)
+import Daml.Control.Monad.Reader
+import DA.Optional (fromSome)
+import DA.Traversable (sequence)
 
-import Prelude hiding ((-),(+),(*), elem)
+import Prelude hiding ((-),(+),(*), elem, sequence)
 
 type ExprF = Random.VariableF :+: ConstF :+: IndicatorF :+: VarF :+: RingF
 
-instance Functor f => Recursive (Fix f) f where
+instance Recursive (Fix ExprF) ExprF where
   project = unfix
+
+instance Corecursive (Fix ExprF) ExprF where
+  embed = Fix
 
 -- Fundamental Asset Pricing Formula
 fapf : (a -> Key)
@@ -33,8 +40,11 @@ fapf : (a -> Key)
      -> Fix ExprF
 fapf render env
   = _E 
-  . cata (\expr -> optional (Fix expr) prodIdempotency (Fix.project (Fix expr)))
-  . cata (fapf' render env)
+  . cata (removePlusZero . reduceMultByZero)
+  . cata claimsToFormula
+  where claimsToFormula = fapf' render env
+        reduceMultByZero = injectAlgebra prodIdempotency
+        removePlusZero = fuseAlgebra addIdentity
 
 {- TODO: it's really annoying that we can't fuse these ^^ operations. This is
 because 'fapf', in the `OrF` production, generates a subtree of multiple nodes,
@@ -42,9 +52,18 @@ with an `AddF` at the root. Any algebra composed with this will only look at
 the top level node, so e.g. we can't reduce multiplication by zero, because `MulF`
 is one more level down. Perhaps this should be co-recursive instead? -}
 
+solve : Fix ExprF -> Fix ExprF
+solve = cata (distributeExpectation . distributeAddition)
+  where distributeAddition = injectAlgebra ringDistr
+        distributeExpectation = fuseAlgebra expDistr
+
+-- Helper function to inject a specific algebra e.g. RingF into a ExprF-algebra.
+injectAlgebra : forall g . g :≺: ExprF => (g (Fix ExprF) -> Fix ExprF) -> ExprF (Fix ExprF) -> Fix ExprF
+injectAlgebra φ f = fuseAlgebra φ (embed f)
+
 -- Helper function to allow composing algebras; this allows folding in a single pass
-fuse : forall g . g :≺: ExprF => (g (Fix ExprF) -> Fix ExprF) -> Fix ExprF -> Fix ExprF 
-fuse ff f = optional f ff (Fix.project f)
+fuseAlgebra : forall g . g :≺: ExprF => (g (Fix ExprF) -> Fix ExprF) -> Fix ExprF -> Fix ExprF 
+fuseAlgebra φ f = optional f φ (Fix.project f)
 
 fapf' : (a -> Key)
       -> (Key -> Fix ExprF)
@@ -72,6 +91,15 @@ prodIdentity (MulF (Fix.project -> Some (Ring.OneF)) x) = x
 prodIdentity (MulF x (Fix.project -> Some (Ring.OneF))) = x
 prodIdentity other = inject other
 
+ringDistr : RingF (Fix ExprF) -> Fix ExprF
+ringDistr (MulF (Fix.project -> Some (AddF x y)) c) = c * x + c * y
+ringDistr (MulF c (Fix.project -> Some (AddF x y))) = c * x + c * y
+ringDistr other = inject other
+
+expDistr : Random.VariableF (Fix ExprF) -> Fix ExprF
+expDistr (ExpectationF (Fix.project -> Some (AddF x y))) = _E x + _E y
+expDistr other = inject other
+
 rv : Observation t Decimal -> Fix ExprF
 rv (DecimalConst x) = point x
 rv (DecimalObs key) = point key
@@ -88,8 +116,8 @@ rv (DateLte (lhs, rhs)) = error "rv: undefined DateLte"
 rv (DateEqu (lhs, rhs)) = error "rv: undefined DateEqu"
 
 instance ToXML f => ToXML (Random.VariableF f) where
-  toXML (Random.DistributionF x) = mo "N" <> bracket "(" ")" (toXML x)
-  toXML (Random.ExpectationF x) = _E <> bracket "[" "]" p
+  toXML (DistributionF x) = mo "N" <> bracket "(" ")" (toXML x)
+  toXML (ExpectationF x) = _E <> bracket "[" "]" p
     where _E = elem "mo" "E" $ insert "mathvariant" "double-struck" mempty
           p = toXML x
 

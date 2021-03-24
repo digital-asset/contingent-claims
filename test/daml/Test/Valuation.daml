@@ -5,7 +5,7 @@ import ContingentClaims.Claim
 import ContingentClaims.FinancialClaim
 import ContingentClaims.Observable qualified as O
 import ContingentClaims.Observation (observe)
-import ContingentClaims.Valuation (ExprF, fapf)
+import ContingentClaims.Valuation (ExprF, fapf, solve)
 import ContingentClaims.Math.Ring
 import ContingentClaims.Math.Processes (randomWalk)
 import ContingentClaims.Math.Ring qualified as Ring
@@ -29,11 +29,11 @@ valueEuropeanCall = script do
   let k : Decimal = 123.0
       r : Decimal = 0.03
       t : Date = date 2021 Mar 15
-      call = european t (Scale (observe "VOD.L" O.+ (O.-) (O.pure k)) (One "GBP"))
+      call = european t (Scale (observe "TSLA" O.+ (O.-) (O.pure k)) (One "GBP"))
       env : Text -> Fix ExprF
-      env "VOD.L" = 
+      env "TSLA" = 
         let r = randomWalk "θ" "μ" "S"
         in r.dt + r.dX
       formula = fapf identity env call 
-  MathML.math formula === "<math/>"
-  formula === Ring.one
+  MathML.math (solve formula) === "<math/>"
+  solve formula === Ring.one
