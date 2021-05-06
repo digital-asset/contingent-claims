@@ -28,7 +28,7 @@ at t = O.time O.== (O.pure t)
 forward : Observable f t => t -> f t Decimal -> Claim f t a -> Claim f t a
 forward maturity r payoff = when (at maturity) $ scale r payoff
 
--- | Forward rate agreement. 
+-- | Forward rate agreement.
 fra : Observable f t => t -> t -> f t Decimal -> f t Decimal -> Claim f t a -> Claim f t a
 fra t₁ t₂ r₀ r₁ = forward t₁ r₀ . forward t₂ r₁
 
@@ -39,7 +39,7 @@ zcb maturity principal ccy = forward maturity (O.pure principal) (one ccy)
 -- | A floating rate bond. The first two arguments are @Observables@.
 floating : Observable f t => f t Decimal -> f t Decimal -> ccy -> [t] -> Claim f t ccy
 floating principal coupon asset = apo \case
-     [maturity] -> Left (forward maturity coupon (one asset)) `AndF` 
+     [maturity] -> Left (forward maturity coupon (one asset)) `AndF`
                    Left (forward maturity principal (one asset))
      (t :: ts) -> Left (forward t coupon (one asset)) `AndF` Right ts
      [] -> ZeroF
@@ -62,7 +62,7 @@ bermudan u = apo \case
   (t :: ts) -> Left (european t u) `OrF` Right ts
   [] -> ZeroF
 
--- | Asset swap on specific fixing dates @ts@. 
+-- | Asset swap on specific fixing dates @ts@.
 -- | The owner has the rights of the first claim and the obligations of the second.
 swap : forall f t a . ([t] -> Claim f t a) -> ([t] -> Claim f t a) -> [t] -> Claim f t a
 swap receive pay ts = receive ts `and` give (pay ts)

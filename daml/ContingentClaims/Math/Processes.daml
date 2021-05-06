@@ -1,0 +1,25 @@
+{-# LANGUAGE TypeOperators #-}
+
+module ContingentClaims.Math.Processes where
+
+import ContingentClaims.Math.Ring
+import ContingentClaims.Math.Ring qualified as R ((-))
+import Daml.Control.Recursion (Fix(..))
+import ContingentClaims.Math.ADTaLaCarte
+import ContingentClaims.Math.Lit
+import Prelude hiding ((*),(+),(-))
+
+type ExprF = VarF :+: ConstF :+: RingF
+
+-- A process S of the form S(t) = S₀ exp[ a t + b X], where X is a diffusion process.
+data AffineProcessF f = AffineProcessF { dt : Fix f, dX : Fix f }
+
+randomWalk : forall f . (RingF :≺: f, ConstF :≺: f, VarF :≺: f) => 
+             Text -> Text -> Text -> AffineProcessF f
+randomWalk μ' σ' _S' = AffineProcessF { dt = μ * _S, dX = σ * _S }
+  where [μ, σ, _S] = point <$> [μ', σ', _S']
+
+vasicek :  forall f . (RingF :≺: f, ConstF :≺: f, VarF :≺: f) => 
+           Text -> Text -> Text -> Text -> AffineProcessF f
+vasicek ν' μ' σ' _S' = AffineProcessF { dt = ν R.- μ * _S, dX = σ }
+  where [ν, μ, σ, _S] = point <$> [ν', μ', σ', _S']

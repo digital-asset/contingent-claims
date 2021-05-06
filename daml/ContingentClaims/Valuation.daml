@@ -1,0 +1,169 @@
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+module ContingentClaims.Valuation where
+
+import ContingentClaims.Claim (Claim(..), ClaimF(..))
+import ContingentClaims.Claim qualified as Claim
+import ContingentClaims.Math.Random (_E, VariableF(..))
+import ContingentClaims.Math.Random qualified as Random (VariableF)
+import ContingentClaims.Math.Ring
+import ContingentClaims.Math.Ring qualified as Ring (RingF(OneF, ZeroF), negate, zero)
+import ContingentClaims.Math.Indicator
+import ContingentClaims.MathML.XML
+import ContingentClaims.MathML.Presentation
+import ContingentClaims.Observation (Observation(..), Key)
+import ContingentClaims.Math.ADTaLaCarte hiding (project)
+import ContingentClaims.Math.ADTaLaCarte qualified as Fix (project, inject)
+import Daml.Control.Recursion
+import Daml.Control.Recursion qualified as R (project)
+import Daml.Data.Functor.Const (Const(..))
+import ContingentClaims.Math.Lit
+import DA.Map (Map, insert)
+import Daml.Control.Monad.Reader
+import Daml.Data.Functor.Contravariant (contramap)
+import DA.Optional (fromSome)
+import DA.Traversable (sequence)
+
+import Prelude hiding ((-),(+),(*), elem, sequence)
+
+type ExprF = Random.VariableF :+: ConstF :+: IndicatorF :+: VarF :+: RingF
+
+instance Recursive (Fix ExprF) ExprF where
+  project = unfix
+
+instance Corecursive (Fix ExprF) ExprF where
+  embed = Fix
+
+-- Fundamental Asset Pricing Formula
+fapf : (a -> Key)
+     -> (Key -> Fix ExprF)
+     -> Claim Observation t a
+     -> Fix ExprF
+fapf render env
+  = _E
+  . cata (removePlusZero . reduceMultByZero)
+  . cata claimsToFormula
+  where claimsToFormula = fapf' render env
+        reduceMultByZero = injectAlgebra prodIdempotency
+        removePlusZero = fuseAlgebra addIdentity
+
+{- TODO: it's really annoying that we can't fuse these ^^ operations. This is
+because 'fapf', in the `OrF` production, generates a subtree of multiple nodes,
+with an `AddF` at the root. Any algebra composed with this will only look at
+the top level node, so e.g. we can't reduce multiplication by zero, because `MulF`
+is one more level down. Perhaps this should be co-recursive instead? -}
+
+solve : Fix ExprF -> Fix ExprF
+solve = ana (expDistr) . cata (injectAlgebra factorNeg) . cata (injectAlgebra ringDistr)
+
+{- TODO: again, supremely annoying that if we try and fuse the operations, then
+we are not getting the same result. I don't know why this is, and it requires
+some more investigation. -}
+
+{- cata (distributeExpectation . distributeAddition)
+  where distributeAddition = injectAlgebra ringDistr
+        distributeExpectation = fuseAlgebra expDistr
+-}
+
+-- Helper function to inject a specific algebra e.g. RingF into a ExprF-algebra.
+injectAlgebra : forall g . g :≺: ExprF => (g (Fix ExprF) -> Fix ExprF) -> ExprF (Fix ExprF) -> Fix ExprF
+injectAlgebra φ f = fuseAlgebra φ (embed f)
+
+-- Helper function to allow composing algebras; this allows folding in a single pass
+fuseAlgebra : forall g . g :≺: ExprF => (g (Fix ExprF) -> Fix ExprF) -> Fix ExprF -> Fix ExprF 
+fuseAlgebra φ f = optional f φ (Fix.project f)
+
+{- TODO: this fails with overlapping instances error, although as far as I can see it shouldn't.
+fuseCoalgebra : forall g . g :≺: ExprF => (Fix ExprF -> g (Fix ExprF)) -> ExprF (Fix ExprF) -> ExprF (Fix ExprF)
+fuseCoalgebra ψ = project . Fix.inject . ψ . embed
+-}
+
+fuseCoalgebra : (Fix ExprF -> ExprF (Fix ExprF)) -> ExprF (Fix ExprF) -> ExprF (Fix ExprF)
+fuseCoalgebra ψ = ψ . embed
+
+injectCoalgebra : forall g . g :≺: ExprF => (Fix ExprF -> g (Fix ExprF)) -> Fix ExprF -> ExprF (Fix ExprF)
+injectCoalgebra ψ = project . Fix.inject . ψ
+
+fapf' : (a -> Key)
+      -> (Key -> Fix ExprF)
+      -> ClaimF Observation t a (Fix ExprF)
+      -> Fix ExprF
+fapf' _ _ (OrF c c') = max c c' where
+  max a b = a * indicator a b + b * indicator b a
+fapf' _ _ (WhenF (DateEqu (DateIdentity, DateConst t)) c) = c -- FIXME, somehow 'bind' t
+fapf' _ _ (ScaleF obs c) = rv obs * c
+fapf' render _ (Claim.OneF asset) = point (render asset)
+fapf' _ _ Claim.ZeroF = Ring.zero
+
+prodIdempotency : RingF (Fix ExprF) -> Fix ExprF
+prodIdempotency (MulF (Fix.project -> Some (Ring.ZeroF)) _) = zero
+prodIdempotency (MulF _ (Fix.project -> Some (Ring.ZeroF))) = zero
+prodIdempotency other = inject other
+
+addIdentity : RingF (Fix ExprF) -> Fix ExprF
+addIdentity (AddF (Fix.project -> Some (Ring.ZeroF)) x) = x
+addIdentity (AddF x (Fix.project -> Some (Ring.ZeroF))) = x
+addIdentity other = inject other
+
+prodIdentity : RingF (Fix ExprF) -> Fix ExprF
+prodIdentity (MulF (Fix.project -> Some (Ring.OneF)) x) = x
+prodIdentity (MulF x (Fix.project -> Some (Ring.OneF))) = x
+prodIdentity other = inject other
+
+ringDistr : RingF (Fix ExprF) -> Fix ExprF
+ringDistr (MulF (Fix.project -> Some (AddF x y)) c) = x * c + y * c
+ringDistr (MulF c (Fix.project -> Some (AddF x y))) = c * x + c * y
+ringDistr other = inject other
+
+expDistr : Fix ExprF -> ExprF (Fix ExprF)
+expDistr (Fix.project -> Some (ExpectationF (Fix.project -> Some (AddF x y)))) =
+  project $ _E x + _E y
+expDistr other = project other
+
+factorNeg : RingF (Fix ExprF) -> Fix ExprF
+factorNeg (MulF (Fix.project -> Some (NegF x)) (Fix.project -> Some (NegF y))) = inject $ MulF x y
+factorNeg (MulF (Fix.project -> Some (NegF x)) y) = inject $ NegF (inject $ MulF x y)
+factorNeg (MulF x (Fix.project -> Some (NegF y))) = inject $ NegF (inject $ MulF x y)
+factorNeg other = inject other
+
+rv : Observation t Decimal -> Fix ExprF
+rv (DecimalConst x) = point x
+rv (DecimalObs key) = point key
+rv (DecimalLte (lhs, rhs)) = error "rv: undefined DecimalLte case"
+rv (DecimalEqu (lhs, rhs)) = error "rv: undefined DecimalEqu case"
+rv (DecimalAdd (lhs, rhs)) = rv lhs + rv rhs
+rv (DecimalNeg (lhs)) = Ring.negate (rv lhs)
+rv (DecimalMul (lhs, rhs)) = rv lhs * rv rhs
+rv (DecimalDiv (lhs, rhs)) = error "rv: undefined DecimalDiv case"
+rv (BoolConst b) = error "rv: undefined BoolConst"
+rv (DateIdentity) = error "rv: undefined DateIdentity"
+rv (DateConst t) = error "rv: undefined DateConst"
+rv (DateLte (lhs, rhs)) = error "rv: undefined DateLte"
+rv (DateEqu (lhs, rhs)) = error "rv: undefined DateEqu"
+
+instance ToXML f => ToXML (Random.VariableF f) where
+  toXML (DistributionF x) = mo "N" <> bracket "(" ")" (toXML x)
+  toXML (ExpectationF x) = _E <> bracket "[" "]" p
+    where _E = elem "mo" "E" $ insert "mathvariant" "double-struck" mempty
+          p = toXML x
+
+instance (ToXML (Fix f), RingF :≺: f)  => ToXML (RingF (Fix f)) where
+  toXML Ring.ZeroF = mn "0"
+  toXML Ring.OneF = mn "1"
+  toXML (AddF x (Fix.project -> Some (NegF y))) = toXML x <> mo "-" <> toXML y
+  toXML (AddF x positiveY) = toXML x <> mo "+" <> toXML positiveY
+  toXML (NegF x) = mo "-" <> toXML x
+  toXML (MulF x y) = maybeBracket x <> mo "×" <> maybeBracket y
+    where maybeBracket z@(Fix.project -> Some (AddF _ _)) = bracket "(" ")" (toXML z)
+          maybeBracket z = toXML z
+
+instance ToXML (Const Text x) where
+  toXML (Const s) = mi s
+
+instance ToXML (Const Decimal x) where
+  toXML (Const d) = mn . show $ d
+
+instance ToXML f => ToXML (IndicatorF f) where
+  toXML (IndicatorF x y) = msub $ _1 <> subscript
+    where _1 = elem "mo" "1" $ insert "mathvariant" "double-struck" mempty
+          subscript = mrow $ toXML x <> mo "<" <> toXML y

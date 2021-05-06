@@ -1,0 +1,30 @@
+{-# LANGUAGE TypeOperators #-}
+
+module ContingentClaims.MathML.XML where
+
+import ContingentClaims.Math.ADTaLaCarte ((:+:)(..))
+import DA.Map (Map, toList, null)
+import DA.Text (intercalate)
+import Prelude hiding (null, elem)
+
+type Attrs = Map Text Text
+type XML = Text
+
+class ToXML a where
+  toXML: a -> XML
+
+instance ToXML Text where
+  toXML = identity
+
+instance (ToXML (f p), ToXML (g p)) => ToXML ((:+:) f g p) where
+  toXML (Inl fp) = toXML fp
+  toXML (Inr gp) = toXML gp
+
+elem : ToXML a => Text -> a -> Attrs -> XML
+elem name content attrs = "<" <> name <> as <> ">" <> toXML content <> "</" <> name <> ">"
+  where as = if null attrs 
+               then "" 
+               else (<>) " " . intercalate ";" . fmap (\(k,v) -> k <> "=" <> v) . toList $ attrs
+
+elem_ : ToXML a => Text -> a -> XML
+elem_ name content = elem name content mempty 

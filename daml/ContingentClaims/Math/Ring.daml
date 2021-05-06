@@ -1,0 +1,36 @@
+{-# LANGUAGE TypeOperators #-}
+
+module ContingentClaims.Math.Ring where
+
+import Daml.Control.Recursion (Fix(..))
+import ContingentClaims.Math.ADTaLaCarte
+
+data RingF f 
+  = ZeroF
+  | OneF 
+  | AddF { lhs : f, rhs : f }
+  | NegF f
+  | MulF { lhs : f, rhs : f }
+  deriving (Show, Eq, Functor)
+
+infixl 6 +
+infixl 6 -
+infixl 7 *
+
+(+) : forall f . RingF :≺: f => Fix f -> Fix f -> Fix f
+x + y = inject (AddF x y)
+
+(*) : forall f . RingF :≺: f => Fix f -> Fix f -> Fix f
+x * y = inject (MulF x y)
+
+negate : forall f . RingF :≺: f => Fix f -> Fix f
+negate x = inject (NegF x)
+
+(-) : forall f . RingF :≺: f => Fix f -> Fix f -> Fix f
+x - y = inject (AddF x (inject $ NegF y))
+
+one : forall f . RingF :≺: f => Fix f
+one = inject OneF
+
+zero : forall f . RingF :≺: f => Fix f
+zero = inject ZeroF

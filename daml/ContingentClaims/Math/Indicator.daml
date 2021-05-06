@@ -1,0 +1,11 @@
+{-# LANGUAGE TypeOperators #-}
+
+module ContingentClaims.Math.Indicator where
+
+import Daml.Control.Recursion (Fix(..))
+import ContingentClaims.Math.ADTaLaCarte
+
+data IndicatorF f = IndicatorF { lhs : f, rhs : f} deriving (Eq, Show, Functor)
+
+indicator : forall f . IndicatorF :≺: f => Fix f -> Fix f -> Fix f
+indicator a b = inject (IndicatorF a b)

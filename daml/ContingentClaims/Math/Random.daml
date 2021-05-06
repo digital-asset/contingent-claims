@@ -1,0 +1,55 @@
+{-# LANGUAGE TypeOperators #-}
+
+module ContingentClaims.Math.Random where
+
+import Daml.Control.Monad.Reader (Reader)
+import Daml.Control.Recursion (Fix(..))
+import ContingentClaims.Math.ADTaLaCarte
+import DA.Math
+
+type Real = Decimal
+
+data Gaussian = Gaussian { mean : Real, stdev : Real }
+
+type Process t θ = Reader t θ
+
+class Distribution x where
+  probability : x -> Real -> Real
+  -- ^ The probability distribution function
+  distribution : x -> Real -> Real
+  -- ^ The cumulative distribution function
+  expectation : x -> Real
+  -- ^ The first moment
+  variance : x -> Real
+  -- ^ The second moment
+
+instance Distribution Gaussian where
+  probability Gaussian{mean=μ, stdev=σ} x = 
+    1.0 / (σ * (2.0 * pi) ** 0.5) * exp( - 0.5 * ((x - μ) / σ) ** 2.0 )
+  distribution Gaussian{mean=μ, stdev=σ} x = cumulativeStdNormal ((x - μ) / σ)
+  expectation Gaussian{mean=μ} = μ
+  variance Gaussian{stdev=σ} = σ ** 2.0
+
+cumulativeStdNormal : Decimal -> Decimal
+cumulativeStdNormal x =
+  -- ^ This is an approximation from p. 465, Haug 2007. TODO: replace with something more accurate
+  if x >= 0.0
+    then 1.0 - n x * (a₁ * k + a₂ * k ** 2.0 + a₃ * k ** 3.0)
+    else cumulativeStdNormal (- x)
+  where
+    k = 1.0 / (1.0 + 0.33267 * x)
+    a₁ = 0.4361836
+    a₂ = - 0.1201676
+    a₃ = 0.9372980
+    n x = (2.0 * pi) ** (-0.5) * exp(- x ** 2.0 / 2.0)
+
+data VariableF x
+ = DistributionF x
+ | ExpectationF x
+ deriving (Eq, Show, Functor)
+
+cdf : forall f . VariableF :≺: f => Fix f -> Fix f
+cdf = inject . DistributionF
+
+_E : forall f . VariableF :≺: f => Fix f -> Fix f
+_E = inject . ExpectationF

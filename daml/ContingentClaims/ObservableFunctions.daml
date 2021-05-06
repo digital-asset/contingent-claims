@@ -16,7 +16,7 @@ import ContingentClaims.Observable
 
 -- Default instances for applicative functors
 
-instance forall f t . Category f => TimeF f t where 
+instance forall f t . Category f => TimeF f t where
   time = id
 
 instance forall f t a . Applicative (f t) => PointF f t a where
