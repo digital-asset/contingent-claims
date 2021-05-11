@@ -109,7 +109,7 @@ workflows:
           filters:
             branches:
               only:
-                - master
+                - fix-blackduck-ci
     jobs:
       - daml_test:
           daml_sdk_version: "1.12.0"
