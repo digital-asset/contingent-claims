@@ -114,29 +114,30 @@ isBearerExecutor = cata \case
 
 -- | Converts a `Serialized.Claim` read from ledger, to a more general `Claim`, for use with `Daml.Control.Recursion`.
 deserialize : Serialized.Claim t a -> Claim Observation t a
-deserialize = ana \case
+deserialize = futu \case
   Serialized.Zero -> ZeroF
   Serialized.One a -> OneF a
-  Serialized.Give c -> GiveF c
-  Serialized.And c c' -> AndF c c'
-  Serialized.Or c c' -> OrF c c'
-  Serialized.Cond k c c' -> CondF k c c'
-  Serialized.Scale k c -> ScaleF k c
-  Serialized.When p c -> WhenF p c
+  Serialized.Give c -> GiveF . Pure $ c
+  Serialized.And (c :: c' :: cs) -> DA.Foldable.foldr (\c f -> AndF (Pure c) (Impure f)) (AndF (Pure c) (Pure c')) cs
+  Serialized.And oneOrNil -> error "deserialize: Malformed `And` (should have at least two elements)"
+  Serialized.Or c c' -> OrF (Pure c) (Pure c')
+  Serialized.Cond k c c' -> CondF k (Pure c) (Pure c')
+  Serialized.Scale k c -> ScaleF k (Pure c)
+  Serialized.When p c -> WhenF p (Pure c)
 --  Serialized.Anytime p c -> AnytimeF p c
 --  Serialized.Until p c -> UntilF p c
 
 -- | Converts a `Claim` into a `Serializable.Claim`, so it can be written to the ledger.
 serialize : Claim Observation t a -> Serialized.Claim t a
-serialize = ana \case
-  Zero -> Serialized.ZeroF
-  One a -> Serialized.OneF a
-  Give c -> Serialized.GiveF c
-  And c c' -> Serialized.AndF c c'
-  Or c c' -> Serialized.OrF c c'
-  Cond k c c' -> Serialized.CondF k c c'
-  Scale k c -> Serialized.ScaleF k c
-  When p c -> Serialized.WhenF p c
+serialize = cata \case
+  ZeroF -> Serialized.Zero
+  OneF a -> Serialized.One a
+  GiveF c -> Serialized.Give c
+  AndF c c' -> Serialized.And [c, c']
+  OrF c c' -> Serialized.Or c c'
+  CondF k c c' -> Serialized.Cond k c c'
+  ScaleF k c -> Serialized.Scale k c
+  WhenF p c -> Serialized.When p c
 --  Anytime p c -> Serialized.AnytimeF p c
 --  Until p c -> Serialized.UntilF p c
 
