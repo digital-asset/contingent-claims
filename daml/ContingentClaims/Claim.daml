@@ -129,15 +129,16 @@ deserialize = futu \case
 
 -- | Converts a `Claim` into a `Serializable.Claim`, so it can be written to the ledger.
 serialize : Claim Observation t a -> Serialized.Claim t a
-serialize = cata \case
+serialize = histo \case
   ZeroF -> Serialized.Zero
   OneF a -> Serialized.One a
-  GiveF c -> Serialized.Give c
-  AndF c c' -> Serialized.And [c, c']
-  OrF c c' -> Serialized.Or c c'
-  CondF k c c' -> Serialized.Cond k c c'
-  ScaleF k c -> Serialized.Scale k c
-  WhenF p c -> Serialized.When p c
+  GiveF c -> Serialized.Give c.attribute
+  AndF c (Cofree (Serialized.And cs) _) -> Serialized.And $ c.attribute :: cs
+  AndF c c' -> Serialized.And [c.attribute, c'.attribute]
+  OrF c c' -> Serialized.Or c.attribute c'.attribute
+  CondF k c c' -> Serialized.Cond k c.attribute c'.attribute
+  ScaleF k c -> Serialized.Scale k c.attribute
+  WhenF p c -> Serialized.When p c.attribute
 --  Anytime p c -> Serialized.AnytimeF p c
 --  Until p c -> Serialized.UntilF p c
 
