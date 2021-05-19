@@ -22,7 +22,8 @@ data Claim t a
   | Give (Claim t a)
       -- ^ The obligations of the bearer and issuer are revesed.
   | And with claims : [Claim t a]
-      -- ^ Used to combine multiple rights together.
+      -- ^ Used to combine multiple rights together. 
+      --   __Note__ This serialized version flattens right-associative `And`s to mitigate language recursion limits.
   | Or with lhs: Claim t a, rhs: Claim t a 
       -- ^ Gives the bearer the right to choose between two claims.
   | Cond with predicate: Observation t Bool, success: Claim t a, failure: Claim t a 
