@@ -89,14 +89,14 @@ instance O.RingF Observation t Decimal where
 expiry : Observation t Bool -> Optional t
 expiry (DateLte (DateIdentity, o)) = expiryDt o
 expiry (DateEqu (DateIdentity, o)) = expiryDt o
-expiry o = error "Error in  expression structure"
+expiry o = error "Error in expression structure"
 
 -- Helper function
 expiryDt (DateLte (DateIdentity, o)) = expiryDt o
 expiryDt (DateEqu (DateIdentity, o)) = expiryDt o
 expiryDt DateIdentity = None
 expiryDt (DateConst t) = Some t
-expiryDt _ = error "Error in  expression structure"
+expiryDt _ = error "Error in expression structure"
 
 class Interpret t a where
   eval : Monad m => (Key -> t -> m Decimal) -> Observation t a -> Kleisli m t a
