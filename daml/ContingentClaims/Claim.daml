@@ -117,6 +117,7 @@ deserialize : Serialized.Claim t a -> Claim Observation t a
 deserialize = ana deserialize' 
 
 -- | F-algebra for `deserialize`; it can be composed in unfolds.
+deserialize' : Serialized.Claim t a -> ClaimF Observation t a (Serialized.Claim t a)
 deserialize' Serialized.Zero = ZeroF
 deserialize' (Serialized.One a) = OneF a
 deserialize' (Serialized.Give c) = GiveF c
@@ -135,6 +136,7 @@ serialize : Claim Observation t a -> Serialized.Claim t a
 serialize = histo serialize'
 
 -- | F-coalgebra for `serialize`; it can be composed with other folds.
+serialize' : ClaimF Observation t a (Cofree (ClaimF Observation t a) (Serialized.Claim t a)) -> Serialized.Claim t a 
 serialize' ZeroF = Serialized.Zero
 serialize' (OneF a) = Serialized.One a
 serialize' (GiveF c) = Serialized.Give c.attribute
