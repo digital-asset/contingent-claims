@@ -72,3 +72,14 @@ lifecycling = script do
      Lifecycle.lifecycle spot chooseLeft weirdNote (date 2021 Mar 9)
   remaining === Zero
   pending === pure (1.0, a)
+
+  -- For github issue #10
+  let outerScale : C = Scale (O.pure 2.0) $ When (at $ date 2021 Mar 9) (One a)
+  Lifecycle.Result{remaining, pending} <-
+    Lifecycle.lifecycle spot chooseLeft outerScale (date 1970 Jan 1)
+  remaining === outerScale
+  pending === mempty
+  Lifecycle.Result{remaining, pending} <-
+    Lifecycle.lifecycle spot chooseLeft outerScale (date 2021 Mar 9)
+  remaining === Zero
+  pending === pure (2.0, a)
