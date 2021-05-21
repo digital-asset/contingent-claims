@@ -1,0 +1,142 @@
+--
+-- Copyright (c) 2021, Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+--
+
+module Test.Perf.PerformanceTesting where
+
+import Prelude hiding (length)
+import Daml.Script
+import DA.Date (date, Month(..), addDays)
+import DA.Time (time)
+import DA.Foldable (forA_)
+import DA.Text (length)
+import ContingentClaims.Claim
+import ContingentClaims.FinancialClaim
+import ContingentClaims.Claim.Serializable qualified as S
+import ContingentClaims.Lifecycle qualified as Lifecycle
+import ContingentClaims.Observable qualified as O
+import ContingentClaims.Observation qualified as O
+import Test.Currency
+
+-- To run the tests with the profile output from the root of the test/ directory:
+-- 1/ Start the Sandbox in one terminal session :
+--  daml sandbox -s .daml/dist/contingent-claims-test-0.0.1.dar --profile-dir .profile-results
+-- 2/ Run the test script in another terminal session
+--  daml script -s --dar .daml/dist/contingent-claims-test-0.0.1.dar --script-name Test.Perf.PerformanceTesting:<Function_Name_here> --ledger-host localhost --ledger-port 6865 --input-file daml/Test/Perf/InputParms.json
+-- 3/ Goto https://www.speedscope.app/ in your favourite browser, and select the appropiate json file in the .profile-results/ directory that you wish to view the results of.
+
+data InputParams = InputParams with
+    numberOfContracts : Int
+    numberOfClaims : Int
+
+init : InputParams -> Script Party
+init InputParams{..} = do
+  assertMsg "numberOfContracts must be 1 or more" (numberOfContracts > 0)
+  assertMsg "numberOfClaims must be 1 or more" (numberOfClaims > 0)
+
+  setTime $ time (date 2020 Dec 9) 13 20 30
+  case partyFromText "Buyer" of
+    Some p -> pure p
+    None -> allocatePartyWithHint "Buyer" (PartyIdHint "Buyer")
+
+-- Tests creating contracts with attached claims via the API
+createClaimsViaApi : InputParams -> Script ()
+createClaimsViaApi params@InputParams{..} = do
+  buyer <- init params
+
+  let mkContract = submit buyer . createCmd . FinancialContract buyer buyer [] . serialize
+      startDate = date 2021 Jun 1
+      dates = [addDays startDate x | x <- [0..numberOfClaims - 1]]
+      contractCount = [1..numberOfContracts]
+
+  forA_ contractCount \_ -> mkContract $ fixed 100.0 4.0 (Left GBP) dates
+
+  pure ()
+
+createClaimsViaChoice : InputParams -> Script ()
+createClaimsViaChoice params@InputParams{..} = do
+  buyer <- init params
+  cid <- buyer `submit` createCmd $ FinancialContractProducer buyer buyer
+
+  buyer `submit` exerciseCmd cid $ Create_FinancialContracts buyer numberOfContracts numberOfClaims
+  pure ()
+
+deriving instance Show (Claim O.Observation Date Asset)
+
+claimCounter counter (And _ a@(And _ _)) = claimCounter (counter + 2) a
+claimCounter counter (And _ Zero) = counter + 2
+claimCounter counter (Give g@(Give _)) = claimCounter (counter + 1) g
+claimCounter counter (Give Zero) = counter + 1
+claimCounter counter _ = error "undefined"
+
+createSimpleClaims : InputParams -> Script ()
+createSimpleClaims params@InputParams{..} = do
+  buyer <- init params
+
+  let mkContract = submit buyer . createCmd . FinancialContract buyer buyer [] . serialize
+      contractCount = [1..numberOfContracts]
+      claims = foldr (\x -> And Zero) (And Zero Zero) [1..numberOfClaims]
+      -- claims = foldr (const Give) (Give Zero) [1..numberOfClaims]
+
+  debug $ "Contract count: " <> show numberOfContracts
+  debug $ "Claim length: " <> show (length $ show claims)
+  debug $ "Claim recursion level: " <> show (claimCounter 0 claims)
+  debug $ "Claim: " <> show claims
+
+  -- cids <- forA contractCount \_ -> mkContract $ Zero
+  -- cids <- forA contractCount \_ -> mkContract $ One (Right "My ISIN")
+  -- cids <- forA contractCount \_ -> mkContract $ Give (One (Right "My ISIN"))
+  -- cids <- forA contractCount \_ -> mkContract $ When (at $ date 2021 Jun 1) $ Give (One (Right "My ISIN"))
+  -- cids <- forA contractCount \_ -> mkContract $ When (at $ date 2021 Jun 1) $ Scale (O.pure 2.0) (One (Right "My ISIN"))
+  -- cids <- forA contractCount \_ -> mkContract $ When (at $ date 2021 Jun 1) $ Scale (O.observe "My ISIN" O.+ O.pure 5.0) (One (Right "My ISIN"))
+  -- cids <- forA contractCount \_ -> mkContract $ When (at $ date 2021 Jun 1) $ Cond (O.BoolConst False) (One (Left USD)) (One (Right "My ISIN"))
+  -- cids <- forA contractCount \_ -> mkContract $ When (at $ date 2021 Jun 1) $ (One (Left USD)) `Or` (One (Right "My ISIN"))
+  cids <- forA contractCount \_ -> mkContract claims
+
+  forA_ cids \cid -> buyer `submit` exerciseCmd cid $ Lifecycle_FinancialContract buyer
+  pure ()
+
+type ISIN = Text
+type Asset = Either Currency ISIN
+
+template FinancialContract
+  with
+    bearer: Party
+    counterparty: Party
+    remaining: [(Decimal, Asset)]
+    claims: S.Claim Date Asset
+  where
+    signatory bearer, counterparty
+
+    choice Lifecycle_FinancialContract : ContractId FinancialContract
+      with
+        caller : Party
+      controller caller
+        do
+          let spot _ _ = pure (2.0 : Decimal)
+              claims'  = deserialize claims
+
+          Lifecycle.Result{remaining, pending} <- Lifecycle.lifecycle spot const claims' (date 2021 Jun 1)
+          create this with remaining = pending; claims = serialize remaining
+
+template FinancialContractProducer
+  with
+    bearer: Party
+    counterparty: Party
+  where
+    signatory bearer, counterparty
+
+
+    choice Create_FinancialContracts : [ContractId FinancialContract]
+      with
+        caller : Party
+        numberOfContracts : Int
+        numberOfClaims : Int
+     controller caller
+      do
+        let mkContract claims' = create FinancialContract with bearer = caller; counterparty = caller; remaining = []; claims = serialize claims'
+            startDate          = date 2021 Jun 1
+            dates              = [addDays startDate x | x <- [0..numberOfClaims - 1]]
+
+        forA [1..numberOfContracts] \_ -> mkContract $ fixed 100.0 4.0 (Left GBP) dates
