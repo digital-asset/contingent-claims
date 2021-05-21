@@ -32,6 +32,9 @@ data Observation t a
   | DecimalMul (Observation t Decimal, Observation t Decimal)
   | DecimalDiv (Observation t Decimal, Observation t Decimal)
   | BoolConst Bool
+  | BoolNot (Observation t Bool)
+  | BoolAnd (Observation t Bool, Observation t Bool)
+  | BoolOr (Observation t Bool, Observation t Bool)
   | DateIdentity
   | DateConst t
   | DateLte (Observation t t, Observation t t)
@@ -76,6 +79,11 @@ instance O.InequalityF Observation t Decimal where
   (<=) = curry DecimalLte
   (==) = curry DecimalEqu
 
+instance O.LogicF Observation t Bool where
+  not  = BoolNot
+  (&&) = curry BoolAnd
+  (||) = curry BoolOr
+
 instance O.RingF Observation t Decimal where
   zero = DecimalConst 0.0
   one = DecimalConst 1.0
@@ -103,6 +111,9 @@ class Interpret t a where
 
 instance Ord t => Interpret t Bool where
   eval _ (BoolConst b) = pure b
+  eval spot (BoolNot b) = not <$> eval spot b
+  eval spot (BoolAnd (b, b')) = liftA2 (&&) (eval spot b) (eval spot b')
+  eval spot (BoolOr (b, b')) = liftA2 (||) (eval spot b) (eval spot b')
   eval spot (DecimalLte (d, d')) = liftA2 (<=) (eval spot d) (eval spot d')
   eval spot (DecimalEqu (d, d')) = liftA2 (==) (eval spot d) (eval spot d')
   eval spot (DateLte (d, d')) = liftA2 (<=) (eval spot d) (eval spot d')
