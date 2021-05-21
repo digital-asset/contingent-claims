@@ -13,7 +13,7 @@ import Daml.Control.Recursion
 import DA.Date (date, Month)
 
 -- | Helper function to generate a series of fixing dates, e.g. for coupon payments in `fixed`.
--- This assumes `fixingMonths` and `fixingDates` are ordered. 
+-- This assumes `fixingMonths` and `fixingDates` are ordered.
 -- The [finance lib](https://github.com/digital-asset/lib-finance) has more feature-complete date handling functions.
 unrollDates : Int -> Int -> [Month] -> Int -> [Date]
 unrollDates issueYear maturityYear fixingMonths fixingDay =
@@ -29,7 +29,7 @@ at t = O.time O.== (O.pure t)
 forward : Observable f t => t -> f t Decimal -> Claim f t a -> Claim f t a
 forward maturity r payoff = when (at maturity) $ scale r payoff
 
--- | Forward rate agreement. 
+-- | Forward rate agreement.
 fra : Observable f t => t -> t -> f t Decimal -> f t Decimal -> Claim f t a -> Claim f t a
 fra t₁ t₂ r₀ r₁ = forward t₁ r₀ . forward t₂ r₁
 
@@ -68,7 +68,7 @@ bermudan u = apo \case
 
 -- | Asset swap on specific fixing dates `[t]`. For example:
 -- ```
--- fixedUsdVsFloatingEur : [t] -> Serializable.Claim Text 
+-- fixedUsdVsFloatingEur : [t] -> Serializable.Claim Text
 -- fixedUsdVsFloatingEur = fixed 100.0 0.02 "USD" `swap` floating (observe "USDEUR" * pure 100.0) (observe "EUR1M") "EUR"
 -- ```
 swap : forall f t a . ([t] -> Claim f t a) -> ([t] -> Claim f t a) -> [t] -> Claim f t a

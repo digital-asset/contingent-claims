@@ -42,10 +42,10 @@ data Result a = Result with
 -- 3. A set of `Claim`s.
 -- 4. A function which, given a date, lifecycles the third argument.
 lifecycle : (Eq a, CanAbort m)
-  => (Text -> Date -> m Decimal) 
-  -> (C a -> C a -> C a) 
-  -> C a 
-  -> Date -> m (Result a) 
+  => (Text -> Date -> m Decimal)
+  -> (C a -> C a -> C a)
+  -> C a
+  -> Date -> m (Result a)
 lifecycle spot choose
   = runKleisli
   . fmap (uncurry Result)
