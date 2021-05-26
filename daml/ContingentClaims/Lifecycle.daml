@@ -51,25 +51,9 @@ lifecycle spot choose
   . fmap (uncurry Result)
   . flip evalStateT 1.0
   . runWriterT
-  . apoCataM (pruneZeros') (lifecycle' spot choose) -- (fmap (pruneZeros' . project) . (lifecycle' spot choose))
+  . apoCataM (pruneZeros') (lifecycle' spot choose)
 
 type Seed m a = WriterT [(Decimal, a)] (StateT Decimal (Kleisli m Date)) (F a (Either (C a) (C a)))
-
--- TODO: these three should probably go in their respective modules
-
-instance (Monoid w, CanAbort m) => CanAbort (WriterT w m) where
-  abort = lift . abort
-
-{-
-instance CanAbort m => CanAbort (ReaderT s m) where
-  abort = lift . abort
--}
-
-instance CanAbort m => CanAbort (StateT s m) where
-  abort = lift . abort
-
-instance CanAbort m => CanAbort (Kleisli m a) where -- because of the order of parameters it's not possible to write a MonadTrans instance for Kleisli.
-  abort = Kleisli . const . abort
 
 lifecycle' : (Eq a, Monad m, CanAbort m)
   => (Text -> Date -> m Decimal)
