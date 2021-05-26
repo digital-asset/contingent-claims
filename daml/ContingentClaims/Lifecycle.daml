@@ -14,8 +14,7 @@ module ContingentClaims.Lifecycle (
 
 import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..))
 import ContingentClaims.Observation (Observation, eval)
-import ContingentClaims.Util (apoCataM)
-import Daml.Control.Recursion (embed)
+import ContingentClaims.Util (apoCataM, pruneZeros')
 import Daml.Control.Monad.Writer (WriterT, runWriterT)
 import Daml.Control.Monad.State (StateT(..), evalStateT)
 import Daml.Control.Monad.MonadWriter (MonadWriter(..))
@@ -84,13 +83,3 @@ lifecycle' _ _ (And c c') = pure $ AndF (Right c) (Right c')
 lifecycle' spot choose (Cond obs c c') = do
   predicate <- lift . lift $ eval spot obs
   if predicate then lifecycle' spot choose c else lifecycle' spot choose c'
-
--- | Prunes sub-trees which are `Zero` a.s.
-pruneZeros' : F a (C a) -> C a
-pruneZeros' (ScaleF _ Zero) = Zero
-pruneZeros' (GiveF Zero) = Zero
-pruneZeros' (AndF Zero Zero) = Zero
-pruneZeros' (AndF Zero c) = c
-pruneZeros' (AndF c Zero) = c
-pruneZeros' (WhenF _ Zero) = Zero
-pruneZeros' other = embed other

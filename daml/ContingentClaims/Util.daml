@@ -19,6 +19,8 @@ module ContingentClaims.Util (
   , subTreeSize'
   , fixings
   , fixings'
+  , pruneZeros
+  , pruneZeros'
 ) where
 
 import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..))
@@ -99,3 +101,17 @@ fixings = cata fixings'
 fixings' : ClaimF Observation Date a [Date] -> [Date]
 fixings' (WhenF p ts) = O.fixings p ++ ts
 fixings' claim = fold claim
+
+pruneZeros : Claim f t a -> Claim f t a
+pruneZeros = cata pruneZeros'
+
+-- | Prunes sub-trees which are `Zero` a.s.
+pruneZeros' : ClaimF f t a (Claim f t a) -> Claim f t a
+pruneZeros' (ScaleF _ Zero) = Zero
+pruneZeros' (GiveF Zero) = Zero
+pruneZeros' (AndF Zero c) = c
+pruneZeros' (AndF c Zero) = c
+pruneZeros' (WhenF _ Zero) = Zero
+pruneZeros' (CondF _ Zero Zero) = Zero
+pruneZeros' (OrF Zero Zero) = Zero
+pruneZeros' other = embed other
