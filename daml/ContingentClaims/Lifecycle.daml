@@ -15,16 +15,14 @@ module ContingentClaims.Lifecycle (
 import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..))
 import ContingentClaims.Observation (Observation, eval)
 import ContingentClaims.Util (apoCataM)
-import Daml.Control.Recursion (apo, project, embed)
+import Daml.Control.Recursion (embed)
 import Daml.Control.Monad.Writer (WriterT, runWriterT)
 import Daml.Control.Monad.State (StateT(..), evalStateT)
-import Daml.Control.Monad.MonadReader (MonadReader(..))
 import Daml.Control.Monad.MonadWriter (MonadWriter(..))
 import Daml.Control.Monad.MonadState (MonadState(..), modify)
 import Daml.Control.Monad.Trans
 import Daml.Control.Arrow (Kleisli(..))
 import Prelude hiding (sequence, mapA)
-import DA.Functor (($>),(<&>))
 
 type C a = Claim Observation Date a
 type F a = ClaimF Observation Date a
@@ -93,15 +91,15 @@ lifecycle' spot _ (Scale obs c) = do
   k <- lift . lift $ eval spot obs
   modify (* k) 
   pure $ ScaleF obs (Right c)
-lifecycle' _ choose (Or c c') =
+lifecycle' spot choose (Or c c') = do
   let chosen = choose c c'
-  in if | chosen == c -> pure $ Right <$> project c
-        | chosen == c' -> pure $ Right <$> project c'
-        | otherwise -> abort "lifecycle: Invalid branch election"
+  if | chosen == c -> lifecycle' spot choose c --TODO: should we abort with nested choices?
+     | chosen == c' -> lifecycle' spot choose c'
+     | otherwise -> abort "lifecycle: Invalid branch election"
 lifecycle' _ _ (And c c') = pure $ AndF (Right c) (Right c')
-lifecycle' spot _ (Cond obs c c') = do
+lifecycle' spot choose (Cond obs c c') = do
   predicate <- lift . lift $ eval spot obs
-  pure if predicate then Right <$> project c else Right <$> project c'
+  if predicate then lifecycle' spot choose c else lifecycle' spot choose c'
 
 -- | Prunes sub-trees which are `Zero` a.s.
 pruneZeros' : F a (C a) -> C a
