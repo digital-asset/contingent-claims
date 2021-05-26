@@ -14,7 +14,8 @@ module ContingentClaims.Lifecycle (
 
 import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..))
 import ContingentClaims.Observation (Observation, eval)
-import Daml.Control.Recursion (para, project, embed)
+import ContingentClaims.Util (apoCataM)
+import Daml.Control.Recursion (apo, project, embed)
 import Daml.Control.Monad.Writer (WriterT, runWriterT)
 import Daml.Control.Monad.Reader (ReaderT(..), runReaderT)
 import Daml.Control.Monad.MonadReader (MonadReader(..))
@@ -22,7 +23,7 @@ import Daml.Control.Monad.MonadWriter (MonadWriter(..))
 import Daml.Control.Monad.Trans
 import Daml.Control.Arrow (Kleisli(..))
 import Prelude hiding (sequence, mapA)
-import DA.Functor (($>))
+import DA.Functor (($>),(<&>))
 
 type C a = Claim Observation Date a
 type F a = ClaimF Observation Date a
@@ -51,9 +52,9 @@ lifecycle spot choose
   . fmap (uncurry Result)
   . flip runReaderT 1.0
   . runWriterT
-  . para (fmap (pruneZeros' . project) . (lifecycle' spot choose))
+  . apoCataM (pruneZeros') (lifecycle' spot choose) -- (fmap (pruneZeros' . project) . (lifecycle' spot choose))
 
-type Seed m a = WriterT [(Decimal, a)] (ReaderT Decimal (Kleisli m Date)) (C a)
+type Seed m a = WriterT [(Decimal, a)] (ReaderT Decimal (Kleisli m Date)) (F a (Either (C a) (C a)))
 
 -- TODO: these three should probably go in their respective modules
 
@@ -69,29 +70,29 @@ instance CanAbort m => CanAbort (Kleisli m a) where -- because of the order of p
 lifecycle' : (Eq a, Monad m, CanAbort m)
   => (Text -> Date -> m Decimal)
   -> (C a -> C a -> C a)
-  -> F a (C a, Seed m a) -> Seed m a
+  -> C a -> Seed m a
 
-lifecycle' _ _ ZeroF = pure Zero
-lifecycle' _ _ (OneF id) = do
+lifecycle' _ _ Zero = pure ZeroF
+lifecycle' _ _ (One id) = do
   qty <- ask
   tell [(qty, id)]
-  pure $ One id
-lifecycle' _ _ (GiveF (_, m)) = local negate m
-lifecycle' spot _ (WhenF obs (c, m)) = do
+  pure ZeroF 
+lifecycle' _ _ (Give c) = local negate (pure . GiveF . Right $ c)
+lifecycle' spot _ (When obs c) = do
   predicate <- lift . lift $ eval spot obs
-  if predicate then m $> Zero else pure $ When obs c
-lifecycle' spot _ (ScaleF obs (_, m)) = do
+  pure if predicate then Right <$> WhenF obs c else Left <$> WhenF obs c
+lifecycle' spot _ (Scale obs c) = do
   k <- lift . lift $ eval spot obs
-  Scale obs <$> local (* k) m
-lifecycle' _ choose (OrF (c, m) (c', m')) = do
+  local (* k) (pure . ScaleF obs $ Right c)
+lifecycle' _ choose (Or c c') =
   let chosen = choose c c'
-  if | chosen == c -> m
-     | chosen == c' -> m'
-     | otherwise -> abort "lifecycle: Invalid branch election"
-lifecycle' _ _ (AndF (_, m) (_, m')) = And <$> m <*> m'
-lifecycle' spot _ (CondF obs (_, m) (_, m')) = do
+  in if | chosen == c -> pure $ Right <$> project c
+        | chosen == c' -> pure $ Right <$> project c'
+        | otherwise -> abort "lifecycle: Invalid branch election"
+lifecycle' _ _ (And c c') = pure $ AndF (Right c) (Right c')
+lifecycle' spot _ (Cond obs c c') = do
   predicate <- lift . lift $ eval spot obs
-  if predicate then m else m'
+  pure if predicate then Left <$> project c else Left <$> project c'
 
 -- | Prunes sub-trees which are `Zero` a.s.
 pruneZeros' : F a (C a) -> C a
@@ -100,4 +101,5 @@ pruneZeros' (GiveF Zero) = Zero
 pruneZeros' (AndF Zero Zero) = Zero
 pruneZeros' (AndF Zero c) = c
 pruneZeros' (AndF c Zero) = c
+pruneZeros' (WhenF _ Zero) = Zero
 pruneZeros' other = embed other
