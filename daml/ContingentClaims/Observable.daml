@@ -19,7 +19,8 @@ type Observable f t = (TimeF f t,
   PointF f t Decimal,
   RingF f t Decimal,
   InequalityF f t Decimal,
-  InequalityF f t t)
+  InequalityF f t t,
+  LogicF f t Bool)
 
 class TimeF f t where
   time : f t t
@@ -41,7 +42,7 @@ class InequalityF f t a where
   (<=) : f t a -> f t a -> f t Bool
   (==) : f t a -> f t a -> f t Bool
 
-{-
-class LogicF f where
-  (&&) : f Bool -> f Bool -> f Bool
--}
+class LogicF f t a where
+  not : f t a -> f t Bool
+  (&&) : f t a -> f t a -> f t Bool
+  (||) : f t a -> f t a -> f t Bool

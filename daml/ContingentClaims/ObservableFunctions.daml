@@ -16,7 +16,7 @@ import ContingentClaims.Observable
 
 -- Default instances for applicative functors
 
-instance forall f t . Category f => TimeF f t where 
+instance forall f t . Category f => TimeF f t where
   time = id
 
 instance forall f t a . Applicative (f t) => PointF f t a where
@@ -33,8 +33,3 @@ instance forall f t a . (Additive a, Multiplicative a, Divisible a, Applicative 
 instance forall f t a . (Ord a, Applicative (f t)) => InequalityF f t a where
   (<=) = liftA2 (Prelude.<=)
   (==) = liftA2 (Prelude.==)
-
-{-
-instance forall f t . (Applicative (f t)) => LogicF (f t) where
-  (&&) = liftA2 (Prelude.&&)
--}
