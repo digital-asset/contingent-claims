@@ -8,7 +8,9 @@
 module ContingentClaims.Lifecycle (
     settle
   , settle'
+  , lazily'
   , Result(..)
+  , distM
 ) where
 
 import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..))
@@ -76,7 +78,7 @@ lazily' spot (When obs c) = do
   pure if predicate then WhenF obs (Right c) else WhenF obs (Left c)
 lazily' spot (Cond obs c c') = do
   predicate <- eval spot obs
-  if predicate then lazily' spot c else lazily' spot c'
+  pure if predicate then CondF obs (Right c) (Left c') else CondF obs (Left c) (Right c')
 lazily' _ other = pure $ Right <$> project other
 
 -- | Collects all `One` leaves replacing them with `Zero`s (to avoid double-spend).
