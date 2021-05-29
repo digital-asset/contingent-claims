@@ -42,9 +42,8 @@ cataM f b = (project >>> fmap (cataM f) >>> (>>= f) . sequence) b
 paraM : (Monad m, Traversable f, Recursive b f) => (f (b, a) -> m a) -> b -> m a
 paraM f b = (project >>> fmap (runKleisli $ Kleisli pure &&& Kleisli (paraM f)) >>> (>>= f) . sequence) b
 
--- FIXME : I think the algebra should be a -> m (f a)
-anaM : (Monad m, Traversable f, Corecursive b f) => (a -> f (m a)) -> a -> m b
-anaM f a = (fmap embed <<< mapA (>>= anaM f) <<< f) a
+anaM : (Monad m, Traversable f, Corecursive b f) => (a -> m (f a)) -> a -> m b
+anaM f a = (fmap embed <<< (>>= mapA (anaM f)) <<< f) a
 
 apoM : (Monad m, Traversable f, Corecursive b f) => (a -> m (f (Either b a))) -> a -> m b
 apoM f a = (fmap embed <<< (>>= (mapA (pure ||| apoM f))) <<< f) a
