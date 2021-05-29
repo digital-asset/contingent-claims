@@ -3,24 +3,26 @@
 -- SPDX-License-Identifier: Apache-2.0
 --
 
-{-# LANGUAGE MultiWayIf #-}
 {-# OPTIONS -Wno-deprecations #-} -- To supress 'Monad' warnings
 
 module ContingentClaims.Lifecycle (
-    lifecycle
-  , lifecycle'
+    settle
+  , settle'
   , Result(..)
 ) where
 
 import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..))
 import ContingentClaims.Observation (Observation, eval)
 import ContingentClaims.Util (apoCataM, pruneZeros')
+import Daml.Control.Recursion (project, embed)
 import Daml.Control.Monad.Writer (WriterT, runWriterT)
 import Daml.Control.Monad.State (StateT(..), evalStateT)
 import Daml.Control.Monad.MonadWriter (MonadWriter(..))
 import Daml.Control.Monad.MonadState (MonadState(..), modify)
 import Daml.Control.Monad.Trans
 import Daml.Control.Arrow (Kleisli(..))
+import DA.Action ((>=>))
+import DA.Traversable (sequence)
 import Prelude hiding (sequence, mapA)
 
 type C a = Claim Observation Date a
@@ -28,58 +30,93 @@ type F a = ClaimF Observation Date a
 
 deriving instance Eq a => Eq (C a)
 
--- | Returned from a lifecycle operation.
+-- | Returned from a `settle` operation.
 data Result a = Result with
   remaining : C a
     -- ^ the tree after lifecycled branches have been pruned.
   pending : [(Decimal, a)]
     -- ^ quantity/asset pairs requiring settlement.
 
--- | Lifecycle a Claim. Parameters:
--- 1. Function taking key and date, used to lookup an observable on the ledger. `m` will typically be `Update`. It is parametrised so it can be run in a `Script`.
--- 2. Function used when branching in an `Or`. Must return one of the arguments.
--- 3. A set of `Claim`s.
--- 4. A function which, given a date, lifecycles the third argument.
-lifecycle : (Eq a, CanAbort m)
+-- | Collect claims falling due into a list, and return the tree with those nodes pruned.
+-- `m` will typically be `Update`. It is parametrised so it can be run in a `Script`.
+-- The first argument is used to lookup the value of any `Observables`.
+-- Results in a function taking today's date, and returning the pruned tree + pending settlements.
+settle : (Eq a, CanAbort m)
   => (Text -> Date -> m Decimal)
-  -> (C a -> C a -> C a)
   -> C a
   -> Date -> m (Result a)
-lifecycle spot choose
+settle spot
   = runKleisli
   . fmap (uncurry Result)
   . flip evalStateT 1.0
   . runWriterT
-  . apoCataM (pruneZeros') (lifecycle' spot choose)
+  . apoCataM pruneZeros' settleLazily'
+    where
+      settleLazily' = (lift . lift <$> lazily' spot)
+                      >=> (fmap distM (fmap (settle' spot . embed)) . sequence)
 
-type Seed m a = WriterT [(Decimal, a)] (StateT Decimal (Kleisli m Date)) (F a (Either (C a) (C a)))
+-- | HIDE The monad stack we're using.
+type M m a = WriterT [(Decimal, a)] (StateT Decimal (Kleisli m Date)) (F a (Either (C a) (C a)))
+--           \----------------------- monad ------------------------/  \-------- value --------/
 
-lifecycle' : (Eq a, Monad m, CanAbort m)
+-- | HIDE Helper function for sequencing algebras.
+distM : Monad m
+      => Either (C a) (WriterT [(Decimal, a)] (StateT Decimal (Kleisli m Date)) (F a (C a)))
+      -> M m a
+distM (Left c) = pure (Left <$> (project c))
+distM (Right m) = fmap Right <$> m
+
+-- | Evaluate observables and skip branches for which predicates don't hold.
+-- This is useless onl it's own. Composed with other functions it adds laziness.
+lazily' : (Eq a, Monad m)
   => (Text -> Date -> m Decimal)
-  -> (C a -> C a -> C a)
-  -> C a -> Seed m a
+  -> C a -> Kleisli m Date (F a (Either (C a) (C a)))
+lazily' spot (When obs c) = do
+  predicate <- eval spot obs
+  pure if predicate then WhenF obs (Right c) else WhenF obs (Left c)
+lazily' spot (Cond obs c c') = do
+  predicate <- eval spot obs
+  if predicate then lazily' spot c else lazily' spot c'
+lazily' _ other = pure $ Right <$> project other
 
-lifecycle' _ _ Zero = pure ZeroF
-lifecycle' _ _ (One id) = do
+-- | Collects all `One` leaves replacing them with `Zero`s (to avoid double-spend).
+-- Calculates the product of any `Scale` factors between each `One` and the root node, logging these to the writer.
+-- This function **ignores** conditions; it traverses the entire tree.
+settle' : CanAbort m => (Text -> Date -> m Decimal) -> C a -> WriterT [(Decimal, a)] (StateT Decimal (Kleisli m Date)) (F a (C a))
+settle' _ (One asset) = do
   qty <- get
-  tell [(qty, id)]
-  pure ZeroF -- replace lifecycled node with zero, to avoid double-spend.
-lifecycle' _ _ (Give c) = do
-  modify negate 
-  pure $ GiveF (Right c)
-lifecycle' spot _ (When obs c) = do
-  predicate <- lift . lift $ eval spot obs
-  pure $ if predicate then WhenF obs (Right c) else WhenF obs (Left c)
-lifecycle' spot _ (Scale obs c) = do
+  tell [(qty, asset)]
+  pure ZeroF
+settle' _ (Give c) = do
+  modify negate
+  pure $ GiveF c
+settle' spot (Scale obs c) = do
   k <- lift . lift $ eval spot obs
-  modify (* k) 
-  pure $ ScaleF obs (Right c)
-lifecycle' spot choose (Or c c') = do
-  let chosen = choose c c'
-  if | chosen == c -> lifecycle' spot choose c --TODO: should we abort with nested choices?
-     | chosen == c' -> lifecycle' spot choose c'
-     | otherwise -> abort "lifecycle: Invalid branch election"
-lifecycle' _ _ (And c c') = pure $ AndF (Right c) (Right c')
-lifecycle' spot choose (Cond obs c c') = do
-  predicate <- lift . lift $ eval spot obs
-  if predicate then lifecycle' spot choose c else lifecycle' spot choose c'
+  modify (* k)
+  pure $ ScaleF obs c
+settle' _ (Or c c') = abort "settle: unexercised `Or`. Exercise it and then retry. "
+settle' _ other = pure $ project other
+
+-- | Used to make an election on `Or` or exercise an `Anytime`.
+--  `import` this `qualified`, to avoid clashes with `Prelude.exercise`.
+exercise : (Text -> Date -> m Decimal) -> C a -> C a -> Date -> C a
+exercise = undefined
+
+-- | Coalgebra for `exercise`.
+exercise' : Eq a => C a -> C a -> F a (C a)
+exercise' chosen (Or c _) | chosen == c = project c
+exercise' chosen (Or _ c) | chosen == c = project c
+exercise' chosen (Anytime _ c) | chosen == c = project c
+exercise' _ other = project other
+
+-- | Replace any subtress that have expired with `Zero`s.
+expire : Monad m => (Text -> Date -> m Decimal) -> C a -> m (C a)
+expire spot = apoCataM pruneZeros' undefined
+
+-- | Coalgebra for `expire`.
+expire' : Monad m => (Text -> Date -> m Decimal) -> C a -> Kleisli m Date (F a (C a))
+expire' spot (Until obs c) = do
+  predicate <- eval spot obs
+  if predicate then pure ZeroF else pure $ UntilF obs c
+expire' _ (One _) = pure ZeroF
+expire' _ other = pure . project $ other
