@@ -13,6 +13,8 @@ module ContingentClaims.Util (
   , anaM
   , apoM
   , apoCataM
+  , hyloM
+  , ghyloM
   , funzip
   , synthesize
   , inherit
@@ -29,6 +31,7 @@ import ContingentClaims.Observation qualified as O
 import DA.Foldable (Foldable, sum, fold)
 import Daml.Control.Arrow ((&&&), (|||), (>>>), (<<<), Kleisli(..))
 import Daml.Control.Recursion
+import Daml.Control.Comonad
 import Prelude hiding (sum, sequence, mapA)
 import DA.Traversable (Traversable, sequence, mapA)
 
@@ -50,10 +53,30 @@ apoM f a = (fmap embed <<< (>>= (mapA (pure ||| apoM f))) <<< f) a
 
 -- | Specialised lazy re-fold, used by `lifecycle`.
 apoCataM : (Monad m, Traversable f, Corecursive b f) => (f b -> b) -> (a -> m (f (Either b a))) -> a -> m b
-apoCataM g f a = _apoCataM g f a 
+apoCataM f g a = _apoCataM f g a
 
 -- | HIDE
-_apoCataM g f a = (fmap g <<< (>>= (mapA (pure ||| apoCataM g f))) <<< f) a
+_apoCataM f g a = (fmap f <<< (>>= (mapA (pure ||| apoCataM f g))) <<< g) a
+
+-- A modified `hylo` (refold), whith an interleaved monad effect (typically `Update`).
+hyloM : (Traversable f, Monad m) => (f b -> b) -> (a -> m (f a)) -> a -> m b
+hyloM f g a = _hyloM f g a
+
+-- | HIDE
+_hyloM : (Traversable f, Monad m) => (f b -> b) -> (a -> m (f a)) -> a -> m b
+_hyloM f g a = (fmap f <<< (>>= mapA (_hyloM f g))  <<< g) a
+
+ghyloM : (Comonad w, Traversable f, Monad m, Monad n)
+       => (forall c . f (w c) -> w (f c))
+       -> (forall d . m (n (f d)) -> n (f (m d)))
+       -- -> (forall d . m (f d) -> f (m d))
+       -> (f (w b) -> b)
+       -> (a -> n (f (m a)))
+       -> a
+       -> n b
+ghyloM w m f g a = (fmap f <<< (>>= mapA (hyloM φ ψ)) <<< g) a where
+  ψ  = fmap g >>> m >>> fmap (fmap join)
+  φ  = fmap f <<< w <<< fmap duplicate
 
 -- Functor unzip
 funzip : Functor f => f (a, b) -> (f a, f b)
