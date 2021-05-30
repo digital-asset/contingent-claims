@@ -18,9 +18,7 @@ import ContingentClaims.Observation (Observation, eval)
 import ContingentClaims.Util (apoCataM, pruneZeros')
 import Daml.Control.Recursion (project, embed)
 import Daml.Control.Monad.Writer (WriterT, runWriterT)
-import Daml.Control.Monad.State (StateT(..), evalStateT)
 import Daml.Control.Monad.MonadWriter (MonadWriter(..))
-import Daml.Control.Monad.MonadState (MonadState(..), modify)
 import Daml.Control.Monad.Trans
 import Daml.Control.Arrow (Kleisli(..))
 import DA.Action ((>=>))
@@ -50,20 +48,19 @@ settle : (Eq a, CanAbort m)
 settle spot
   = runKleisli
   . fmap (uncurry Result)
-  . flip evalStateT 1.0
   . runWriterT
   . apoCataM pruneZeros' settleLazily'
     where
-      settleLazily' = (lift . lift <$> acquire' spot)
+      settleLazily' = (lift <$> acquire' spot)
                       >=> (fmap distM (fmap (settle' spot . embed)) . sequence)
 
 -- | HIDE The monad stack we're using.
-type M m a = WriterT [(Decimal, a)] (StateT Decimal (Kleisli m Date)) (F a (Either (C a) (C a)))
+type M m a = WriterT [(Decimal, a)] (Kleisli m Date) (F a (Either (C a) (C a)))
 --           \----------------------- monad ------------------------/  \-------- value --------/
 
 -- | HIDE Helper function for sequencing algebras.
 distM : Monad m
-      => Either (C a) (WriterT [(Decimal, a)] (StateT Decimal (Kleisli m Date)) (F a (C a)))
+      => Either (C a) (WriterT [(Decimal, a)] (Kleisli m Date) (F a (C a)))
       -> M m a
 distM (Left c) = pure (Left <$> (project c))
 distM (Right m) = fmap Right <$> m
@@ -84,20 +81,19 @@ acquire' _ other = pure $ Right <$> project other
 -- | Collects all `One` leaves replacing them with `Zero`s (to avoid double-spend).
 -- Calculates the product of any `Scale` factors between each `One` and the root node, logging these to the writer.
 -- This function **ignores** conditions; it traverses the entire tree.
-settle' : CanAbort m => (Text -> Date -> m Decimal) -> C a -> WriterT [(Decimal, a)] (StateT Decimal (Kleisli m Date)) (F a (C a))
-settle' _ (One asset) = do
-  qty <- get
+settle' : CanAbort m 
+        => (Text -> Date -> m Decimal) 
+        -> (Decimal, C a) -> WriterT [(Decimal, a)] (Kleisli m Date) (F a (Decimal, C a))
+settle' _ (qty, One asset) = do
   tell [(qty, asset)]
   pure ZeroF
-settle' _ (Give c) = do
-  modify negate
-  pure $ GiveF c
-settle' spot (Scale obs c) = do
-  k <- lift . lift $ eval spot obs
-  modify (* k)
-  pure $ ScaleF obs c
-settle' _ (Or c c') = abort "settle: unexercised `Or`. Exercise it and then retry. "
-settle' _ other = pure $ project other
+settle' _ (qty, Give c) = do
+  pure $ GiveF (-qty, c)
+settle' spot (qty, Scale obs c) = do
+  k <- lift $ eval spot obs
+  pure $ ScaleF obs (k * qty, c)
+settle' _ (_, Or _ _) = abort "settle: unexercised `Or`. Exercise it and then retry. "
+settle' _ (qty, other) = pure $ (qty, ) <$> project other
 
 -- | Used to make an election on `Or` or exercise an `Anytime`.
 --  `import` this `qualified`, to avoid clashes with `Prelude.exercise`.

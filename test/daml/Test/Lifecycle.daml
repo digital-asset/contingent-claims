@@ -16,6 +16,7 @@ import ContingentClaims.Observation qualified as O
 import ContingentClaims.Lifecycle qualified as Lifecycle
 import ContingentClaims.Util
 import ContingentClaims.FinancialClaim (at)
+import Daml.Control.Monad.Writer (runWriterT)
 import DA.Assert ((===))
 import Daml.Control.Arrow (runKleisli)
 import DA.Date (date, Month(..), addDays)
@@ -34,17 +35,16 @@ deriving instance Show (F (Cofree F Int))
 deriving instance Eq (F (Cofree F Int))
 
 [a,b,c] = ["a","b","c"]
+today = date 1970 Jan 1
+tomorrow = today `addDays` 1
+two : O.Observation Date Decimal = O.pure 2.0
+observe25: Text -> Date -> Script Decimal = const . const . pure $ 25.0
 
 -- This test replaces leaves (i.e. One/Zero) with `One "processed"` if they were reached
 testAcquire = script do
-  let today = date 1970 Jan 1
-      tomorrow = today `addDays` 1
-      two : O.Observation Date Decimal = O.pure 2.0
-  
   let acquiredF asset = OneF $ "acquired " <> asset
       acquired asset : C = embed $ acquiredF asset
-      doObserve: Text -> Date -> Script Decimal = const . const . pure $ 0.0
-      f = runKleisli . apoM (Lifecycle.acquire' doObserve >=> process)
+      f = runKleisli . apoM (Lifecycle.acquire' observe25 >=> process)
           where process (OneF asset) = pure $ pure <$> acquiredF asset
                 process ZeroF = pure $ pure <$> acquiredF "0"
                 process otherF = pure otherF
@@ -73,3 +73,32 @@ testAcquire = script do
 
   res <- f (When (O.pure today O.<= O.time) (When (O.time O.== O.pure tomorrow) (One a)) ) tomorrow
   res === acquired a
+
+
+testSettle = script do
+  let f = runKleisli
+          . fmap (uncurry Lifecycle.Result)
+          . runWriterT
+          . anaM (Lifecycle.settle' observe25)
+          . (\claim -> (1.0, claim))
+
+  Lifecycle.Result{remaining, pending} <- f (Scale two Zero : C) today
+  remaining === Scale two Zero
+  pending === mempty
+  
+  Lifecycle.Result{remaining, pending} <- f (Scale two (One a)) today
+  remaining === Scale two Zero
+  pending === [(2.0, a)]
+
+  Lifecycle.Result{remaining, pending} <- f (Give (One a)) today
+  remaining === Give Zero
+  pending === [(-1.0 , a)]
+
+  Lifecycle.Result{remaining, pending} <- f (Scale two (One a `And` One b)) today
+  remaining === Scale two (Zero `And` Zero)
+  pending === [(2.0, a), (2.0, b)]
+
+  Lifecycle.Result{remaining, pending} <- f (Scale two (One a) `And` Scale two (One b)) today
+  remaining === (Scale two Zero `And` Scale two Zero)
+  pending === [(2.0, a), (2.0, b)]
+
