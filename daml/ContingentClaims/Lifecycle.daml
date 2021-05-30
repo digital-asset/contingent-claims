@@ -8,7 +8,7 @@
 module ContingentClaims.Lifecycle (
     settle
   , settle'
-  , lazily'
+  , acquire'
   , Result(..)
   , distM
 ) where
@@ -54,7 +54,7 @@ settle spot
   . runWriterT
   . apoCataM pruneZeros' settleLazily'
     where
-      settleLazily' = (lift . lift <$> lazily' spot)
+      settleLazily' = (lift . lift <$> acquire' spot)
                       >=> (fmap distM (fmap (settle' spot . embed)) . sequence)
 
 -- | HIDE The monad stack we're using.
@@ -69,17 +69,17 @@ distM (Left c) = pure (Left <$> (project c))
 distM (Right m) = fmap Right <$> m
 
 -- | Evaluate observables and skip branches for which predicates don't hold.
--- This is useless onl it's own. Composed with other functions it adds laziness.
-lazily' : (Eq a, Monad m)
+-- This is useless on its own. Composed with other functions it adds laziness.
+acquire' : (Eq a, Monad m)
   => (Text -> Date -> m Decimal)
   -> C a -> Kleisli m Date (F a (Either (C a) (C a)))
-lazily' spot (When obs c) = do
+acquire' spot (When obs c) = do
   predicate <- eval spot obs
-  pure if predicate then WhenF obs (Right c) else WhenF obs (Left c)
-lazily' spot (Cond obs c c') = do
+  if predicate then acquire' spot c else pure $ WhenF obs (Left c)
+acquire' spot (Cond obs c c') = do
   predicate <- eval spot obs
-  pure if predicate then CondF obs (Right c) (Left c') else CondF obs (Left c) (Right c')
-lazily' _ other = pure $ Right <$> project other
+  if predicate then acquire' spot c else acquire' spot c'
+acquire' _ other = pure $ Right <$> project other
 
 -- | Collects all `One` leaves replacing them with `Zero`s (to avoid double-spend).
 -- Calculates the product of any `Scale` factors between each `One` and the root node, logging these to the writer.

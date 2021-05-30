@@ -36,40 +36,40 @@ deriving instance Eq (F (Cofree F Int))
 [a,b,c] = ["a","b","c"]
 
 -- This test replaces leaves (i.e. One/Zero) with `One "processed"` if they were reached
-testLazy = script do
+testAcquire = script do
   let today = date 1970 Jan 1
       tomorrow = today `addDays` 1
       two : O.Observation Date Decimal = O.pure 2.0
   
-  let processedNodeF = OneF "processed"
-      processedNode : C = embed processedNodeF
+  let acquiredF asset = OneF $ "acquired " <> asset
+      acquired asset : C = embed $ acquiredF asset
       doObserve: Text -> Date -> Script Decimal = const . const . pure $ 0.0
-      f = runKleisli . apoM (Lifecycle.lazily' doObserve >=> process)
-          where process (OneF _) = pure $ pure <$> processedNodeF
-                process ZeroF = pure $ pure <$> processedNodeF
+      f = runKleisli . apoM (Lifecycle.acquire' doObserve >=> process)
+          where process (OneF asset) = pure $ pure <$> acquiredF asset
+                process ZeroF = pure $ pure <$> acquiredF "0"
                 process otherF = pure otherF
 
 
   res <- f (One a) today
-  res === processedNode
+  res === acquired a
 
   res <- f Zero tomorrow
-  res === processedNode
+  res === acquired "0"
 
   res <- f (When (at tomorrow) $ Scale two (One a)) today
   res === When (at tomorrow) (Scale two (One a))
 
   res <- f (When (at tomorrow) $ Scale two (One a)) tomorrow
-  res === When (at tomorrow) (Scale two processedNode)
+  res === Scale two (acquired a)
 
   res <- f (Cond (at tomorrow) (One a) (One b)) today
-  res === Cond (at tomorrow) (One a) processedNode
+  res === acquired b
 
   res <- f (Cond (at tomorrow) (One a) (One b)) tomorrow
-  res === Cond (at tomorrow) processedNode (One b)
+  res === acquired a
 
   res <- f (When (O.time O.== O.pure today) (When (O.time O.== O.pure tomorrow) (One a)) ) tomorrow
   res === (When (O.time O.== O.pure today) (When (O.time O.== O.pure tomorrow) (One a)) )
 
   res <- f (When (O.pure today O.<= O.time) (When (O.time O.== O.pure tomorrow) (One a)) ) tomorrow
-  res === (When (O.pure today O.<= O.time) (When (O.time O.== O.pure tomorrow) processedNode) )
+  res === acquired a
