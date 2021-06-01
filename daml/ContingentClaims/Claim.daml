@@ -9,7 +9,8 @@ import Prelude hiding (or, and)
 import Daml.Control.Recursion
 import ContingentClaims.Claim.Serializable qualified as Serialized
 import ContingentClaims.Observation (Observation)
-import qualified ContingentClaims.Observation as Observation (expiry)
+-- import qualified ContingentClaims.Observation as Observation (expiry)
+import ContingentClaims.Observable (Inequality)
 import DA.Set qualified as Set
 import DA.Foldable (Foldable(..))
 import DA.Traversable (Traversable(..))
@@ -22,31 +23,28 @@ type F = ClaimF
 -- | Used to model cashflows of instruments. 
 -- See [quickstart](../QUICKSTART.md) for detailed explanation.
 -- In Petyon-Jones' paper, this is called 'Contract'.
--- We renamed it to avoid ambiguity
--- * `f` is the effect, e.g. `(->)`
--- * `t` is time e.g. `Date`
--- * `a` is the asset
-data Claim f t a
+-- We renamed it to avoid ambiguity.
+-- * `f`, `t` and `x` correspond to the `Observable`, it's input and output, respectively.
+-- * `a` is the representation of an asset, e.g. a `Text` ISIN code.
+data Claim f t x a
   = Zero
       -- ^ Represents an absence of claims.
   | One a
       -- ^ The bearer acquires one unit of `a` *immediately*.
-  | Give (Claim f t a)
+  | Give (Claim f t x a)
       -- ^ The obligations of the bearer and issuer are revesed.
-  | And with lhs: Claim f t a, rhs: Claim f t a
+  | And with lhs: Claim f t x a, rhs: Claim f t x a
       -- ^ Used to combine multiple rights together.
-  | Or with lhs: Claim f t a, rhs: Claim f t a
+  | Or with lhs: Claim f t x a, rhs: Claim f t x a
       -- ^ Gives the bearer the right to choose between two claims.
-  | Cond with predicate: f t Bool, success: Claim f t a, failure: Claim f t a
+  | Cond with predicate: Inequality f t x, success: Claim f t x a, failure: Claim f t x a --TODO rename predicate -> `lte` or `inequality`
       -- ^ Gives the bearer the right to the first claim if `predicate` is true, else the second claim.
-  | Scale with k: f t Decimal, claim: Claim f t a
+  | Scale with k: f t x, claim: Claim f t x a
       -- ^ Multiplies the `claim` by `k` (which can be non-detrerministic).
-  | When with predicate: f t Bool, claim: Claim f t a
+  | When with predicate: Inequality f t x, claim: Claim f t x a
       -- ^ Defers the acquisition of `claim` until *the first instant* that `predicate` is true.
 
---  | Anytime with predicate: f t Bool, claim: Claim f t a
---  | Until with predicate: f t Bool, claim: Claim f t a
-
+{-
 -- | Return the upper time bound of the obligation; `None` if it cannot be determined.
 -- This is called `horizon` in the original paper.
 expiry : forall t a . Ord t => Claim Observation t a -> Optional t
@@ -61,9 +59,10 @@ expiry = cata \case
            WhenF p _ -> Observation.expiry p
 --           AnytimeF p _ -> Observation.expiry p
 --           UntilF p _ -> Observation.expiry p
+-}
 
 -- TODO: not sure these make sense
-executorOf : Party -> Party -> Claim f t a -> Set.Set Party
+executorOf : Party -> Party -> Claim f t x a -> Set.Set Party
 executorOf bearer cpty = cata \case
   ZeroF -> mempty
   OneF _ -> Set.singleton bearer
@@ -80,7 +79,7 @@ executorOf bearer cpty = cata \case
 --  UntilF _ p -> p
 
 -- TODO: not sure these make sense
-isBearerExecutor : forall f t a . Claim f t a -> Bool
+isBearerExecutor : forall f t x a . Claim f t x a -> Bool
 isBearerExecutor = cata \case
                     OneF _ -> True
                     GiveF p -> not p
@@ -91,11 +90,11 @@ isBearerExecutor = cata \case
                     _ -> error "Undefined: isBearerExecutor"
 
 -- | Converts a `Serialized.Claim` read from ledger, to a more general `Claim`, for use with `Daml.Control.Recursion`.
-deserialize : Serialized.Claim t a -> Claim Observation t a
+deserialize : Serialized.Claim t x a -> Claim Observation t x a
 deserialize = ana deserialize' 
 
 -- | F-algebra for `deserialize`; it can be composed in unfolds.
-deserialize' : Serialized.Claim t a -> ClaimF Observation t a (Serialized.Claim t a)
+deserialize' : Serialized.Claim t x a -> ClaimF Observation t x a (Serialized.Claim t x a)
 deserialize' Serialized.Zero = ZeroF
 deserialize' (Serialized.One a) = OneF a
 deserialize' (Serialized.Give c) = GiveF c
@@ -110,11 +109,11 @@ deserialize' (Serialized.When p c) = WhenF p c
 --  Serialized.Until p c = UntilF p c
 
 -- | Converts a `Claim` into a `Serializable.Claim`, so it can be written to the ledger.
-serialize : Claim Observation t a -> Serialized.Claim t a
+serialize : Claim Observation t x a -> Serialized.Claim t x a
 serialize = histo serialize'
 
 -- | F-coalgebra for `serialize`; it can be composed with other folds.
-serialize' : ClaimF Observation t a (Cofree (ClaimF Observation t a) (Serialized.Claim t a)) -> Serialized.Claim t a 
+serialize' : ClaimF Observation t x a (Cofree (ClaimF Observation t x a) (Serialized.Claim t x a)) -> Serialized.Claim t x a 
 serialize' ZeroF = Serialized.Zero
 serialize' (OneF a) = Serialized.One a
 serialize' (GiveF c) = Serialized.Give c.attribute
@@ -128,21 +127,21 @@ serialize' (WhenF p c) = Serialized.When p c.attribute
 --  Until p c -> Serialized.UntilF p c
 
 -- | Unfixed version of `Claim`, for use with `Daml.Control.Recursion`.
-data ClaimF f t a x
+data ClaimF f t x a b
   = ZeroF
   | OneF a
-  | GiveF x
-  | AndF with lhs: x, rhs: x
-  | OrF with lhs: x, rhs: x
-  | CondF with predicate: (f t Bool), success: x, failure: x
-  | ScaleF with k: (f t Decimal), claim: x
-  | WhenF with predicate: (f t Bool), claim: x
---  | AnytimeF with predicate: (f t Bool), claim: x
---  | UntilF with predicate: (f t Bool), claim: x
+  | GiveF b
+  | AndF with lhs: b, rhs: b
+  | OrF with lhs: b, rhs: b
+  | CondF with predicate: Inequality f t x, success: b, failure: b
+  | ScaleF with k: f t x, claim: b
+  | WhenF with predicate: Inequality f t x, claim: b
+--  | AnytimeF with predicate: (f t Bool), claim: b
+--  | UntilF with predicate: (f t Bool), claim: b
   deriving (Functor)
 
 -- TODO: rename variables to be consistent with the types
-instance Recursive (Claim f t a) (ClaimF f t a) where
+instance Recursive (Claim f t x a) (ClaimF f t x a) where
   project Zero = ZeroF
   project (One a) = OneF a
   project (Give c) = GiveF c
@@ -154,7 +153,7 @@ instance Recursive (Claim f t a) (ClaimF f t a) where
 --  project (Anytime o a) = AnytimeF o a
 --  project (Until o x) = UntilF o x
 
-instance Corecursive (Claim f t a) (ClaimF f t a) where
+instance Corecursive (Claim f t x a) (ClaimF f t x a) where
   embed ZeroF = Zero
   embed (OneF x) = One x
   embed (GiveF a) = Give a
@@ -166,7 +165,7 @@ instance Corecursive (Claim f t a) (ClaimF f t a) where
 --  embed (AnytimeF o x) = Anytime o x
 --  embed (UntilF o x) = Until o x
 
-instance Foldable (ClaimF f t a) where
+instance Foldable (ClaimF f t x a) where
   foldr _ seed ZeroF = seed
   foldr _ seed (OneF _) = seed
   foldr f seed (GiveF c) = f c seed
@@ -176,9 +175,9 @@ instance Foldable (ClaimF f t a) where
   foldr f seed (OrF c c') = f c $ f c' seed
   foldr f seed (CondF _ c c') = f c $ f c' seed
 
-instance Traversable (ClaimF g t x) where
+instance Traversable (ClaimF g t x b) where
   sequence ZeroF = pure ZeroF
-  sequence (OneF x) = pure $ OneF x
+  sequence (OneF asset) = pure $ OneF asset
   sequence (GiveF fa) = GiveF <$> fa
   sequence (WhenF p fa) = WhenF p <$> fa
   sequence (ScaleF p fa) = ScaleF p <$> fa

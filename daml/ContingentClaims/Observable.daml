@@ -3,45 +3,33 @@
 -- SPDX-License-Identifier: Apache-2.0
 --
 
-{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module ContingentClaims.Observable where
 
-import Prelude (Bool, Decimal)
+import Prelude hiding (pure)
 
-infixl 6 +
-infixl 6 -
-infixl 7 *
-infixl 7 /
+type Key = Text
 
-type Observable f t = (TimeF f t,
+type Observable f t x = (TimeF f t,
   PointF f t t,
-  PointF f t Decimal,
-  RingF f t Decimal,
-  InequalityF f t Decimal,
-  InequalityF f t t)
+  PointF f t x,
+  Number (f t x))
+
+-- | Think of this as `f t t ≤ f t t | f t x ≤ f t x`
+data Inequality f t x = LteT (f t t, f t t) | LteX (f t x, f t x)
+
+evalInequality : Inequality f t x -> f t Bool
+evalInequality (LteT (f, f')) = undefined
+evalInequality (LteX (f, f')) = undefined
+
+deriving instance (Eq (f t t), Eq (f t x)) => Eq (Inequality f t x)
+
+deriving instance (Show (f t t), Show (f t x)) => Show (Inequality f t x)
 
 class TimeF f t where
   time : f t t
 
 class PointF f t a where
   pure : a -> f t a
-
-class RingF f t a where
-  zero : f t a
-  one : f t a
-  (+) : f t a -> f t a -> f t a
-  negate : f t a -> f t a
-  (-) : f t a -> f t a -> f t a
-  x - y = x + ContingentClaims.Observable.negate y
-  (*) : f t a -> f t a -> f t a
-  (/) : f t a -> f t a -> f t a
-
-class InequalityF f t a where
-  (<=) : f t a -> f t a -> f t Bool
-  (==) : f t a -> f t a -> f t Bool
-
-{-
-class LogicF f where
-  (&&) : f Bool -> f Bool -> f Bool
--}
+  observe : Key -> f t a
