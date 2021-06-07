@@ -11,24 +11,13 @@ import Prelude hiding (pure)
 
 type Key = Text
 
-type Observable f t x = (TimeF f t,
-  PointF f t t,
-  PointF f t x,
-  Number (f t x))
+type Observable f t x = (PointF f t x , Number (f t x), Divisible (f t x))
 
--- | Think of this as `f t t ≤ f t t | f t x ≤ f t x`
-data Inequality f t x = LteT (f t t, f t t) | LteX (f t x, f t x)
+data Inequality f t x = TimeLte t | Lte (f t x, f t x)
 
-evalInequality : Inequality f t x -> f t Bool
-evalInequality (LteT (f, f')) = undefined
-evalInequality (LteX (f, f')) = undefined
+deriving instance (Eq t, Eq (f t x)) => Eq (Inequality f t x)
 
-deriving instance (Eq (f t t), Eq (f t x)) => Eq (Inequality f t x)
-
-deriving instance (Show (f t t), Show (f t x)) => Show (Inequality f t x)
-
-class TimeF f t where
-  time : f t t
+deriving instance (Show t, Show (f t x)) => Show (Inequality f t x)
 
 class PointF f t a where
   pure : a -> f t a

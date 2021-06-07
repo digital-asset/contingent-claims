@@ -8,7 +8,7 @@ module ContingentClaims.FinancialClaim where
 import Prelude hiding (and, or, time)
 import ContingentClaims.Claim
 import ContingentClaims.Observable qualified as O
-import ContingentClaims.Observable (TimeF, PointF, Observable)
+import ContingentClaims.Observable (Observable)
 import Daml.Control.Recursion
 import DA.Date (date, Month)
 
@@ -20,8 +20,8 @@ unrollDates issueYear maturityYear fixingMonths fixingDay =
   date <$> [issueYear .. maturityYear] <*> fixingMonths <*> [fixingDay]
 
 -- | Observable that is true on the passed time. i.e. identity for the time observable.
-at : (TimeF f t, PointF f t t) => t -> O.Inequality f t x
-at t = O.LteT (O.time, O.pure t)
+at : t -> O.Inequality f t x
+at t = O.TimeLte t
 
 -- | Forward agreement. Discounted by (potentially stochastic) interest rate `r`.
 forward : Observable f t x => t -> f t x -> Claim f t x a -> Claim f t x a
@@ -51,11 +51,11 @@ fixed principal coupon = floating (O.pure principal) (O.pure coupon)
 -- ```
 -- european (at $ date 2021 05 14) (Zero `Or` observe "SPX" - pure 4200)
 -- ```
-european : (TimeF f t, PointF f t t) => t -> Claim f t x a -> Claim f t x a
+european : t -> Claim f t x a -> Claim f t x a -- TODO : consider swapping ordre of parameters for consistency with bermudan?
 european t u = When (at t) (u `Or` Zero)
 
 -- | Bermudan option on the passed claim.
-bermudan : (TimeF f t, PointF f t t) => Claim f t x a -> [t] -> Claim f t x a
+bermudan : Claim f t x a -> [t] -> Claim f t x a
 bermudan u = apo \case
   (t :: ts) -> Left (european t u) `OrF` Right ts
   [] -> ZeroF

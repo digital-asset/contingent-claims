@@ -8,6 +8,7 @@
 module ContingentClaims.Observation (
     Observation(..)
   , eval
+  , evalInequality --FIXME, generalise and move to Observable
 ) where
 
 import ContingentClaims.Observable qualified as O
@@ -27,9 +28,6 @@ data Observation t x
     -- ^ A named constant
   | Observe with key: O.Key 
     -- ^ A named parameter
-  | Identity 
-    -- ^ The identity function, `t -> t`; useful for time comparisons.
-    -- e.g. `Inequality(Identity, Const "tomorrow" (date _))` equates to `time <= tomorrow`
   | Add (Observation t x, Observation t x)
   | Neg (Observation t x)
   | Mul (Observation t x, Observation t x)
@@ -39,7 +37,6 @@ data Observation t x
 data ObservationF t x b
   = ConstF with value: x 
   | ObserveF with key: O.Key 
-  | IdentityF
   | AddF (b, b)
   | NegF (b)
   | MulF (b, b)
@@ -49,7 +46,6 @@ data ObservationF t x b
 instance Recursive (Observation t x) (ObservationF t x) where
   project (Const value) = ConstF value
   project (Observe key) = ObserveF key
-  project Identity = IdentityF
   project (Add (x, x')) = AddF (x, x')
   project (Neg x) = NegF x
   project (Mul (x, x') ) = MulF (x, x')
@@ -58,14 +54,10 @@ instance Recursive (Observation t x) (ObservationF t x) where
 instance Corecursive (Observation t x) (ObservationF t x) where
   embed (ConstF value) = Const value
   embed (ObserveF key) = Observe key
-  embed IdentityF = Identity
   embed (AddF (x, x')) = Add (x, x)
   embed (NegF x) = Neg x
   embed (MulF (x, x') ) = Mul (x, x')
   embed (DivF (x, x') ) = Div (x, x')
-
-instance O.TimeF Observation t where
-  time = Identity
 
 instance O.PointF Observation t t where
   pure = Const
@@ -95,15 +87,19 @@ instance Traversable (ObservationF t x) where
   sequence (AddF (m, m')) = curry AddF <$> m <*> m'
 
 eval : (Divisible x, Number x, Monad m) 
-     => (t -> x)
-     -> (O.Key -> t -> m x) 
+     => (O.Key -> t -> m x) 
      -> Observation t x 
      -> Kleisli m t x
-eval yoneda doObserve = cataM \case
+eval doObserve = cataM \case
   ConstF x -> pure x
   ObserveF key -> Kleisli (doObserve key)
   AddF (x, x') -> pure $ x Prelude.+ x'
   NegF x -> pure $ negate x
   MulF (x, x') -> pure $ x * x'
   DivF (x, x') -> pure $ x / x'
-  IdentityF -> arr yoneda
+
+
+-- FIXME `eval` needs to go into a typeclass, so that it also works for pure functions `(->)`
+evalInequality : (Ord t, Ord x, Divisible x, Number x, Monad m) => (O.Key -> t -> m x) -> O.Inequality Observation t x -> Kleisli m t Bool
+evalInequality doObserve (O.Lte (f, f')) = liftA2 (<=) (eval doObserve f) (eval doObserve f')
+evalInequality _ (O.TimeLte t) = arr (<= t)
