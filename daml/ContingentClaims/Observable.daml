@@ -8,6 +8,7 @@
 module ContingentClaims.Observable where
 
 import Prelude hiding (pure)
+import Daml.Control.Arrow (Kleisli(..))
 
 type Key = Text
 
@@ -19,6 +20,10 @@ deriving instance (Eq t, Eq (f t x)) => Eq (Inequality f t x)
 
 deriving instance (Show t, Show (f t x)) => Show (Inequality f t x)
 
-class PointF f t a where
-  pure : a -> f t a
-  observe : Key -> f t a
+class PointF f t x where
+  pure : x -> f t x
+  observe : Key -> f t x
+
+class Interpret f where
+  eval : (Number x, Divisible x, Action m) => (Key -> t -> m x) -> f t x -> Kleisli m t x
+  compare : (Ord t, Ord x, Number x, Divisible x, Action m) => (Key -> t -> m x) -> Inequality f t x -> Kleisli m t Bool

@@ -10,7 +10,7 @@ module ContingentClaims.ObservableFunctions where
 -- TODO: rename this module to something more appropriate
 
 import Daml.Control.Arrow (Arrow, arr)
-import Prelude (Applicative, Additive, Multiplicative, Divisible, liftA2, undefined, Text, const)
+import Prelude (Applicative, Additive, Multiplicative, Divisible, liftA2, undefined, Text, const, (<=))
 import Prelude qualified ((+), negate, (*), (^), (/), pure, aunit, munit)
 import ContingentClaims.Observable
 
@@ -32,3 +32,8 @@ instance (Multiplicative a, Applicative (f t)) => Multiplicative (f t a) where
 
 instance (Divisible a, Applicative (f t)) => Divisible (f t a) where
   (/) = liftA2 (Prelude./)
+
+instance Interpret (->) where
+  eval _ f = arr f
+  compare _ (TimeLte t) = arr (<= t)
+  compare _ (Lte (f, f')) = arr (liftA2 (<=) f f')
