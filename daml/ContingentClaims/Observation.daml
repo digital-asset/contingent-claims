@@ -20,7 +20,7 @@ import Prelude hiding (key, (.))
 type T = Observation
 
 -- | Concrete implementation of `Observable`, which can be serialized.
--- Conceptually it's helpfult to think of this as the type `t -> x`, or `t -> Update x`.
+-- Conceptually it's helpful to think of this as the type `t -> x`, or `t -> Update x`.
 data Observation t x
   = Const with value: x 
     -- ^ A named constant
@@ -74,6 +74,8 @@ instance Multiplicative (Observation t Decimal) where
   munit = Const 0.0
   (*) = curry Mul
   (^) = undefined
+
+instance Number (Observation t Decimal) where
 
 instance Divisible (Observation t Decimal) where
   (/) = curry Div

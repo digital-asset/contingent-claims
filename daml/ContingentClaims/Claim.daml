@@ -10,7 +10,7 @@ import Daml.Control.Recursion
 import ContingentClaims.Claim.Serializable qualified as Serialized
 import ContingentClaims.Observation (Observation)
 -- import qualified ContingentClaims.Observation as Observation (expiry)
-import ContingentClaims.Observable (Inequality)
+import ContingentClaims.Observable (Inequality(..))
 import DA.Set qualified as Set
 import DA.Foldable (Foldable(..))
 import DA.Traversable (Traversable(..))
@@ -102,11 +102,19 @@ deserialize' (Serialized.And [c]) = deserialize'  c
 deserialize' (Serialized.And (c :: cs)) = AndF c (Serialized.And cs)
 deserialize' (Serialized.And []) = error "deserialize: Malformed `And` (should have at least two elements)"
 deserialize' (Serialized.Or c c') = OrF c c'
-deserialize' (Serialized.Cond k c c') = CondF k c c'
+deserialize' (Serialized.Cond k c c') = CondF (deserializeInequality k) c c'
 deserialize' (Serialized.Scale k c) = ScaleF k c
-deserialize' (Serialized.When p c) = WhenF p c
+deserialize' (Serialized.When p c) = WhenF (deserializeInequality p) c
 --  Serialized.Anytime p c = AnytimeF p c
 --  Serialized.Until p c = UntilF p c
+
+deserializeInequality : Serialized.Inequality t x -> Inequality Observation t x
+deserializeInequality (Serialized.TimeLte t) = TimeLte t
+deserializeInequality (Serialized.Lte (f, f')) = Lte (f, f')
+
+serializeInequality : Inequality Observation t x -> Serialized.Inequality t x
+serializeInequality (TimeLte t) = Serialized.TimeLte t
+serializeInequality (Lte (f, f')) = Serialized.Lte (f, f')
 
 -- | Converts a `Claim` into a `Serializable.Claim`, so it can be written to the ledger.
 serialize : Claim Observation t x a -> Serialized.Claim t x a
@@ -120,9 +128,9 @@ serialize' (GiveF c) = Serialized.Give c.attribute
 serialize' (AndF c (Cofree (Serialized.And cs) _) ) = Serialized.And $ c.attribute :: cs
 serialize' (AndF c c') = Serialized.And [c.attribute, c'.attribute]
 serialize' (OrF c c') = Serialized.Or c.attribute c'.attribute
-serialize' (CondF k c c') = Serialized.Cond k c.attribute c'.attribute
+serialize' (CondF k c c') = Serialized.Cond (serializeInequality k) c.attribute c'.attribute
 serialize' (ScaleF k c) = Serialized.Scale k c.attribute
-serialize' (WhenF p c) = Serialized.When p c.attribute
+serialize' (WhenF p c) = Serialized.When (serializeInequality p) c.attribute
 --  Anytime p c -> Serialized.AnytimeF p c
 --  Until p c -> Serialized.UntilF p c
 

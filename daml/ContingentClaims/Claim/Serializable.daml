@@ -6,7 +6,6 @@
 module ContingentClaims.Claim.Serializable where 
 
 import ContingentClaims.Observation
-import ContingentClaims.Observable (Inequality)
 import Daml.Control.Recursion
 
 type T = Claim
@@ -15,28 +14,35 @@ type F = ClaimF
 -- | We require a separate data type for a serializable claim, because DAML
 -- does not support serialization of higher kinds. i.e. the `f` in `Claim`.
 -- Here we replace it with the concrete `Observation`.
-data Claim t x a 
-  = Zero 
+data Claim t x a
+  = Zero
       -- ^ Represents an absence of claims.
-  | One a 
+  | One a
       -- ^ The bearer acquires one unit of `a` *immediately*.
   | Give (Claim t x a)
       -- ^ The obligations of the bearer and issuer are revesed.
   | And with claims : [Claim t x a]
-      -- ^ Used to combine multiple rights together. 
+      -- ^ Used to combine multiple rights together.
       --   __Note__ This serialized version flattens right-associative `And`s to mitigate language recursion limits.
-  | Or with lhs: Claim t x a, rhs: Claim t x a 
+  | Or with lhs: Claim t x a, rhs: Claim t x a
       -- ^ Gives the bearer the right to choose between two claims.
-  | Cond with predicate: Inequality Observation t x, success: Claim t x a, failure: Claim t x a 
+  | Cond with predicate: Inequality t x, success: Claim t x a, failure: Claim t x a
       -- ^ Gives the bearer the right to the first claim if `predicate` is true, else the second claim.
-  | Scale with k: Observation t x, claim: Claim t x a 
+  | Scale with k: Observation t x, claim: Claim t x a
       -- ^ Multiplies the `claim` by `k` (which can be non-detrerministic).
-  | When with predicate: Inequality Observation t x, claim: Claim t x a 
+  | When with predicate: Inequality t x, claim: Claim t x a
       -- ^ Defers the acquisition of `claim` until *the first instant* that `predicate` is true.
 
 --  | Anytime with predicate: Observation t Bool, claim: Claim t x a
 --  | Until with predicate: Observation t Bool, claim: Claim t x a
   deriving (Eq, Show, Functor)
+
+-- | Serializable version of `Observable.Inequality`
+data Inequality t x = TimeLte t | Lte (Observation t x, Observation t x)
+
+deriving instance (Eq t, Eq x) => Eq (Inequality t x)
+
+deriving instance (Show t, Show x) => Show (Inequality t x)
 
 -- | Unfixed version of `Claim`, for use with `Daml.Control.Recursion`.
 data ClaimF t x a b
@@ -45,9 +51,9 @@ data ClaimF t x a b
   | GiveF b
   | AndF with claims: [b]
   | OrF with lhs: b, rhs: b
-  | CondF with predicate: Inequality Observation t x, success: b, failure: b
+  | CondF with predicate: Inequality t x, success: b, failure: b
   | ScaleF with k: Observation t x, claim: b
-  | WhenF with predicate: Inequality Observation t x, claim: b
+  | WhenF with predicate: Inequality t x, claim: b
 --   | AnytimeF with predicate: (Observation t Bool), claim: x
 --   | UntilF with predicate: (Observation t Bool), claim: x
   deriving Functor
