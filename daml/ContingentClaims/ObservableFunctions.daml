@@ -35,5 +35,5 @@ instance (Divisible a, Applicative (f t)) => Divisible (f t a) where
 
 instance Interpret (->) where
   eval _ f = arr f
-  compare _ (TimeLte t) = arr (<= t)
+  compare _ (TimeGte t) = arr (>= t)
   compare _ (Lte (f, f')) = arr (liftA2 (<=) f f')

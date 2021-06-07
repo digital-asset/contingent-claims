@@ -21,7 +21,7 @@ unrollDates issueYear maturityYear fixingMonths fixingDay =
 
 -- | Observable that is true on the passed time. i.e. identity for the time observable.
 at : t -> O.Inequality f t x
-at t = O.TimeLte t
+at t = O.TimeGte t
 
 -- | Forward agreement. Discounted by (potentially stochastic) interest rate `r`.
 forward : Observable f t x => t -> f t x -> Claim f t x a -> Claim f t x a

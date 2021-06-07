@@ -38,7 +38,7 @@ data Claim t x a
   deriving (Eq, Show, Functor)
 
 -- | Serializable version of `Observable.Inequality`
-data Inequality t x = TimeLte t | Lte (Observation t x, Observation t x)
+data Inequality t x = TimeGte t | Lte (Observation t x, Observation t x)
 
 deriving instance (Eq t, Eq x) => Eq (Inequality t x)
 

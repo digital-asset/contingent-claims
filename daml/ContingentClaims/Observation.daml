@@ -81,10 +81,20 @@ instance Divisible (Observation t Decimal) where
   (/) = curry Div
 
 instance Foldable (ObservationF t x) where
-  foldr f seed (AddF (x, x')) = f x $ f x' seed
+  foldr f seed (ConstF _) = seed
+  foldr f seed (ObserveF key) = seed
+  foldr f seed (NegF b) = f b seed
+  foldr f seed (AddF (b, b')) = f b $ f b' seed
+  foldr f seed (MulF (b, b')) = f b $ f b' seed
+  foldr f seed (DivF (b, b')) = f b $ f b' seed
 
 instance Traversable (ObservationF t x) where
+  sequence (ConstF x) = pure $ ConstF x
+  sequence (ObserveF key) = pure $ ObserveF key
+  sequence (NegF m) = NegF <$> m
   sequence (AddF (m, m')) = curry AddF <$> m <*> m'
+  sequence (MulF (m, m')) = curry MulF <$> m <*> m'
+  sequence (DivF (m, m')) = curry DivF <$> m <*> m'
 
 instance O.Interpret Observation where
   eval doObserve = cataM \case
@@ -95,4 +105,4 @@ instance O.Interpret Observation where
     MulF (x, x') -> pure $ x * x'
     DivF (x, x') -> pure $ x / x'
   compare doObserve (O.Lte (f, f')) = liftA2 (<=) (O.eval doObserve f) (O.eval doObserve f')
-  compare _ (O.TimeLte t) = arr (<= t)
+  compare _ (O.TimeGte t) = arr (>= t)

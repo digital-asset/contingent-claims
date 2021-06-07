@@ -109,11 +109,11 @@ deserialize' (Serialized.When p c) = WhenF (deserializeInequality p) c
 --  Serialized.Until p c = UntilF p c
 
 deserializeInequality : Serialized.Inequality t x -> Inequality Observation t x
-deserializeInequality (Serialized.TimeLte t) = TimeLte t
+deserializeInequality (Serialized.TimeGte t) = TimeGte t
 deserializeInequality (Serialized.Lte (f, f')) = Lte (f, f')
 
 serializeInequality : Inequality Observation t x -> Serialized.Inequality t x
-serializeInequality (TimeLte t) = Serialized.TimeLte t
+serializeInequality (TimeGte t) = Serialized.TimeGte t
 serializeInequality (Lte (f, f')) = Serialized.Lte (f, f')
 
 -- | Converts a `Claim` into a `Serializable.Claim`, so it can be written to the ledger.

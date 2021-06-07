@@ -14,7 +14,8 @@ type Key = Text
 
 type Observable f t x = (Point f t x , Number (f t x), Divisible (f t x))
 
-data Inequality f t x = TimeLte t | Lte (f t x, f t x)
+-- | This is either `time ≥ t | f t x ≤ f t x`
+data Inequality f t x = TimeGte t | Lte (f t x, f t x)
 
 deriving instance (Eq t, Eq (f t x)) => Eq (Inequality f t x)
 
