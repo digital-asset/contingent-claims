@@ -12,7 +12,7 @@ import Daml.Control.Arrow (Kleisli(..))
 
 type Key = Text
 
-type Observable f t x = (PointF f t x , Number (f t x), Divisible (f t x))
+type Observable f t x = (Point f t x , Number (f t x), Divisible (f t x))
 
 data Inequality f t x = TimeLte t | Lte (f t x, f t x)
 
@@ -20,7 +20,7 @@ deriving instance (Eq t, Eq (f t x)) => Eq (Inequality f t x)
 
 deriving instance (Show t, Show (f t x)) => Show (Inequality f t x)
 
-class PointF f t x where
+class Point f t x where
   pure : x -> f t x
   observe : Key -> f t x
 

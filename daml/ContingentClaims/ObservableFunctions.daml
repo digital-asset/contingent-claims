@@ -16,7 +16,7 @@ import ContingentClaims.Observable
 
 -- Default instances for applicative functors
 
-instance forall f t . (Arrow f, Applicative (f t)) => PointF f t Text where
+instance forall f t . (Arrow f, Applicative (f t)) => Point f t Text where
   pure = Prelude.pure
   observe key = arr (const key)
 
