@@ -9,8 +9,8 @@ import Prelude hiding (or, and)
 import Daml.Control.Recursion
 import ContingentClaims.Claim.Serializable qualified as Serialized
 import ContingentClaims.Observation (Observation)
--- import qualified ContingentClaims.Observation as Observation (expiry)
-import ContingentClaims.Observable (Inequality(..))
+import ContingentClaims.Observable (Inequality(..), Param, Key)
+import ContingentClaims.Observable qualified as Observable
 import DA.Set qualified as Set
 import DA.Foldable (Foldable(..))
 import DA.Traversable (Traversable(..))
@@ -20,7 +20,7 @@ type F = ClaimF
 
 -- TODO: f should depend on t ?
 
--- | Used to model cashflows of instruments. 
+-- | Used to model cashflows of instruments.
 -- See [quickstart](../QUICKSTART.md) for detailed explanation.
 -- In Petyon-Jones' paper, this is called 'Contract'.
 -- We renamed it to avoid ambiguity.
@@ -43,6 +43,25 @@ data Claim f t x a
       -- ^ Multiplies the `claim` by `k` (which can be non-detrerministic).
   | When with predicate: Inequality f t x, claim: Claim f t x a
       -- ^ Defers the acquisition of `claim` until *the first instant* that `predicate` is true.
+
+-- | Replace parameters in an `Claim` with actual values.
+mapParams :  Observable.Interpret f
+          => (Param -> Key)
+          -> (Param -> Decimal)
+          -> Claim f t Param a -> Claim f t Decimal a
+mapParams fk fv =
+  let f = Observable.mapParams fk fv
+  in cata \case
+    ZeroF -> Zero
+    OneF a -> One a
+    GiveF c -> Give c
+    AndF c c' -> And c c'
+    OrF c c' -> Or c c'
+    CondF (Lte (x, x')) c c' -> Cond (Lte(f x, f x')) c c'
+    CondF (TimeGte t) c c' -> Cond (TimeGte t) c c'
+    ScaleF k c -> Scale (f k) c
+    WhenF (Lte (x, x')) c -> When (Lte (f x, f x')) c
+    WhenF (TimeGte t) c -> When (TimeGte t) c
 
 {-
 -- | Return the upper time bound of the obligation; `None` if it cannot be determined.
@@ -91,7 +110,7 @@ isBearerExecutor = cata \case
 
 -- | Converts a `Serialized.Claim` read from ledger, to a more general `Claim`, for use with `Daml.Control.Recursion`.
 deserialize : Serialized.Claim t x a -> Claim Observation t x a
-deserialize = ana deserialize' 
+deserialize = ana deserialize'
 
 -- | F-algebra for `deserialize`; it can be composed in unfolds.
 deserialize' : Serialized.Claim t x a -> ClaimF Observation t x a (Serialized.Claim t x a)

@@ -11,7 +11,7 @@ import Prelude hiding (pure)
 import Daml.Control.Arrow (Kleisli(..))
 
 type Key = Text
-
+type Param = Text
 type Observable f t x = (Point f t x , Number (f t x), Divisible (f t x))
 
 -- | This is either `time ≥ t | f t x ≤ f t x`
@@ -26,5 +26,16 @@ class Point f t x where
   observe : Key -> f t x
 
 class Interpret f where
+  -- | Reify the `Observable` into a Kleisli function. 
+  -- The function is only total when the first argument is too (typically it will fail on `t` > today).
   eval : (Number x, Divisible x, Action m) => (Key -> t -> m x) -> f t x -> Kleisli m t x
+  -- | Reify the `Observable.Inequality` into a Kleisli function.
   compare : (Ord t, Ord x, Number x, Divisible x, Action m) => (Key -> t -> m x) -> Inequality f t x -> Kleisli m t Bool
+  -- | The functor map operation _and_ also map any parametrs to keys.
+  -- For example, could map the param "spot" to an ISIN code "GB123456789".
+  --
+  -- @ mapParams identity = fmap
+  --
+  mapParams :  (Param -> Key)
+            -> (Param -> Decimal)
+            -> f t Param -> f t Decimal
