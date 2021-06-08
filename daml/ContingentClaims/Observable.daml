@@ -39,3 +39,7 @@ class Interpret f where
   mapParams :  (Param -> Key)
             -> (Param -> Decimal)
             -> f t Param -> f t Decimal
+
+  -- | Contramap on the time parameter.
+  cmapTime : (t -> i) --TODO: fuse this with mapParams
+           -> f i x -> f t x

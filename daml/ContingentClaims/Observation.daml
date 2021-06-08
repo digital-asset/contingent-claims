@@ -115,3 +115,12 @@ instance O.Interpret Observation where
     NegF b -> Neg b
     MulF (b, b') -> Mul (b, b')
     DivF (b, b') -> Div (b, b')
+
+  -- a no-op, but needed to infer the new type variable
+  cmapTime _ = ana \case
+    Const x -> ConstF x
+    Observe k -> ObserveF k
+    Add (b, b') -> AddF (b, b')
+    Neg b -> NegF b
+    Mul (b, b') -> MulF (b, b')
+    Div (b, b') -> DivF (b, b')

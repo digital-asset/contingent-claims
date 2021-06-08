@@ -63,6 +63,23 @@ mapParams fk fv =
     WhenF (Lte (x, x')) c -> When (Lte (f x, f x')) c
     WhenF (TimeGte t) c -> When (TimeGte t) c
 
+cmapTime : Observable.Interpret f
+         => (t -> i) -> (i -> t)
+         -> Claim f i x a -> Claim f t x a
+cmapTime g' f = 
+  let g = Observable.cmapTime g'
+  in ana \case
+    Zero -> ZeroF
+    One a -> OneF a
+    Give c -> GiveF c
+    And c c' -> AndF c c'
+    Or c c' -> OrF c c'
+    Cond (Lte (x, x')) c c' -> CondF (Lte(g x, g x')) c c'
+    Cond (TimeGte t) c c' -> CondF (TimeGte (f t)) c c'
+    Scale k c -> ScaleF (g k) c
+    When (Lte (x, x')) c -> WhenF (Lte (g x, g x')) c
+    When (TimeGte t) c -> WhenF (TimeGte (f t)) c
+
 {-
 -- | Return the upper time bound of the obligation; `None` if it cannot be determined.
 -- This is called `horizon` in the original paper.
