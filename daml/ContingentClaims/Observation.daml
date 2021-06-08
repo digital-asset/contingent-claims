@@ -61,23 +61,23 @@ instance O.Point Observation t t where
   pure = Const
   observe = Observe
 
-instance O.Point Observation t Decimal where
+instance O.Point Observation t x where
   pure = Const
   observe = Observe
 
-instance Additive (Observation t Decimal) where
-  aunit = Const 1.0
+instance Additive x => Additive (Observation t x) where
+  aunit = Const aunit
   (+) = curry Add
   negate = Neg
 
-instance Multiplicative (Observation t Decimal) where
-  munit = Const 0.0
+instance Multiplicative x => Multiplicative (Observation t x) where
+  munit = Const munit
   (*) = curry Mul
   (^) = undefined
 
-instance Number (Observation t Decimal) where
+instance (Additive x, Multiplicative x) => Number (Observation t x) where
 
-instance Divisible (Observation t Decimal) where
+instance Multiplicative x => Divisible (Observation t x) where
   (/) = curry Div
 
 instance Foldable (ObservationF t x) where
@@ -116,7 +116,7 @@ instance O.Interpret Observation where
     MulF (b, b') -> Mul (b, b')
     DivF (b, b') -> Div (b, b')
 
-  -- a no-op, but needed to infer the new type variable
+  -- a no-op, but needed to infer the new type variable `t`.
   cmapTime _ = ana \case
     Const x -> ConstF x
     Observe k -> ObserveF k
