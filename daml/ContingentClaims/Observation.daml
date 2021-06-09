@@ -117,19 +117,10 @@ instance O.Interpret Observation where
     DivF (b, b') -> Div (b, b')
 
   -- a no-op, but needed to infer the new type variable `t`.
-  cmapTime _ (Const x) = Const x 
-  cmapTime _ (Observe x) = Observe x 
-  cmapTime dummy (Add (b, b')) = Add (O.cmapTime dummy b, O.cmapTime dummy b')
-  cmapTime dummy (Neg b) = Neg (O.cmapTime dummy b)
-  cmapTime dummy (Mul (b, b')) = Mul (O.cmapTime dummy b, O.cmapTime dummy b')
-  cmapTime dummy (Div (b, b')) = Div (O.cmapTime dummy b, O.cmapTime dummy b')
-  
-
-
-{-
-    Observe k -> ObserveF k
-    Add (b, b') -> AddF (b, b')
-    Neg b -> NegF b
-    Mul (b, b') -> MulF (b, b')
-    Div (b, b') -> DivF (b, b')
--}
+  cmapTime _ = cata \case
+    ConstF x -> Const x
+    ObserveF k -> Observe k
+    AddF (b, b') -> Add (b, b')
+    NegF b -> Neg b
+    MulF (b, b') -> Mul (b, b')
+    DivF (b, b') -> Div (b, b')
