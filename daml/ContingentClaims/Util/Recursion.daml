@@ -5,7 +5,7 @@
 
 {-# OPTIONS -Wno-deprecations #-} -- To supress 'Monad' warnings
 
-module ContingentClaims.Recursion (
+module ContingentClaims.Util.Recursion (
     cataM
   , paraM
   , anaM

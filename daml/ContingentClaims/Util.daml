@@ -8,16 +8,12 @@
 module ContingentClaims.Util (
     enumerateFrom
   , enum'
-{-
-  , fixings
-  , fixings'
--}
   , pruneZeros
   , pruneZeros'
 ) where
 
 import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..))
-import ContingentClaims.Recursion (synthesize, subTreeSize')
+import ContingentClaims.Util.Recursion (synthesize, subTreeSize')
 import Daml.Control.Recursion
 import Prelude hiding (sum, sequence, mapA)
 
@@ -35,16 +31,6 @@ enum' (i, Cofree _ (CondF p f@(Cofree depth _) f')) = CofreeF i (CondF p (succ i
 -- Enumerate each node in the tree, starting from from 'zero'
 enumerateFrom : Int -> Claim f t x a -> Cofree (ClaimF f t x a) Int
 enumerateFrom zero = ana enum' . (zero, ) . synthesize subTreeSize'
-
-{-
-fixings : Claim Observation Date a -> [Date]
-fixings = cata fixings'
-
---TODO should fail if dates will never be executed
-fixings' : ClaimF Observation Date a [Date] -> [Date]
-fixings' (WhenF p ts) = O.fixings p ++ ts
-fixings' claim = fold claim
--}
 
 pruneZeros : Claim f t x a -> Claim f t x a
 pruneZeros = cata pruneZeros'

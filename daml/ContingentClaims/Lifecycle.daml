@@ -15,7 +15,7 @@ module ContingentClaims.Lifecycle (
 import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..))
 import ContingentClaims.Observation (Observation)
 import ContingentClaims.Observable (Interpret(..))
-import ContingentClaims.Recursion (apoCataM)
+import ContingentClaims.Util.Recursion (apoCataM)
 import ContingentClaims.Util (pruneZeros')
 import Daml.Control.Monad.Writer (WriterT, runWriterT)
 import Daml.Control.Monad.State (StateT(..), evalStateT)

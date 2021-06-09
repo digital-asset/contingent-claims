@@ -10,7 +10,7 @@ module ContingentClaims.Observation (
 ) where
 
 import ContingentClaims.Observable qualified as O
-import ContingentClaims.Recursion (cataM)
+import ContingentClaims.Util.Recursion (cataM)
 import Daml.Control.Arrow (Kleisli(..), arr)
 import Daml.Control.Recursion (Recursive(..), Corecursive(..), project, embed)
 import DA.Traversable (Traversable(..))
