@@ -77,6 +77,18 @@ expiry today = cata \case
 --           AnytimeF p _ -> Observation.expiry p
 --           UntilF p _ -> Observation.expiry p
 
+-- | Extract any fixing dates that can be analytically determined.
+-- An example of an expression which **can't** be determined would be:
+-- ```
+-- When (observe tempCelcius > 24.5) _
+-- ```
+fixings : forall f t x a . Ord t => t -> Claim f t x a -> Set.Set t
+fixings today = cata \case
+  ZeroF -> Set.fromList [today]
+  OneF _ -> Set.fromList [today]
+  WhenF (Observable.TimeGte t) _ -> Set.fromList [t]
+  other -> fold other
+
 -- TODO: not sure these make sense
 executorOf : Party -> Party -> Claim f t x a -> Set.Set Party
 executorOf bearer cpty = cata \case
