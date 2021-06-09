@@ -33,7 +33,13 @@ instance Multiplicative Text where
 
 usd = "USD"
 
-demoTemplate = script do
+demoTemplate = script do 
+  let today = date 2021 Jun 8
+      expr : Observation Int Decimal = O.pure 1.0 + O.observe "key"
+      expr' : Observation Date Decimal = O.pure 1.0 + O.observe "key"
+  O.cmapTime (`subDate` today) expr === expr'
+
+  {-
   let today = date 2021 Jun 8
       call spot strike = O.observe spot - O.pure strike
       aTemplate = european (date 2021 Jul 15 `subDate` today) (Scale (call "s" "k") (One usd))
@@ -43,6 +49,7 @@ demoTemplate = script do
   let constants : Map.Map O.Param Decimal = Map.fromList [("k", 99.8)]
       observables : Map.Map O.Param O.Key = Map.fromList [("s", "VOD.L")]
       get dict k = fromSome (Map.lookup k dict)
-      f = cmapTime (`subDate` today) (today `addDays`) . mapParams (get observables) (get constants)
+      f = mapParams (get observables) (get constants) . cmapTime (`subDate` today) (today `addDays`)
 
   f aTemplate === When (O.TimeGte $ date 2021 Jul 15) (Scale (Observe "VOD.L" - Const 99.8) (One usd) `Or` Zero)
+-}
