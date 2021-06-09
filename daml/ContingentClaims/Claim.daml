@@ -40,7 +40,7 @@ data Claim f t x a
   | Cond with predicate: Inequality f t x, success: Claim f t x a, failure: Claim f t x a --TODO rename predicate -> `lte` or `inequality`
       -- ^ Gives the bearer the right to the first claim if `predicate` is true, else the second claim.
   | Scale with k: f t x, claim: Claim f t x a
-      -- ^ Multiplies the `claim` by `k` (which can be non-detrerministic).
+      -- ^ Multiplies the `claim` by `k` (which can be non-deterministic).
   | When with predicate: Inequality f t x, claim: Claim f t x a
       -- ^ Defers the acquisition of `claim` until *the first instant* that `predicate` is true.
 
