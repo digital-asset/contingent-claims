@@ -38,5 +38,4 @@ instance Interpret (->) where
   eval _ f = arr f
   compare _ (TimeGte t) = arr (>= t)
   compare _ (Lte (f, f')) = arr (liftA2 (<=) f f')
-  mapParams _ = fmap -- There is no special observation op for functions - just use `lift`.
-  cmapTime f = getOp . contramap f . Op
+  mapParams g _ f = getOp . contramap g . Op . fmap f -- There is no special `observe` op for functions - just use `lift`.

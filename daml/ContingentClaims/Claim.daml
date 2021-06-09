@@ -46,11 +46,13 @@ data Claim f t x a
 
 -- | Replace parameters in an `Claim` with actual values.
 mapParams :  Observable.Interpret f
-          => (Param -> Key)
+          => (t -> i)
+          -> (i -> t)
+          -> (Param -> Key)
           -> (Param -> Decimal)
-          -> Claim f t Param a -> Claim f t Decimal a
-mapParams fk fv =
-  let f = Observable.mapParams fk fv
+          -> Claim f i Param a -> Claim f t Decimal a
+mapParams ft' ft fk fv =
+  let f = Observable.mapParams ft' fk fv
   in cata \case
     ZeroF -> Zero
     OneF a -> One a
@@ -58,27 +60,10 @@ mapParams fk fv =
     AndF c c' -> And c c'
     OrF c c' -> Or c c'
     CondF (Lte (x, x')) c c' -> Cond (Lte(f x, f x')) c c'
-    CondF (TimeGte t) c c' -> Cond (TimeGte t) c c'
+    CondF (TimeGte t) c c' -> Cond (TimeGte (ft t)) c c'
     ScaleF k c -> Scale (f k) c
     WhenF (Lte (x, x')) c -> When (Lte (f x, f x')) c
-    WhenF (TimeGte t) c -> When (TimeGte t) c
-
-cmapTime : Observable.Interpret f
-         => (t -> i) -> (i -> t)
-         -> Claim f i x a -> Claim f t x a
-cmapTime g' f = 
-  let g = Observable.cmapTime g'
-  in ana \case
-    Zero -> ZeroF
-    One a -> OneF a
-    Give c -> GiveF c
-    And c c' -> AndF c c'
-    Or c c' -> OrF c c'
-    Cond (Lte (x, x')) c c' -> CondF (Lte(g x, g x')) c c'
-    Cond (TimeGte t) c c' -> CondF (TimeGte (f t)) c c'
-    Scale k c -> ScaleF (g k) c
-    When (Lte (x, x')) c -> WhenF (Lte (g x, g x')) c
-    When (TimeGte t) c -> WhenF (TimeGte (f t)) c
+    WhenF (TimeGte t) c -> When (TimeGte (ft t)) c
 
 {-
 -- | Return the upper time bound of the obligation; `None` if it cannot be determined.

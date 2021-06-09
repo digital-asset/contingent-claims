@@ -108,18 +108,9 @@ instance O.Interpret Observation where
   compare doObserve (O.Lte (f, f')) = liftA2 (<=) (O.eval doObserve f) (O.eval doObserve f')
   compare _ (O.TimeGte t) = arr (>= t)
 
-  mapParams g f = cata \case
+  mapParams _ g f = cata \case
     ConstF x -> Const (f x)
     ObserveF key -> Observe (g key)
-    AddF (b, b') -> Add (b, b')
-    NegF b -> Neg b
-    MulF (b, b') -> Mul (b, b')
-    DivF (b, b') -> Div (b, b')
-
-  -- a no-op, but needed to infer the new type variable `t`.
-  cmapTime _ = cata \case
-    ConstF x -> Const x
-    ObserveF k -> Observe k
     AddF (b, b') -> Add (b, b')
     NegF b -> Neg b
     MulF (b, b') -> Mul (b, b')

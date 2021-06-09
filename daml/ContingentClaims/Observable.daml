@@ -36,10 +36,7 @@ class Interpret f where
   --
   -- @ mapParams identity = fmap
   --
-  mapParams :  (Param -> Key)
+  mapParams : (t -> i)
+            -> (Param -> Key)
             -> (Param -> Decimal)
-            -> f t Param -> f t Decimal
-
-  -- | Contramap on the time parameter.
-  cmapTime : (t -> i) --TODO: fuse this with mapParams
-           -> f i x -> f t x
+            -> f i Param -> f t Decimal
