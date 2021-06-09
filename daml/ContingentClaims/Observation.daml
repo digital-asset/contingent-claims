@@ -73,7 +73,10 @@ instance Additive x => Additive (Observation t x) where
 instance Multiplicative x => Multiplicative (Observation t x) where
   munit = Const munit
   (*) = curry Mul
-  (^) = undefined
+  x ^ 0 = munit
+  x ^ 1 = x
+  x ^ 2 = x * x
+  x ^ _ = error "Observation: power operator < 0 and > 2 not implemented"
 
 instance (Additive x, Multiplicative x) => Number (Observation t x) where
 
