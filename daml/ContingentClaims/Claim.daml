@@ -24,7 +24,7 @@ type F = ClaimF
 -- See [quickstart](../QUICKSTART.md) for detailed explanation.
 -- In Petyon-Jones' paper, this is called 'Contract'.
 -- We renamed it to avoid ambiguity.
--- * `f`, `t` and `x` correspond to the `Observable`, it's input and output, respectively.
+-- * `f`, `t` and `x` respectively correspond to the `Observable`, it's input type and the resulting output type.
 -- * `a` is the representation of an asset, e.g. a `Text` ISIN code.
 data Claim f t x a
   = Zero
