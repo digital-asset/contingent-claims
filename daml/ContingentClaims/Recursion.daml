@@ -42,10 +42,7 @@ apoM f a = (fmap embed <<< (>>= (mapA (pure ||| apoM f))) <<< f) a
 
 -- | Specialised lazy re-fold, used by `lifecycle`.
 apoCataM : (Monad m, Traversable f, Corecursive b f) => (f b -> b) -> (a -> m (f (Either b a))) -> a -> m b
-apoCataM g f a = _apoCataM g f a 
-
--- | HIDE
-_apoCataM g f a = (fmap g <<< (>>= (mapA (pure ||| apoCataM g f))) <<< f) a
+apoCataM g f a = (fmap g <<< (>>= (mapA (pure ||| apoCataM g f))) <<< f) a
 
 -- Functor unzip
 funzip : Functor f => f (a, b) -> (f a, f b)
