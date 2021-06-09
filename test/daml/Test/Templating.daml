@@ -6,6 +6,9 @@
 {-# LANGUAGE UndecidableInstances #-} --needed to derive cofree Show,Eq
 
 -- | This gives an example of how to 'template' claims.
+-- The basic idea is to store variable names in the 'holes' in the `Observable` leaves; this creates
+-- a template with placeholders for the actual values we want. We then map these parameters to values
+-- when we're ready to 'issue' the instrument, using `mapParams`.
 module Test.Templating where
 
 import Daml.Script
@@ -46,3 +49,4 @@ demoTemplate = script do
       f = mapParams (`subDate` today) (today `addDays`) (get observables) (get constants)
 
   f aTemplate === When (O.TimeGte $ date 2021 Jul 15) (Scale (Observe "VOD.L" - Const 99.8) (One usd) `Or` Zero)
+

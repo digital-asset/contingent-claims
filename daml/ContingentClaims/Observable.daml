@@ -33,6 +33,7 @@ class Interpret f where
   compare : (Ord t, Ord x, Number x, Divisible x, Action m) => (Key -> t -> m x) -> Inequality f t x -> Kleisli m t Bool
   -- | The functor map operation _and_ also map any parametrs to keys.
   -- For example, could map the param "spot" to an ISIN code "GB123456789".
+  -- Also contra-maps time parameter, i.e. from relative time values to absolute ones.
   --
   -- @ mapParams identity = fmap
   --
