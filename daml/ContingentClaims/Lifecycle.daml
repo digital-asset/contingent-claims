@@ -10,7 +10,6 @@ module ContingentClaims.Lifecycle (
   , settle'
   , acquire'
   , Result(..)
-  , distM
 ) where
 
 import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..))
@@ -49,21 +48,23 @@ settle spot
   = runKleisli
   . fmap (uncurry Result)
   . runWriterT
-  . apoCataM pruneZeros' settleLazily'
+  . apoCataM pruneZeros' acquireThenSettle -- : (Decimal, C a) -> WriterT [(Decimal, a)] (Kleisli m Date) (F a (Either (C a) (Decimal, C a))) )
+  . (1.0 : Decimal, )
     where
-      settleLazily' = (lift <$> acquire' spot)
-                      >=> (fmap distM (fmap (settle' spot . embed)) . sequence)
-
--- | HIDE The monad stack we're using.
-type M m a = WriterT [(Decimal, a)] (Kleisli m Date) (F a (Either (C a) (C a)))
---           \----------------------- monad ------------------------/  \-------- value --------/
-
--- | HIDE Helper function for sequencing algebras.
-distM : Monad m
-      => Either (C a) (WriterT [(Decimal, a)] (Kleisli m Date) (F a (C a)))
-      -> M m a
-distM (Left c) = pure (Left <$> (project c))
-distM (Right m) = fmap Right <$> m
+      acquireThenSettle =   fmap (fmap distE)  -- TODO: simplify
+                          . fmap join 
+                          . fmap (fmap sequence) 
+                          . fmap (fmap (fmap (settle' spot))) 
+                          . fmap (fmap sequence) 
+                          . fmap sequence 
+                          . fmap 
+                          . fmap (fmap (fmap embed ) ) 
+                          . fmap (fmap sequence) 
+                          . fmap lift 
+                          $ acquire' spot
+      distE : Either (C a) (F a x) -> F a (Either (C a) x)
+      distE (Left c) = Left <$> project c
+      distE (Right f) = Right <$> f
 
 -- | Evaluate observables and skip branches for which predicates don't hold.
 -- This is useless on its own. Composed with other functions it adds laziness.
@@ -87,7 +88,7 @@ settle' : CanAbort m
 settle' _ (qty, One asset) = do
   tell [(qty, asset)]
   pure ZeroF
-settle' _ (qty, Give c) = do
+settle' _ (qty, Give c) = 
   pure $ GiveF (-qty, c)
 settle' spot (qty, Scale obs c) = do
   k <- lift $ eval spot obs
