@@ -15,6 +15,15 @@ type Observable f t x = (Point f t x , Number (f t x), Divisible (f t x))
 -- | This is either `time ≥ t | f t x ≤ f t x`
 data Inequality f t x = TimeGte t | Lte (f t x, f t x)
 
+-- | Observable that is true on the passed time. i.e. identity for the time observable.
+at : t -> Inequality f t x
+at t = TimeGte t
+
+infix 4 <=
+-- | `import Prelude hiding ((<=))` in order to use this.
+(<=) : f t x -> f t x -> Inequality f t x
+(<=) = curry Lte
+
 deriving instance (Eq t, Eq (f t x)) => Eq (Inequality f t x)
 
 deriving instance (Show t, Show (f t x)) => Show (Inequality f t x)

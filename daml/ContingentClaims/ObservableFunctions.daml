@@ -11,8 +11,8 @@ module ContingentClaims.ObservableFunctions where
 
 import Daml.Control.Arrow (Arrow, arr)
 import Daml.Data.Functor.Contravariant
-import Prelude (Applicative, Additive, Multiplicative, Divisible, liftA2, Text, const, (<=), (.))
-import Prelude qualified ((+), negate, (*), (^), (/), pure, aunit, munit)
+import Prelude (Applicative, Additive, Multiplicative, Divisible, liftA2, Text, const, (.))
+import Prelude qualified ((+), negate, (*), (^), (/), pure, aunit, munit, (<=))
 import ContingentClaims.Observable
 
 -- Default instances for applicative functors
@@ -37,5 +37,5 @@ instance (Divisible a, Applicative (f t)) => Divisible (f t a) where
 instance Interpret (->) where
   eval _ f = arr f
   compare _ (TimeGte t) = arr (>= t)
-  compare _ (Lte (f, f')) = arr (liftA2 (<=) f f')
+  compare _ (Lte (f, f')) = arr (liftA2 (Prelude.<=) f f')
   mapParams g _ f = getOp . contramap g . Op . fmap f -- There is no special `observe` op for functions - just use `lift`.

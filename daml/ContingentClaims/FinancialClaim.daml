@@ -5,10 +5,10 @@
 
 module ContingentClaims.FinancialClaim where
 
-import Prelude hiding (and, or, time)
+import Prelude hiding (and, or, (<=))
 import ContingentClaims.Claim
 import ContingentClaims.Observable qualified as O
-import ContingentClaims.Observable (Observable)
+import ContingentClaims.Observable (Observable, at)
 import Daml.Control.Recursion
 import DA.Date (date, Month)
 
@@ -18,10 +18,6 @@ import DA.Date (date, Month)
 unrollDates : Int -> Int -> [Month] -> Int -> [Date]
 unrollDates issueYear maturityYear fixingMonths fixingDay =
   date <$> [issueYear .. maturityYear] <*> fixingMonths <*> [fixingDay]
-
--- | Observable that is true on the passed time. i.e. identity for the time observable.
-at : t -> O.Inequality f t x
-at t = O.TimeGte t
 
 -- | Forward agreement. Discounted by (potentially stochastic) interest rate `r`.
 forward : Observable f t x => t -> f t x -> Claim f t x a -> Claim f t x a

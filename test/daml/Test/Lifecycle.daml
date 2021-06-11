@@ -11,6 +11,7 @@ module Test.Lifecycle where
 
 import ContingentClaims.Claim hiding (C, F)
 import ContingentClaims.Observable qualified as O
+import ContingentClaims.Observable (at)
 import ContingentClaims.Observation (Observation)
 import ContingentClaims.Lifecycle qualified as Lifecycle
 import ContingentClaims.FinancialClaim
