@@ -20,7 +20,6 @@ import Daml.Control.Monad.Writer (WriterT, runWriterT)
 import Daml.Control.Monad.MonadWriter (MonadWriter(..))
 import Daml.Control.Monad.Trans
 import Daml.Control.Arrow (Kleisli(..))
-import DA.Action ((>=>))
 import DA.Traversable (sequence)
 import Prelude hiding (sequence, mapA)
 
@@ -49,7 +48,7 @@ settle spot
   . fmap (uncurry Result)
   . runWriterT
   . apoCataM pruneZeros' acquireThenSettle -- : (Decimal, C a) -> WriterT [(Decimal, a)] (Kleisli m Date) (F a (Either (C a) (Decimal, C a))) )
-  . (1.0 : Decimal, )
+  . (1.0, )
     where
       acquireThenSettle =   fmap (fmap distE)  -- TODO: simplify
                           . fmap join 

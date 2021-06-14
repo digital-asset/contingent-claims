@@ -40,7 +40,7 @@ tomorrow = today `addDays` 1
 two : O.Observation Date Decimal = O.pure 2.0
 observe25: Text -> Date -> Script Decimal = const . const . pure $ 25.0
 
--- This test replaces leaves (i.e. One/Zero) with `One "processed"` if they were reached
+-- | This test marks leaves (i.e. `One`/`Zero`) with `acquired` if they were reached.
 testAcquire = script do
   let acquiredF asset = OneF $ "acquired " <> asset
       acquired asset : C = embed $ acquiredF asset
@@ -75,6 +75,7 @@ testAcquire = script do
   res === acquired a
 
 
+-- | This test replaces all leaves with Zeros, logging their qty/asset pair into a `Writer`.
 testSettle = script do
   let f = runKleisli
           . fmap (uncurry Lifecycle.Result)
@@ -85,7 +86,7 @@ testSettle = script do
   Lifecycle.Result{remaining, pending} <- f (Scale two Zero : C) today
   remaining === Scale two Zero
   pending === mempty
-  
+
   Lifecycle.Result{remaining, pending} <- f (Scale two (One a)) today
   remaining === Scale two Zero
   pending === [(2.0, a)]
