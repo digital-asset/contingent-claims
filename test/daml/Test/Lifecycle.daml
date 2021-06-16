@@ -10,33 +10,33 @@
 module Test.Lifecycle where
 
 import ContingentClaims.Claim hiding (C, F)
+import ContingentClaims.FinancialClaim (at, fixed)
+import ContingentClaims.Lifecycle qualified as Lifecycle
 import ContingentClaims.Observable qualified as O
 import ContingentClaims.Observation (Observation)
 import ContingentClaims.Observation qualified as O
-import ContingentClaims.Lifecycle qualified as Lifecycle
 import ContingentClaims.Util
-import ContingentClaims.FinancialClaim (at)
-import Daml.Control.Monad.Writer (runWriterT)
+import DA.Action ((>=>))
 import DA.Assert ((===))
+import DA.Date (date, Month(..), addDays, toDateUTC)
+import DA.Time (time)
 import Daml.Control.Arrow (runKleisli)
-import DA.Date (date, Month(..), addDays)
+import Daml.Control.Monad.Writer (runWriterT)
 import Daml.Control.Recursion
 import Daml.Script
 import Prelude hiding (enumerate, length, or, and)
-import DA.Action ((>=>))
 
 type C = Claim Observation Date Text
 type F = ClaimF Observation Date Text
 
 deriving instance Show C
-deriving instance (Show a, Show (f (Cofree f a))) => Show (Cofree f a)
-deriving instance (Eq a, Eq (f (Cofree f a))) => Eq (Cofree f a)
-deriving instance Show (F (Cofree F Int))
-deriving instance Eq (F (Cofree F Int))
+deriving instance Show a => Show (F a)
+deriving instance Eq a => Eq (F a)
 
 [a,b,c] = ["a","b","c"]
 today = date 1970 Jan 1
 tomorrow = today `addDays` 1
+afterTomorrow = tomorrow `addDays` 1
 two : O.Observation Date Decimal = O.pure 2.0
 observe25: Text -> Date -> Script Decimal = const . const . pure $ 25.0
 
@@ -76,6 +76,7 @@ testAcquire = script do
 
 
 -- | This test replaces all leaves with Zeros, logging their qty/asset pair into a `Writer`.
+-- It ignores `When/Cond` nodes altogether.
 testSettle = script do
   let f = runKleisli
           . fmap (uncurry Lifecycle.Result)
@@ -103,3 +104,39 @@ testSettle = script do
   remaining === (Scale two Zero `And` Scale two Zero)
   pending === [(2.0, a), (2.0, b)]
 
+  Lifecycle.Result{remaining, pending} <- f (When (O.BoolConst False) (One a)) today
+  remaining === When (O.BoolConst False) Zero
+  pending === pure (1.0, a)
+
+
+testBond = script do
+  let principal = 1_000.0
+      coupon = principal * 0.015
+      bond = fixed principal coupon a
+      noon d = time d 12 0 0
+
+  setTime $ noon today
+  t <- toDateUTC <$> getTime
+
+  Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 (bond [today, tomorrow, afterTomorrow]) t
+  remaining === bond [tomorrow, afterTomorrow]
+  pending === [(15.0, a)]
+
+  setTime $ noon tomorrow
+  t <- toDateUTC <$> getTime
+
+  Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 remaining t
+  remaining === bond [afterTomorrow]
+  pending === [(15.0, a)]
+
+  -- Check bond coupon doesn't get processed twice
+  Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 remaining t
+  remaining === bond [afterTomorrow]
+  pending === []
+
+  setTime $ noon afterTomorrow
+  t <- toDateUTC <$> getTime
+
+  Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 remaining t
+  remaining === Zero
+  pending === [(15.0, a), (1_000.0, a)]
