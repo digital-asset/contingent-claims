@@ -9,18 +9,20 @@ module ContingentClaims.Lifecycle (
     settle
   , settle'
   , acquire'
+  , acquireThenSettle
   , Result(..)
 ) where
 
 import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..))
 import ContingentClaims.Observation (Observation, eval)
 import ContingentClaims.Util (apoCataM, pruneZeros')
-import Daml.Control.Recursion (project, embed)
+import Daml.Control.Recursion (project, embed, distApo)
 import Daml.Control.Monad.Writer (WriterT, runWriterT)
 import Daml.Control.Monad.MonadWriter (MonadWriter(..))
 import Daml.Control.Monad.Trans
 import Daml.Control.Arrow (Kleisli(..))
 import DA.Traversable (sequence)
+import DA.Foldable (sequence_)
 import Prelude hiding (sequence, mapA)
 
 type C a = Claim Observation Date a
@@ -47,23 +49,31 @@ settle spot
   = runKleisli
   . fmap (uncurry Result)
   . runWriterT
-  . apoCataM pruneZeros' acquireThenSettle -- : (Decimal, C a) -> WriterT [(Decimal, a)] (Kleisli m Date) (F a (Either (C a) (Decimal, C a))) )
+  . apoCataM pruneZeros' (acquireThenSettle spot)
   . (1.0, )
-    where
-      acquireThenSettle =   fmap (fmap distE)  -- TODO: simplify
-                          . fmap join 
-                          . fmap (fmap sequence) 
-                          . fmap (fmap (fmap (settle' spot))) 
-                          . fmap (fmap sequence) 
-                          . fmap sequence 
-                          . fmap 
-                          . fmap (fmap (fmap embed ) ) 
-                          . fmap (fmap sequence) 
-                          . fmap lift 
-                          $ acquire' spot
-      distE : Either (C a) (F a x) -> F a (Either (C a) x)
-      distE (Left c) = Left <$> project c
-      distE (Right f) = Right <$> f
+
+acquireThenSettle : (CanAbort m, Eq a) 
+                  => (Text -> Date -> m Decimal) 
+                  -> (Decimal, C a) -> WriterT [(Decimal, a)] (Kleisli m Date) (F a (Either (C a) (Decimal, C a)))
+acquireThenSettle spot = 
+  fmap (fmap distE)
+  . fmap join
+  . fmap (fmap sequence)
+  . fmap (fmap (fmap (settle' spot)))
+  . fmap (fmap sequence)
+  . fmap sequence
+  . fmap
+  . fmap (fmap (fmap embed))
+  . fmap (fmap (tsidE : F a (Either (C a) (C a)) -> Either (C a) (F a (C a)) ))
+  . fmap lift
+  $ acquire' spot
+  where distE = distApo
+         -- This is degenerate if you have e.g. `And Left Right`, but that should never happen in practice.
+        tsidE f = case sequence_ f of 
+          Left _ -> Left (embed (fmap foldE f))
+          Right _ -> Right (fmap foldE f)
+        foldE (Left x) = x
+        foldE (Right x) = x
 
 -- | Evaluate observables and skip branches for which predicates don't hold.
 -- This is useless on its own. Composed with other functions it adds laziness.
