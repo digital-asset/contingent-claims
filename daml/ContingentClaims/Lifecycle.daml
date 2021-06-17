@@ -10,6 +10,7 @@ module ContingentClaims.Lifecycle (
   , settle'
   , acquire'
   , acquireThenSettle -- TODO: inline
+  , exercise
   , exercise'
   , Result(..)
 ) where
@@ -24,7 +25,7 @@ import Daml.Control.Monad.Trans
 import Daml.Control.Arrow (Kleisli(..))
 import DA.Traversable (sequence)
 import DA.Foldable (sequence_)
-import Prelude hiding (sequence, mapA)
+import Prelude hiding (sequence, mapA, exercise)
 
 type C a = Claim Observation Date a
 type F a = ClaimF Observation Date a
@@ -114,8 +115,19 @@ data ExerciseResult a = ExerciseResult with party: Party, remaining: C a
 
 --  | Allows bearer to acquire `Anytime` and `Or` nodes, by making an election.
 -- `import` this `qualified`, to avoid clashes with `Prelude.exercise`.
-exercise : (Text -> Date -> m Decimal) -> C a -> C a -> Date -> C a
-exercise spot election = undefined
+exercise : (Eq a, Monad m) => (Text -> Date -> m Decimal) -> C a -> C a -> Date -> m (C a)
+exercise spot election = runKleisli . apoCataM pruneZeros' acquireThenExercise where 
+  acquireThenExercise = fmap (fmap distE) 
+                        . fmap (fmap (fmap (exercise' election)) )
+                        . fmap (fmap (fmap embed)) 
+                        . fmap (fmap tsidE) 
+                        $ acquire' spot
+  distE = distApo
+  tsidE f = case sequence_ f of 
+    Left _ -> Left (embed (fmap foldE f))
+    Right _ -> Right (fmap foldE f)
+  foldE (Left x) = x
+  foldE (Right x) = x
 
 -- | Coalgebra for `exercise`.
 exercise' : Eq a => C a -> C a -> F a (C a)

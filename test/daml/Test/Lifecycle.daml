@@ -10,10 +10,10 @@
 module Test.Lifecycle where
 
 import ContingentClaims.Claim hiding (C, F)
-import ContingentClaims.FinancialClaim (at, fixed)
+import ContingentClaims.FinancialClaim (at, fixed, european)
 import ContingentClaims.Lifecycle qualified as Lifecycle
 import ContingentClaims.Observable qualified as O
-import ContingentClaims.Observation (Observation)
+import ContingentClaims.Observation (Observation())
 import ContingentClaims.Observation qualified as O
 import ContingentClaims.Util
 import DA.Action ((>=>))
@@ -40,6 +40,8 @@ afterTomorrow = tomorrow `addDays` 1
 two : O.Observation Date Decimal = O.pure 2.0
 observe25: Text -> Date -> Script Decimal = const . const . pure $ 25.0
 (false, true) = (O.BoolConst False, O.BoolConst True)
+getDate = toDateUTC <$> getTime
+setDate = setTime . noon where noon d = time d 12 0 0
 
 -- | This test marks leaves (i.e. `One`/`Zero`) with `acquired` if they were reached.
 -- It also removes intermediate `When`/`Cond` so they are not processed twice, accidentaly.
@@ -149,17 +151,16 @@ testBond = script do
   let principal = 1_000.0
       coupon = principal * 0.015
       bond = fixed principal coupon a
-      noon d = time d 12 0 0
 
-  setTime $ noon today
-  t <- toDateUTC <$> getTime
+  setDate today
+  t <- getDate
 
   Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 (bond [today, tomorrow, afterTomorrow]) t
   remaining === bond [tomorrow, afterTomorrow]
   pending === [(15.0, a)]
 
-  setTime $ noon tomorrow
-  t <- toDateUTC <$> getTime
+  setDate tomorrow
+  t <- getDate
 
   Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 remaining t
   remaining === bond [afterTomorrow]
@@ -170,9 +171,33 @@ testBond = script do
   remaining === bond [afterTomorrow]
   pending === []
 
-  setTime $ noon afterTomorrow
-  t <- toDateUTC <$> getTime
+  setDate afterTomorrow
+  t <- getDate
 
   Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 remaining t
   remaining === Zero
   pending === [(15.0, a), (1_000.0, a)]
+
+testEuropeanCall = script do
+  let strike = 23.0
+      payoff = Scale (O.observe "spot" O.- O.pure strike) (One a)
+      option = european tomorrow payoff
+
+  setDate today
+  t <- getDate
+
+  remaining <- Lifecycle.exercise observe25 Zero option t
+  remaining === option
+
+  -- TODO uncomment and wrap in try/catch once that is working in 1.14.0
+  -- Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 option t
+
+  setDate tomorrow
+  t <- getDate
+
+  remaining <- Lifecycle.exercise observe25 payoff option t
+  remaining === payoff
+
+  Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 remaining t
+  remaining === Zero
+  pending === pure (2.0, a)
