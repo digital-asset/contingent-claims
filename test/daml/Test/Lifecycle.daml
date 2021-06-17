@@ -79,10 +79,10 @@ testAcquire = script do
   res === acquired a
 
   res <- f (One a `Or` One b) today
-  res === (One a `Or` One b)
+  res === (acquired a `Or` acquired b)
 
   res <- f (Anytime true (One a)) today
-  res === Anytime true (One a)
+  res === Anytime true (acquired a)
 
   res <- f (Anytime false (One a)) today
   res === Anytime false (One a)
@@ -93,8 +93,8 @@ testSettle = script do
   let f = runKleisli
           . fmap (uncurry Lifecycle.Result)
           . runWriterT
-          . anaM (Lifecycle.settle' observe25)
-          . (\claim -> (1.0, claim))
+          . apoM (Lifecycle.settle' observe25)
+          . (1.0, )
 
   Lifecycle.Result{remaining, pending} <- f (Scale two Zero : C) today
   remaining === Scale two Zero
@@ -121,8 +121,8 @@ testSettle = script do
   pending === pure (1.0, a)
 
   Lifecycle.Result{remaining, pending} <- f (Anytime false (One a)) today
-  remaining === Anytime false Zero
-  pending === pure (1.0, a)
+  remaining === Anytime false (One a)
+  pending === []
 
 -- | Replace any `Or/Anytime` nodes with the elections that have been made.
 testExercise = script do
@@ -189,8 +189,9 @@ testEuropeanCall = script do
   remaining <- Lifecycle.exercise observe25 Zero option t
   remaining === option
 
-  -- TODO uncomment and wrap in try/catch once that is working in 1.14.0
-  -- Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 option t
+  Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 option t
+  remaining === option
+  pending === []
 
   setDate tomorrow
   t <- getDate

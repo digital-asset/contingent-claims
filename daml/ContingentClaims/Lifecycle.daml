@@ -9,7 +9,6 @@ module ContingentClaims.Lifecycle (
     settle
   , settle'
   , acquire'
-  , acquireThenSettle -- TODO: inline
   , exercise
   , exercise'
   , Result(..)
@@ -51,35 +50,32 @@ settle spot
   = runKleisli
   . fmap (uncurry Result)
   . runWriterT
-  . apoCataM pruneZeros' (acquireThenSettle spot)
+  . apoCataM pruneZeros' acquireThenSettle
   . (1.0, )
-
--- TODO: inline - this shouldn't be exported.
-acquireThenSettle : (CanAbort m, Eq a) 
-                  => (Text -> Date -> m Decimal) 
-                  -> (Decimal, C a) -> WriterT [(Decimal, a)] (Kleisli m Date) (F a (Either (C a) (Decimal, C a)))
-acquireThenSettle spot = 
-  fmap (fmap distE)
-  . fmap join
-  . fmap (fmap sequence)
-  . fmap (fmap (fmap (settle' spot)))
-  . fmap (fmap sequence)
-  . fmap sequence
-  . fmap
-  . fmap (fmap (fmap embed))
-  . fmap (fmap (tsidE : F a (Either (C a) (C a)) -> Either (C a) (F a (C a)) ))
-  . fmap lift
-  $ acquire' spot
-  where distE = distApo
-         -- This is degenerate if you have e.g. `And Left Right`, but that should never happen in practice.
-        tsidE f = case sequence_ f of 
-          Left _ -> Left (embed (fmap foldE f))
-          Right _ -> Right (fmap foldE f)
-        foldE (Left x) = x
-        foldE (Right x) = x
+  where
+    acquireThenSettle = 
+      fmap (fmap (fmap join))
+      . fmap (fmap distE)
+      . fmap join
+      . fmap (fmap sequence)
+      . fmap (fmap (fmap (settle' spot)))
+      . fmap (fmap sequence)
+      . fmap sequence
+      . fmap
+      . fmap (fmap (fmap embed))
+      . fmap (fmap (tsidE : F a (Either (C a) (C a)) -> Either (C a) (F a (C a)) ))
+      . fmap lift
+      $ acquire' spot
+    distE = distApo
+     -- This is degenerate if you have e.g. `And Left Right`, but that should never happen in practice.
+    tsidE f = case sequence_ f of 
+      Left _ -> Left (embed (fmap foldE f))
+      Right _ -> Right (fmap foldE f)
+    foldE (Left x) = x
+    foldE (Right x) = x
 
 -- | Evaluate observables and skip branches for which predicates don't hold.
--- Note `Or` and `Anytime` can never be acquired. It must be 'Lifecycle.exercise'd instead.
+-- Consumes `When` and `Cond` when appropriate, leaving their subtrees.
 -- This is useless on its own. Composed with other functions, it adds laziness.
 acquire' : (Eq a, Monad m)
   => (Text -> Date -> m Decimal)
@@ -90,30 +86,32 @@ acquire' spot (When obs c) = do
 acquire' spot (Cond obs c c') = do
   predicate <- eval spot obs
   if predicate then acquire' spot c else acquire' spot c'
-acquire' spot (Anytime obs c) = pure $ AnytimeF obs (Left c)
-acquire' spot (Or c c') = pure $ OrF (Left c) (Left c')
+acquire' spot (Anytime obs c) = do
+  predicate <- eval spot obs
+  pure $ AnytimeF obs if predicate then Right c else Left c
 acquire' _ other = pure $ Right <$> project other
 
--- | Collects all `One` leaves replacing them with `Zero`s (to avoid double-spend).
--- Accumulates `Scale` factors between `One` leaves and the root node, logging both to the writer.
--- Note this ignores `Anytime` nodes, and aborts on `Or` nodes - they require `Lifecycle.exercise`.
+-- | Evaluate any observables in `Scale` nodes, accumulating scale factors
+-- top-down, and log these with their corresponding leaf values. Skip `Or` and
+-- `Anytime` branches.
 settle' : CanAbort m 
         => (Text -> Date -> m Decimal) 
-        -> (Decimal, C a) -> WriterT [(Decimal, a)] (Kleisli m Date) (F a (Decimal, C a))
+        -> (Decimal, C a) -> WriterT [(Decimal, a)] (Kleisli m Date) (F a (Either (C a) (Decimal, C a)))
 settle' _ (qty, One asset) = do
   tell [(qty, asset)]
-  pure ZeroF
+  pure $ Right <$> ZeroF
 settle' _ (qty, Give c) = 
-  pure $ GiveF (-qty, c)
+  pure . GiveF $ Right (-qty, c)
 settle' spot (qty, Scale obs c) = do
   k <- lift $ eval spot obs
-  pure $ ScaleF obs (k * qty, c)
-settle' _ (_, Or _ _) = abort "settle: unexercised `Or`. Exercise it and then retry. "
-settle' _ (qty, other) = pure $ (qty, ) <$> project other
+  pure . ScaleF obs $ Right (k * qty, c)
+settle' _ (_, c@(Or _ _)) = pure $ Left <$> project c
+settle' _ (_, c@(Anytime _ _)) = pure $ Left <$> project c
+settle' _ (qty, other) = pure $ Right . (qty, ) <$> project other
 
 data ExerciseResult a = ExerciseResult with party: Party, remaining: C a
 
---  | Allows bearer to acquire `Anytime` and `Or` nodes, by making an election.
+--  | Acquire `Anytime` and `Or` nodes, by making an election.
 -- `import` this `qualified`, to avoid clashes with `Prelude.exercise`.
 exercise : (Eq a, Monad m) => (Text -> Date -> m Decimal) -> C a -> C a -> Date -> m (C a)
 exercise spot election = runKleisli . apoCataM pruneZeros' acquireThenExercise where 
