@@ -56,7 +56,7 @@ fixed principal coupon = floating (O.pure principal) (O.pure coupon)
 european
   : forall f t a . (TimeF f t, PointF f t t, InequalityF f t t)
   => t -> Claim f t a -> Claim f t a
-european t u = When (at t) (u `Or` Zero)
+european maturity payoff = When (at maturity) (payoff `Or` Zero)
 
 -- | Bermudan option on the passed claim.
 bermudan
@@ -66,6 +66,14 @@ bermudan u = apo \case
   (t :: ts) -> Left (european t u) `OrF` Right ts
   [] -> ZeroF
 
+-- | American option (knock-in). The lead parameter is the first possible acquisition date.
+american
+  : forall f t a . (TimeF f t, PointF f t t, InequalityF f t t)
+  => t -> t -> Claim f t a -> Claim f t a
+american t maturity payoff = 
+  Until (O.pure maturity O.<= O.time) $ -- time is ≥ maturity FIXME: need opposite i.e. GT operator
+    Anytime (O.pure t O.<= O.time) (payoff `Or` Zero)
+
 -- | Asset swap on specific fixing dates `[t]`. For example:
 -- ```
 -- fixedUsdVsFloatingEur : [t] -> Serializable.Claim Text
@@ -73,16 +81,3 @@ bermudan u = apo \case
 -- ```
 swap : forall f t a . ([t] -> Claim f t a) -> ([t] -> Claim f t a) -> [t] -> Claim f t a
 swap receive pay ts = receive ts `And` Give (pay ts)
-
-{-
-between
-  : forall f t a . (TimeF f t, PointF f t t, InequalityF (f t) t, LogicF (f t))
-  => t -> t -> f t Bool
-between t t' = liftA2 (&&) (O.time O.>= O.pure t) O.&&  (O.time O.<= O.pure t')
-
-american
-  : forall f t a . (Ord t, Category f, Applicative (f t))
-  => t -> t -> Claim f t a -> Claim f t a
-american t t' u = anytime (between t t') u
-
--}

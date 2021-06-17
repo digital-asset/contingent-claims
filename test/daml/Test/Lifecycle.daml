@@ -10,7 +10,7 @@
 module Test.Lifecycle where
 
 import ContingentClaims.Claim hiding (C, F)
-import ContingentClaims.FinancialClaim (at, fixed, european)
+import ContingentClaims.FinancialClaim (at, fixed, european, american)
 import ContingentClaims.Lifecycle qualified as Lifecycle
 import ContingentClaims.Observable qualified as O
 import ContingentClaims.Observation (Observation())
@@ -208,3 +208,47 @@ testEuropeanCall = script do
   Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 remaining t
   remaining === Zero
   pending === pure (2.0, a)
+
+-- Knock-in tomorrow
+testAmericanPut = script do
+  let strike = 30.0
+      payoff = Scale (O.pure strike O.- O.observe "spot") (One a)
+      option = american tomorrow afterTomorrow payoff
+
+  -- Scenario 1) Before knock-in
+  setDate today
+  t <- getDate
+
+  Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 option t
+  remaining === option
+  pending === []
+
+  remaining <- Lifecycle.exercise observe25 payoff option t
+  remaining === option -- not in acquisition range yet
+
+  -- Scenario 2) in acquisition range
+
+  setDate tomorrow
+  t <- getDate
+
+  -- Settlement before exercise has been done is a no-op
+  Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 option t
+  remaining === option
+  
+  remaining <- Lifecycle.exercise observe25 payoff option t
+  remaining === payoff -- not in acquisition range yet
+
+  Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 remaining t
+  remaining === Zero
+  pending === pure (5.0, a)
+
+  -- Scenario 3) past maturity
+  setDate afterTomorrow
+  t <- getDate
+
+  remaining <- Lifecycle.exercise observe25 payoff option t
+  remaining === option -- passed maturity; no exercise possible
+
+  Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 remaining t
+  remaining === option
+  pending === []
