@@ -15,8 +15,10 @@ module ContingentClaims.Lifecycle (
 ) where
 
 import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..))
-import ContingentClaims.Observation (Observation, eval)
-import ContingentClaims.Util (apoCataM, pruneZeros')
+import ContingentClaims.Observation (Observation)
+import ContingentClaims.Observable (Interpret(..))
+import ContingentClaims.Util.Recursion (apoCataM)
+import ContingentClaims.Util (pruneZeros')
 import Daml.Control.Recursion (project, embed, distApo)
 import Daml.Control.Monad.Writer (WriterT, runWriterT)
 import Daml.Control.Monad.MonadWriter (MonadWriter(..))
@@ -24,10 +26,10 @@ import Daml.Control.Monad.Trans
 import Daml.Control.Arrow (Kleisli(..))
 import DA.Traversable (sequence)
 import DA.Foldable (sequence_)
-import Prelude hiding (sequence, mapA, exercise)
+import Prelude hiding (sequence, mapA, exercise, compare)
 
-type C a = Claim Observation Date a
-type F a = ClaimF Observation Date a
+type C a = Claim Observation Date Decimal a
+type F a = ClaimF Observation Date Decimal a
 
 deriving instance Eq a => Eq (C a)
 
@@ -81,16 +83,16 @@ acquire' : (Eq a, Monad m)
   => (Text -> Date -> m Decimal)
   -> C a -> Kleisli m Date (F a (Either (C a) (C a)))
 acquire' spot (When obs c) = do
-  predicate <- eval spot obs
+  predicate <- compare spot obs
   if predicate then acquire' spot c else pure $ WhenF obs (Left c)
 acquire' spot (Cond obs c c') = do
-  predicate <- eval spot obs
+  predicate <- compare spot obs
   if predicate then acquire' spot c else acquire' spot c'
 acquire' spot (Anytime obs c) = do
-  predicate <- eval spot obs
+  predicate <- compare spot obs
   pure $ AnytimeF obs if predicate then Right c else Left c
 acquire' spot (Until obs c) = do
-  predicate <- eval spot obs
+  predicate <- compare spot obs
   pure $ UntilF obs if predicate then Left c else Right c
 acquire' _ other = pure $ Right <$> project other
 
@@ -144,7 +146,7 @@ expire spot = apoCataM pruneZeros' undefined
 -- | Coalgebra for `expire`.
 expire' : Monad m => (Text -> Date -> m Decimal) -> C a -> Kleisli m Date (F a (C a))
 expire' spot (Until obs c) = do
-  predicate <- eval spot obs
+  predicate <- compare spot obs
   if predicate then pure ZeroF else pure $ UntilF obs c
 expire' _ (One _) = pure ZeroF
 expire' _ other = pure . project $ other

@@ -8,96 +8,21 @@
 module ContingentClaims.Util (
     enumerateFrom
   , enum'
-  , cataM
-  , paraM
-  , anaM
-  , apoM
-  , apoCataM
-  , hyloM
-  , ghyloM
-  , funzip
-  , synthesize
-  , inherit
-  , subTreeSize'
   , fixings
   , fixings'
   , pruneZeros
   , pruneZeros'
 ) where
 
+import ContingentClaims.Observable qualified as O (Inequality(..))
 import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..))
-import ContingentClaims.Observation (Observation)
-import ContingentClaims.Observation qualified as O
-import DA.Foldable (Foldable, sum, fold)
-import Daml.Control.Arrow ((&&&), (|||), (>>>), (<<<), Kleisli(..))
+import ContingentClaims.Util.Recursion (synthesize, subTreeSize')
 import Daml.Control.Recursion
-import Daml.Control.Comonad
+import DA.Foldable (fold)
 import Prelude hiding (sum, sequence, mapA)
-import DA.Traversable (Traversable, sequence, mapA)
-
--- The morphisms ending in 'M' are monadic variants, allowing to interleave e.g. `Update` or `Script`.
--- `cataM` After Tim Williams' talk, https://www.youtube.com/watch?v=Zw9KeP3OzpU.
-
--- TODO: the two folds can probably be simplified with Traverse.mapA too.
-cataM : (Monad m, Traversable f, Recursive b f) => (f a -> m a) -> b -> m a
-cataM f b = (project >>> fmap (cataM f) >>> (>>= f) . sequence) b
-
-paraM : (Monad m, Traversable f, Recursive b f) => (f (b, a) -> m a) -> b -> m a
-paraM f b = (project >>> fmap (runKleisli $ Kleisli pure &&& Kleisli (paraM f)) >>> (>>= f) . sequence) b
-
-anaM : (Monad m, Traversable f, Corecursive b f) => (a -> m (f a)) -> a -> m b
-anaM f a = (fmap embed <<< (>>= mapA (anaM f)) <<< f) a
-
-apoM : (Monad m, Traversable f, Corecursive b f) => (a -> m (f (Either b a))) -> a -> m b
-apoM f a = (fmap embed <<< (>>= (mapA (pure ||| apoM f))) <<< f) a
-
--- | Specialised lazy re-fold, used by `lifecycle`.
-apoCataM : (Monad m, Traversable f, Corecursive b f) => (f b -> b) -> (a -> m (f (Either b a))) -> a -> m b
-apoCataM f g a = _apoCataM f g a
-
--- | HIDE
-_apoCataM f g a = (fmap f <<< (>>= (mapA (pure ||| apoCataM f g))) <<< g) a
-
--- A modified `hylo` (refold), whith an interleaved monad effect (typically `Update`).
-hyloM : (Traversable f, Monad n) => (f b -> b) -> (a -> n (f a)) -> a -> n b
-hyloM f g a = (fmap f <<< (>>= mapA (hyloM f g)) <<< g) a
-
-ghyloM : (Comonad w, Traversable f, Monad m, Traversable m, Monad n)
-       => (forall c . f (w c) -> w (f c))
-       -> (forall d . m (f d) -> f (m d))
-       -> (f (w b) -> b)
-       -> (a -> n (f (m a)))
-       -> a
-       -> n b
-ghyloM w m f g a = (fmap f <<< (>>= mapA (hyloM alg coalg)) <<< g) a where
-  coalg  = fmap g >>> sequence >>> fmap m >>> fmap (fmap join)
-  alg  = fmap f <<< w <<< fmap duplicate
-
--- Functor unzip
-funzip : Functor f => f (a, b) -> (f a, f b)
-funzip = fmap fst &&& fmap snd
-
--- Annotate the tree bottom-up
-synthesize : (Functor f, Recursive b f) => (f attr -> attr) -> b -> Cofree f attr
-synthesize f = cata algebra where
-  -- alg : f (Cofree f a) -> Cofree f a
-  algebra = uncurry Cofree . (f . fmap (.attribute) &&& identity)
-
--- Annotate the tree top-down
-inherit : (Functor f, Corecursive b f, Recursive b f) => (b -> attr -> attr) -> attr -> b -> Cofree f attr
-inherit g seed b = para algebra b seed where
-  -- f (b, attr -> Cofree f attr) -> attr -> Cofree f attr
-  algebra gbg attr = Cofree attr' f' where
-    (fb, ff) = funzip gbg
-    attr' = g (embed fb) attr
-    f' = fmap ($ attr') ff
-
--- Returns a tree with each node annotated with the # of nodes below it + 1
-subTreeSize' : Foldable f => f Int -> Int
-subTreeSize' c = 1 + sum c
 
 -- Given a tree annotated with the number of nodes in each branch, index it, depth first.
-enum' : (Int, Cofree (ClaimF f t a) Int) -> CofreeF (ClaimF f t a) Int (Int, Cofree (ClaimF f t a) Int)
+enum' : (Int, Cofree (ClaimF f t x a) Int) -> CofreeF (ClaimF f t x a) Int (Int, Cofree (ClaimF f t x a) Int)
 enum' (i, Cofree _ ZeroF) = CofreeF i ZeroF
 enum' (i, Cofree _ (OneF id)) = CofreeF i (OneF id)
 enum' (i, Cofree _ (WhenF p f)) = CofreeF i (WhenF p (succ i, f))
@@ -108,22 +33,22 @@ enum' (i, Cofree _ (OrF f@(Cofree depth _) f')) = CofreeF i (OrF (succ i, f) (su
 enum' (i, Cofree _ (CondF p f@(Cofree depth _) f')) = CofreeF i (CondF p (succ i, f) (succ (i + depth), f'))
 
 -- Enumerate each node in the tree, starting from from 'zero'
-enumerateFrom : Int -> Claim f t a -> Cofree (ClaimF f t a) Int
+enumerateFrom : Int -> Claim f t x a -> Cofree (ClaimF f t x a) Int
 enumerateFrom zero = ana enum' . (zero, ) . synthesize subTreeSize'
 
-fixings : Claim Observation Date a -> [Date]
+fixings : Claim f t x a -> [t]
 fixings = cata fixings'
 
 --TODO should fail if dates will never be executed
-fixings' : ClaimF Observation Date a [Date] -> [Date]
-fixings' (WhenF p ts) = O.fixings p ++ ts
+fixings' : ClaimF f t x a [t] -> [t]
+fixings' (WhenF (O.TimeGte t) ts) = t :: ts
 fixings' claim = fold claim
 
-pruneZeros : Claim f t a -> Claim f t a
+pruneZeros : Claim f t x a -> Claim f t x a
 pruneZeros = cata pruneZeros'
 
 -- | Prunes sub-trees which are `Zero` a.s.
-pruneZeros' : ClaimF f t a (Claim f t a) -> Claim f t a
+pruneZeros' : ClaimF f t x a (Claim f t x a) -> Claim f t x a
 pruneZeros' (ScaleF _ Zero) = Zero
 pruneZeros' (GiveF Zero) = Zero
 pruneZeros' (AndF Zero c) = c
@@ -131,4 +56,5 @@ pruneZeros' (AndF c Zero) = c
 pruneZeros' (WhenF _ Zero) = Zero
 pruneZeros' (CondF _ Zero Zero) = Zero
 pruneZeros' (OrF Zero Zero) = Zero
+pruneZeros' (UntilF _ Zero) = Zero
 pruneZeros' other = embed other
