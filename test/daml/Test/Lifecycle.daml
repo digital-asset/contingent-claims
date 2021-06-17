@@ -39,8 +39,10 @@ tomorrow = today `addDays` 1
 afterTomorrow = tomorrow `addDays` 1
 two : O.Observation Date Decimal = O.pure 2.0
 observe25: Text -> Date -> Script Decimal = const . const . pure $ 25.0
+(false, true) = (O.BoolConst False, O.BoolConst True)
 
 -- | This test marks leaves (i.e. `One`/`Zero`) with `acquired` if they were reached.
+-- It also removes intermediate `When`/`Cond` so they are not processed twice, accidentaly.
 testAcquire = script do
   let acquiredF asset = OneF $ "acquired " <> asset
       acquired asset : C = embed $ acquiredF asset
@@ -74,6 +76,14 @@ testAcquire = script do
   res <- f (When (O.pure today O.<= O.time) (When (O.time O.== O.pure tomorrow) (One a)) ) tomorrow
   res === acquired a
 
+  res <- f (One a `Or` One b) today
+  res === (One a `Or` One b)
+
+  res <- f (Anytime true (One a)) today
+  res === Anytime true (One a)
+
+  res <- f (Anytime false (One a)) today
+  res === Anytime false (One a)
 
 -- | This test replaces all leaves with Zeros, logging their qty/asset pair into a `Writer`.
 -- It ignores `When/Cond` nodes altogether.
@@ -86,7 +96,7 @@ testSettle = script do
 
   Lifecycle.Result{remaining, pending} <- f (Scale two Zero : C) today
   remaining === Scale two Zero
-  pending === mempty
+  pending === []
 
   Lifecycle.Result{remaining, pending} <- f (Scale two (One a)) today
   remaining === Scale two Zero
@@ -104,11 +114,37 @@ testSettle = script do
   remaining === (Scale two Zero `And` Scale two Zero)
   pending === [(2.0, a), (2.0, b)]
 
-  Lifecycle.Result{remaining, pending} <- f (When (O.BoolConst False) (One a)) today
-  remaining === When (O.BoolConst False) Zero
+  Lifecycle.Result{remaining, pending} <- f (When false (One a)) today
+  remaining === When false Zero
   pending === pure (1.0, a)
 
+  Lifecycle.Result{remaining, pending} <- f (Anytime false (One a)) today
+  remaining === Anytime false Zero
+  pending === pure (1.0, a)
 
+-- | Replace any `Or/Anytime` nodes with the elections that have been made.
+testExercise = script do
+  let f spot election = runKleisli . anaM (Lifecycle.exercise' spot election)
+  
+  rem <- f observe25 (One a) (One a `Or` One b) today
+  rem === One a
+
+  rem <- f observe25 (One b) (One a `Or` One b) today
+  rem === One b
+
+  rem <- f observe25 (One c) (One a `Or` One b) today
+  rem === One a `Or` One b
+
+  rem <- f observe25 (One a) (Anytime true (One a)) today
+  rem === One a
+
+  rem <- f observe25 (One a) (Anytime false (One a)) today
+  rem === Anytime false (One a)
+
+  rem <- f observe25 (One c) (Anytime true (One a)) today
+  rem === Anytime true (One a)
+
+-- | Lifecycle a bond with three fixing dates. Uses ledger time effects.
 testBond = script do
   let principal = 1_000.0
       coupon = principal * 0.015

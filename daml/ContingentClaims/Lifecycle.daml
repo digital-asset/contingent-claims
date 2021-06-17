@@ -9,7 +9,8 @@ module ContingentClaims.Lifecycle (
     settle
   , settle'
   , acquire'
-  , acquireThenSettle
+  , acquireThenSettle -- TODO: inline
+  , exercise'
   , Result(..)
 ) where
 
@@ -52,6 +53,7 @@ settle spot
   . apoCataM pruneZeros' (acquireThenSettle spot)
   . (1.0, )
 
+-- TODO: inline - this shouldn't be exported.
 acquireThenSettle : (CanAbort m, Eq a) 
                   => (Text -> Date -> m Decimal) 
                   -> (Decimal, C a) -> WriterT [(Decimal, a)] (Kleisli m Date) (F a (Either (C a) (Decimal, C a)))
@@ -76,7 +78,8 @@ acquireThenSettle spot =
         foldE (Right x) = x
 
 -- | Evaluate observables and skip branches for which predicates don't hold.
--- This is useless on its own. Composed with other functions it adds laziness.
+-- Note `Or` and `Anytime` can never be acquired. It must be 'Lifecycle.exercise'd instead.
+-- This is useless on its own. Composed with other functions, it adds laziness.
 acquire' : (Eq a, Monad m)
   => (Text -> Date -> m Decimal)
   -> C a -> Kleisli m Date (F a (Either (C a) (C a)))
@@ -86,11 +89,13 @@ acquire' spot (When obs c) = do
 acquire' spot (Cond obs c c') = do
   predicate <- eval spot obs
   if predicate then acquire' spot c else acquire' spot c'
+acquire' spot (Anytime obs c) = pure $ AnytimeF obs (Left c)
+acquire' spot (Or c c') = pure $ OrF (Left c) (Left c')
 acquire' _ other = pure $ Right <$> project other
 
 -- | Collects all `One` leaves replacing them with `Zero`s (to avoid double-spend).
--- Calculates the product of any `Scale` factors between each `One` and the root node, logging these to the writer.
--- This function **ignores** conditions; it traverses the entire tree.
+-- Accumulates `Scale` factors between `One` leaves and the root node, logging both to the writer.
+-- Note this ignores `Anytime` nodes, and aborts on `Or` nodes - they require `Lifecycle.exercise`.
 settle' : CanAbort m 
         => (Text -> Date -> m Decimal) 
         -> (Decimal, C a) -> WriterT [(Decimal, a)] (Kleisli m Date) (F a (Decimal, C a))
@@ -105,17 +110,22 @@ settle' spot (qty, Scale obs c) = do
 settle' _ (_, Or _ _) = abort "settle: unexercised `Or`. Exercise it and then retry. "
 settle' _ (qty, other) = pure $ (qty, ) <$> project other
 
--- | Used to make an election on `Or` or exercise an `Anytime`.
---  `import` this `qualified`, to avoid clashes with `Prelude.exercise`.
+data ExerciseResult a = ExerciseResult with party: Party, remaining: C a
+
+--  | Allows bearer to acquire `Anytime` and `Or` nodes, by making an election.
+-- `import` this `qualified`, to avoid clashes with `Prelude.exercise`.
 exercise : (Text -> Date -> m Decimal) -> C a -> C a -> Date -> C a
-exercise = undefined
+exercise spot election = undefined
 
 -- | Coalgebra for `exercise`.
-exercise' : Eq a => C a -> C a -> F a (C a)
-exercise' chosen (Or c _) | chosen == c = project c
-exercise' chosen (Or _ c) | chosen == c = project c
-exercise' chosen (Anytime _ c) | chosen == c = project c
-exercise' _ other = project other
+-- Like acquire, but where bearer has the choice i.e. `Or` and `Anytime`.
+exercise' : (Action m, Eq a) => (Text -> Date -> m Decimal) -> C a -> C a -> Kleisli m Date (F a (C a))
+exercise' _ chosen (Or c _) | chosen == c = pure $ project c
+exercise' _ chosen (Or _ c) | chosen == c = pure $ project c
+exercise' spot chosen (Anytime obs c) = do
+  predicate <- eval spot obs
+  pure if predicate && chosen == c then project c else AnytimeF obs c
+exercise' _ _ other = pure $ project other
 
 -- | Replace any subtress that have expired with `Zero`s.
 expire : Monad m => (Text -> Date -> m Decimal) -> C a -> m (C a)
