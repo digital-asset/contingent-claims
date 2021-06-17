@@ -89,6 +89,9 @@ acquire' spot (Cond obs c c') = do
 acquire' spot (Anytime obs c) = do
   predicate <- eval spot obs
   pure $ AnytimeF obs if predicate then Right c else Left c
+acquire' spot (Until obs c) = do
+  predicate <- eval spot obs
+  pure $ UntilF obs if predicate then Left c else Right c
 acquire' _ other = pure $ Right <$> project other
 
 -- | Evaluate any observables in `Scale` nodes, accumulating scale factors

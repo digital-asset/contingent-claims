@@ -87,6 +87,12 @@ testAcquire = script do
   res <- f (Anytime false (One a)) today
   res === Anytime false (One a)
 
+  res <- f (Until false (One a)) today
+  res === Until false (acquired a)
+
+  res <- f (Until true (One a)) today
+  res === Until true (One a)
+
 -- | This test replaces all leaves with Zeros, logging their qty/asset pair into a `Writer`.
 -- It ignores `When/Cond` nodes altogether.
 testSettle = script do
