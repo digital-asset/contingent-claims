@@ -124,24 +124,24 @@ testSettle = script do
 
 -- | Replace any `Or/Anytime` nodes with the elections that have been made.
 testExercise = script do
-  let f spot election = runKleisli . anaM (Lifecycle.exercise' spot election)
+  let f election = ana (Lifecycle.exercise' election)
   
-  rem <- f observe25 (One a) (One a `Or` One b) today
+  let rem = f (One a) (One a `Or` One b)
   rem === One a
 
-  rem <- f observe25 (One b) (One a `Or` One b) today
+  let rem = f (One b) (One a `Or` One b)
   rem === One b
 
-  rem <- f observe25 (One c) (One a `Or` One b) today
+  let rem = f (One c) (One a `Or` One b)
   rem === One a `Or` One b
 
-  rem <- f observe25 (One a) (Anytime true (One a)) today
+  let rem = f (One a) (Anytime true (One a))
   rem === One a
 
-  rem <- f observe25 (One a) (Anytime false (One a)) today
-  rem === Anytime false (One a)
+  let rem = f (One a) (Anytime false (One a))
+  rem === One a
 
-  rem <- f observe25 (One c) (Anytime true (One a)) today
+  let rem = f (One c) (Anytime true (One a))
   rem === Anytime true (One a)
 
 -- | Lifecycle a bond with three fixing dates. Uses ledger time effects.

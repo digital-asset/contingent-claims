@@ -118,14 +118,11 @@ exercise : (Text -> Date -> m Decimal) -> C a -> C a -> Date -> C a
 exercise spot election = undefined
 
 -- | Coalgebra for `exercise`.
--- Like acquire, but where bearer has the choice i.e. `Or` and `Anytime`.
-exercise' : (Action m, Eq a) => (Text -> Date -> m Decimal) -> C a -> C a -> Kleisli m Date (F a (C a))
-exercise' _ chosen (Or c _) | chosen == c = pure $ project c
-exercise' _ chosen (Or _ c) | chosen == c = pure $ project c
-exercise' spot chosen (Anytime obs c) = do
-  predicate <- eval spot obs
-  pure if predicate && chosen == c then project c else AnytimeF obs c
-exercise' _ _ other = pure $ project other
+exercise' : Eq a => C a -> C a -> F a (C a)
+exercise' chosen (Or c _) | chosen == c = project c
+exercise' chosen (Or _ c) | chosen == c = project c
+exercise' chosen (Anytime _ c) | chosen == c = project c
+exercise' _ other = project other
 
 -- | Replace any subtress that have expired with `Zero`s.
 expire : Monad m => (Text -> Date -> m Decimal) -> C a -> m (C a)
