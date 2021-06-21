@@ -11,6 +11,7 @@ module ContingentClaims.Lifecycle (
   , acquire'
   , exercise
   , exercise'
+  , expire
   , Result(..)
 ) where
 
@@ -139,14 +140,26 @@ exercise' chosen (Or _ c) | chosen == c = project c
 exercise' chosen (Anytime _ c) | chosen == c = project c
 exercise' _ other = project other
 
--- | Replace any subtress that have expired with `Zero`s.
-expire : Monad m => (Text -> Date -> m Decimal) -> C a -> m (C a)
-expire spot = apoCataM pruneZeros' undefined
+-- | Replace any subtrees that have expired with `Zero`s.
+expire : (Eq a, Monad m) => (Text -> Date -> m Decimal) -> C a -> Date -> m (C a)
+expire spot = runKleisli . apoCataM pruneZeros' acquireThenExpire where
+  acquireThenExpire = fmap (fmap distE) 
+                      . fmap join 
+                      . fmap (fmap sequence) 
+                      . fmap (fmap (fmap (expire' spot))) 
+                      . fmap (fmap (fmap embed))
+                      . fmap (fmap tsidE) 
+                      $ acquire' spot
+  distE = distApo
+  tsidE f = case sequence_ f of 
+    Left _ -> Left (embed (fmap foldE f))
+    Right _ -> Right (fmap foldE f)
+  foldE (Left x) = x
+  foldE (Right x) = x
 
 -- | Coalgebra for `expire`.
 expire' : Monad m => (Text -> Date -> m Decimal) -> C a -> Kleisli m Date (F a (C a))
 expire' spot (Until obs c) = do
   predicate <- compare spot obs
   if predicate then pure ZeroF else pure $ UntilF obs c
-expire' _ (One _) = pure ZeroF
 expire' _ other = pure . project $ other

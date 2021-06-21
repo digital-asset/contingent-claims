@@ -57,11 +57,11 @@ bermudan u = apo \case
   [] -> ZeroF
 
 -- | American option (knock-in). The lead parameter is the first possible acquisition date.
-american : t -> t -> Claim f t x a -> Claim f t x a
+american : Enum t => t -> t -> Claim f t x a -> Claim f t x a
 american t maturity payoff = 
-  Until (at maturity) $
-    Anytime (after t) (payoff `Or` Zero)
-  where after = at
+  Until (at (succ maturity)) $
+    Anytime ((>=) t) (payoff `Or` Zero)
+  where (>=) = at
 
 -- | Asset swap on specific fixing dates `[t]`. For example:
 -- ```

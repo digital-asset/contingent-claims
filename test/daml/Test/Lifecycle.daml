@@ -235,21 +235,54 @@ testAmericanPut = script do
 
   -- Settlement before exercise has been done is a no-op
   Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 option t
-  remaining === Until (O.TimeGte afterTomorrow) (Anytime (O.TimeGte tomorrow) (payoff `Or` Zero))
+  remaining === option
   pending === []
   
+  -- So is expiration before maturity
+  remaining <- Lifecycle.expire observe25 remaining t
+  remaining === option
+
   remaining <- Lifecycle.exercise observe25 (payoff `Or` Zero) remaining t
-  remaining === Until (O.TimeGte afterTomorrow) (payoff `Or` Zero)
+  remaining === Until (O.TimeGte $ succ afterTomorrow) (payoff `Or` Zero)
 
   remaining <- Lifecycle.exercise observe25 payoff remaining t
-  remaining === Until (O.TimeGte afterTomorrow) payoff
+  remaining === Until (O.TimeGte $ succ afterTomorrow) payoff
 
   Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 remaining t
   remaining === Zero
   pending === pure (5.0, a)
 
-  -- Scenario 3) past maturity
+  -- Scenario 3) at maturity
   setDate afterTomorrow
+  t <- getDate
+
+  -- Settlement before exercise has been done is a no-op
+  Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 option t
+  remaining === option
+  pending === []
+  
+  -- So is expiration before maturity
+  remaining <- Lifecycle.expire observe25 remaining t
+  remaining === option
+
+  -- Trying to exercise inner `Or` before `Anytime` won't work.
+  remaining <- Lifecycle.exercise observe25 payoff remaining t
+  remaining === option
+{-
+  -- You must first exercise the 'outer' `Anytime`, and then ...
+  remaining <- Lifecycle.exercise observe25 (payoff `Or` Zero) remaining t
+  remaining === Until (O.TimeGte $ succ afterTomorrow) (payoff `Or` Zero)
+
+  -- ... the inner `Or`.
+  remaining <- Lifecycle.exercise observe25 payoff remaining t
+  remaining === Until (O.TimeGte $ succ afterTomorrow) payoff
+
+  Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 remaining t
+  remaining === Zero
+  pending === pure (5.0, a)
+
+  -- Scenario 4) afte expiration
+  setDate $ succ afterTomorrow
   t <- getDate
 
   remaining <- Lifecycle.exercise observe25 payoff option t
@@ -258,3 +291,7 @@ testAmericanPut = script do
   Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 remaining t
   remaining === option
   pending === []
+
+  remaining <- Lifecycle.expire observe25 remaining t
+  remaining === Zero
+-}
