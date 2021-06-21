@@ -3,6 +3,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 --
 
+{-# LANGUAGE MultiWayIf #-}
 {-# OPTIONS -Wno-deprecations #-} -- To supress 'Monad' warnings
 
 module ContingentClaims.Lifecycle (
@@ -92,14 +93,11 @@ acquire' spot (Cond obs c c') = do
 acquire' spot (Anytime obs c) = do
   predicate <- compare spot obs
   pure $ AnytimeF obs if predicate then Right c else Left c
-acquire' spot (Until obs c) = do
-  predicate <- compare spot obs
-  pure $ UntilF obs if predicate then Left c else Right c
 acquire' _ other = pure $ Right <$> project other
 
 -- | Evaluate any observables in `Scale` nodes, accumulating scale factors
 -- top-down, and log these with their corresponding leaf values. Skip `Or` and
--- `Anytime` branches.
+-- `Anytime` branches, guaranteeing liveness.
 settle' : CanAbort m 
         => (Text -> Date -> m Decimal) 
         -> (Decimal, C a) -> WriterT [(Decimal, a)] (Kleisli m Date) (F a (Either (C a) (Decimal, C a)))
@@ -121,7 +119,8 @@ data ExerciseResult a = ExerciseResult with party: Party, remaining: C a
 -- `import` this `qualified`, to avoid clashes with `Prelude.exercise`.
 exercise : (Eq a, Monad m) => (Text -> Date -> m Decimal) -> C a -> C a -> Date -> m (C a)
 exercise spot election = runKleisli . apoCataM pruneZeros' acquireThenExercise where 
-  acquireThenExercise = fmap (fmap distE) 
+  acquireThenExercise = fmap (fmap (fmap join))
+                        . fmap (fmap distE) 
                         . fmap (fmap (fmap (exercise' election)) )
                         . fmap (fmap (fmap embed)) 
                         . fmap (fmap tsidE) 
@@ -134,11 +133,15 @@ exercise spot election = runKleisli . apoCataM pruneZeros' acquireThenExercise w
   foldE (Right x) = x
 
 -- | Coalgebra for `exercise`.
-exercise' : Eq a => C a -> C a -> F a (C a)
-exercise' chosen (Or c _) | chosen == c = project c
-exercise' chosen (Or _ c) | chosen == c = project c
-exercise' chosen (Anytime _ c) | chosen == c = project c
-exercise' _ other = project other
+exercise' : Eq a => C a -> C a -> F a (Either (C a) (C a))
+exercise' chosen (Or c c') =
+  if | chosen == c -> Right <$> project c
+     | chosen == c' -> Right <$> project c'
+     | otherwise -> OrF (Left c) (Left c')
+exercise' chosen f@(Anytime _ c) = 
+  if chosen == c then Right <$> project c
+                 else Left <$> project f
+exercise' _ other = Right <$> project other
 
 -- | Replace any subtrees that have expired with `Zero`s.
 expire : (Eq a, Monad m) => (Text -> Date -> m Decimal) -> C a -> Date -> m (C a)

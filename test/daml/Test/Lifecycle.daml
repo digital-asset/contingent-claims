@@ -94,7 +94,7 @@ testAcquire = script do
   res === Until false (acquired a)
 
   res <- f (Until true (One a)) today
-  res === Until true (One a)
+  res === Until true (acquired a)
 
 -- | This test replaces all leaves with Zeros, logging their qty/asset pair into a `Writer`.
 -- It ignores `When/Cond` nodes altogether.
@@ -135,7 +135,7 @@ testSettle = script do
 
 -- | Replace any `Or/Anytime` nodes with the elections that have been made.
 testExercise = script do
-  let f election = ana (Lifecycle.exercise' election)
+  let f election = apo (Lifecycle.exercise' election)
   
   let rem = f (One a) (One a `Or` One b)
   rem === One a
@@ -154,6 +154,10 @@ testExercise = script do
 
   let rem = f (One c) (Anytime true (One a))
   rem === Anytime true (One a)
+
+  -- nested choice: the outer one must be exercised before the inner!
+  let rem = f (One a) (Anytime true (Anytime true (One a)))
+  rem === (Anytime true (Anytime true (One a)))
 
 -- | Lifecycle a bond with three fixing dates. Uses ledger time effects.
 testBond = script do
@@ -268,7 +272,7 @@ testAmericanPut = script do
   -- Trying to exercise inner `Or` before `Anytime` won't work.
   remaining <- Lifecycle.exercise observe25 payoff remaining t
   remaining === option
-{-
+
   -- You must first exercise the 'outer' `Anytime`, and then ...
   remaining <- Lifecycle.exercise observe25 (payoff `Or` Zero) remaining t
   remaining === Until (O.TimeGte $ succ afterTomorrow) (payoff `Or` Zero)
@@ -294,4 +298,3 @@ testAmericanPut = script do
 
   remaining <- Lifecycle.expire observe25 remaining t
   remaining === Zero
--}
