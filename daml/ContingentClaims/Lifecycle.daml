@@ -57,7 +57,7 @@ settle spot
   . apoCataM pruneZeros' acquireThenSettle
   . (1.0, )
   where
-    acquireThenSettle = 
+    acquireThenSettle =
       fmap (fmap (fmap join))
       . fmap (fmap distE)
       . fmap join
@@ -72,7 +72,7 @@ settle spot
       $ acquire' spot
     distE = distApo
      -- This is degenerate if you have e.g. `And Left Right`, but that should never happen in practice.
-    tsidE f = case sequence_ f of 
+    tsidE f = case sequence_ f of
       Left _ -> Left (embed (fmap foldE f))
       Right _ -> Right (fmap foldE f)
     foldE (Left x) = x
@@ -98,13 +98,13 @@ acquire' _ other = pure $ Right <$> project other
 -- | Evaluate any observables in `Scale` nodes, accumulating scale factors
 -- top-down, and log these with their corresponding leaf values. Skip `Or` and
 -- `Anytime` branches, guaranteeing liveness.
-settle' : CanAbort m 
-        => (Text -> Date -> m Decimal) 
+settle' : CanAbort m
+        => (Text -> Date -> m Decimal)
         -> (Decimal, C a) -> WriterT [(Decimal, a)] (Kleisli m Date) (F a (Either (C a) (Decimal, C a)))
 settle' _ (qty, One asset) = do
   tell [(qty, asset)]
   pure $ Right <$> ZeroF
-settle' _ (qty, Give c) = 
+settle' _ (qty, Give c) =
   pure . GiveF $ Right (-qty, c)
 settle' spot (qty, Scale obs c) = do
   k <- lift $ eval spot obs
@@ -113,48 +113,52 @@ settle' _ (_, c@(Or _ _)) = pure $ Left <$> project c
 settle' _ (_, c@(Anytime _ _)) = pure $ Left <$> project c
 settle' _ (qty, other) = pure $ Right . (qty, ) <$> project other
 
-data ExerciseResult a = ExerciseResult with party: Party, remaining: C a
-
 --  | Acquire `Anytime` and `Or` nodes, by making an election.
 -- `import` this `qualified`, to avoid clashes with `Prelude.exercise`.
-exercise : (Eq a, Monad m) => (Text -> Date -> m Decimal) -> C a -> C a -> Date -> m (C a)
-exercise spot election = runKleisli . apoCataM pruneZeros' acquireThenExercise where 
+exercise : (Eq a, Monad m) => (Text -> Date -> m Decimal) -> (Bool, C a) -> C a -> Date -> m (C a)
+exercise spot election = runKleisli . apoCataM pruneZeros' acquireThenExercise . (True, ) where
   acquireThenExercise = fmap (fmap (fmap join))
-                        . fmap (fmap distE) 
-                        . fmap (fmap (fmap (exercise' election)) )
-                        . fmap (fmap (fmap embed)) 
-                        . fmap (fmap tsidE) 
+                        . fmap (fmap distE)
+                        . fmap (fmap (fmap (exercise' election)))
+                        . fmap (fmap sequence)
+                        . fmap sequence . fmap
+                        . fmap (fmap (fmap embed))
+                        . fmap (fmap tsidE)
                         $ acquire' spot
   distE = distApo
-  tsidE f = case sequence_ f of 
+  tsidE f = case sequence_ f of
     Left _ -> Left (embed (fmap foldE f))
     Right _ -> Right (fmap foldE f)
   foldE (Left x) = x
   foldE (Right x) = x
 
 -- | Coalgebra for `exercise`.
-exercise' : Eq a => C a -> C a -> F a (Either (C a) (C a))
-exercise' chosen (Or c c') =
-  if | chosen == c -> Right <$> project c
-     | chosen == c' -> Right <$> project c'
+-- Resolves `Or` and `Anytime` nodes by removing them (keeping elected subtrees).
+-- The election consists of a boolean representing the authorizer (`True = bearer`),
+-- and this is compared against available branches of the choice.
+exercise' : Eq a => (Bool, C a) -> (Bool, C a) -> (F a (Either (C a) (Bool, C a)))
+exercise' _ (isBearer, Give c) = GiveF . Right $ (not isBearer, c)
+exercise' (elector, election) (isBearer, Or c c') =
+  if | elector == isBearer && election == c  -> Right . (isBearer, ) <$> project c
+     | elector == isBearer && election == c' -> Right . (isBearer, ) <$> project c'
      | otherwise -> OrF (Left c) (Left c')
-exercise' chosen f@(Anytime _ c) = 
-  if chosen == c then Right <$> project c
-                 else Left <$> project f
-exercise' _ other = Right <$> project other
+exercise' (elector, election) (isBearer, f@(Anytime _ c)) =
+  if elector == isBearer && election == c then Right . (isBearer, ) <$> project c
+                                          else Left <$> project f
+exercise' _ (isBearer, other) = Right . (isBearer, ) <$> project other
 
 -- | Replace any subtrees that have expired with `Zero`s.
 expire : (Eq a, Monad m) => (Text -> Date -> m Decimal) -> C a -> Date -> m (C a)
 expire spot = runKleisli . apoCataM pruneZeros' acquireThenExpire where
-  acquireThenExpire = fmap (fmap distE) 
-                      . fmap join 
-                      . fmap (fmap sequence) 
-                      . fmap (fmap (fmap (expire' spot))) 
+  acquireThenExpire = fmap (fmap distE)
+                      . fmap join
+                      . fmap (fmap sequence)
+                      . fmap (fmap (fmap (expire' spot)))
                       . fmap (fmap (fmap embed))
-                      . fmap (fmap tsidE) 
+                      . fmap (fmap tsidE)
                       $ acquire' spot
   distE = distApo
-  tsidE f = case sequence_ f of 
+  tsidE f = case sequence_ f of
     Left _ -> Left (embed (fmap foldE f))
     Right _ -> Right (fmap foldE f)
   foldE (Left x) = x

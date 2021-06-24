@@ -135,29 +135,43 @@ testSettle = script do
 
 -- | Replace any `Or/Anytime` nodes with the elections that have been made.
 testExercise = script do
-  let f election = apo (Lifecycle.exercise' election)
-  
-  let rem = f (One a) (One a `Or` One b)
+  let f election = apo (Lifecycle.exercise' election) . (True, )
+
+  let rem = f (True, One a) (One a `Or` One b)
   rem === One a
 
-  let rem = f (One b) (One a `Or` One b)
+  let rem = f (True, One b) (One a `Or` One b)
   rem === One b
 
-  let rem = f (One c) (One a `Or` One b)
+  let rem = f (True, One c) (One a `Or` One b)
   rem === One a `Or` One b
 
-  let rem = f (One a) (Anytime true (One a))
+  let rem = f (True, One a) (Anytime true (One a))
   rem === One a
 
-  let rem = f (One a) (Anytime false (One a))
+  -- n.b. conditions are handled by the `Lifecyle.acuiqre'` function.
+  let rem = f (True, One a) (Anytime false (One a))
   rem === One a
 
-  let rem = f (One c) (Anytime true (One a))
+  let rem = f (True, One c) (Anytime true (One a))
   rem === Anytime true (One a)
 
   -- nested choice: the outer one must be exercised before the inner!
-  let rem = f (One a) (Anytime true (Anytime true (One a)))
+  let rem = f (True, One a) (Anytime true (Anytime true (One a)))
   rem === (Anytime true (Anytime true (One a)))
+
+
+testGiveExercise = script do
+  let f election = apo (Lifecycle.exercise' election) . (True, )
+
+  let rem = f (False, One a) (Anytime true (One a))
+  rem === (Anytime true (One a))
+
+  let rem = f (False, One a) (Give (Anytime true (One a)))
+  rem === Give (One a)
+
+  let rem = f (True, One a) (Give . Give . Anytime true $ One a)
+  rem === Give (Give (One a))
 
 -- | Lifecycle a bond with three fixing dates. Uses ledger time effects.
 testBond = script do
@@ -191,25 +205,31 @@ testBond = script do
   remaining === Zero
   pending === [(15.0, a), (1_000.0, a)]
 
+
 testEuropeanCall = script do
   let strike = 23.0
       payoff = Scale (O.observe "spot" - O.pure strike) (One a)
       option = european tomorrow payoff
+      bearer = True
 
+  -- Before maturity
   setDate today
   t <- getDate
 
-  remaining <- Lifecycle.exercise observe25 Zero option t
+  -- Exercise is a no-op
+  remaining <- Lifecycle.exercise observe25 (bearer, Zero) option t
   remaining === option
 
+  -- And so is settlement
   Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 option t
   remaining === option
   pending === []
 
+  -- At maturity
   setDate tomorrow
   t <- getDate
 
-  remaining <- Lifecycle.exercise observe25 payoff option t
+  remaining <- Lifecycle.exercise observe25 (bearer, payoff) option t
   remaining === payoff
 
   Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 remaining t
@@ -221,6 +241,7 @@ testAmericanPut = script do
   let strike = 30.0
       payoff = Scale (O.pure strike - O.observe "spot") (One a)
       option = american tomorrow afterTomorrow payoff
+      bearer = True
 
   -- Scenario 1) Before knock-in
   setDate today
@@ -230,7 +251,7 @@ testAmericanPut = script do
   remaining === option
   pending === []
 
-  remaining <- Lifecycle.exercise observe25 payoff remaining t
+  remaining <- Lifecycle.exercise observe25 (bearer, payoff) remaining t
   remaining === option -- not in acquisition range yet
 
   -- Scenario 2) in acquisition range
@@ -241,15 +262,15 @@ testAmericanPut = script do
   Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 option t
   remaining === option
   pending === []
-  
+
   -- So is expiration before maturity
   remaining <- Lifecycle.expire observe25 remaining t
   remaining === option
 
-  remaining <- Lifecycle.exercise observe25 (payoff `Or` Zero) remaining t
+  remaining <- Lifecycle.exercise observe25 (bearer, payoff `Or` Zero) remaining t
   remaining === Until (O.TimeGte $ succ afterTomorrow) (payoff `Or` Zero)
 
-  remaining <- Lifecycle.exercise observe25 payoff remaining t
+  remaining <- Lifecycle.exercise observe25 (bearer, payoff) remaining t
   remaining === Until (O.TimeGte $ succ afterTomorrow) payoff
 
   Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 remaining t
@@ -264,21 +285,21 @@ testAmericanPut = script do
   Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 option t
   remaining === option
   pending === []
-  
+
   -- So is expiration before maturity
   remaining <- Lifecycle.expire observe25 remaining t
   remaining === option
 
   -- Trying to exercise inner `Or` before `Anytime` won't work.
-  remaining <- Lifecycle.exercise observe25 payoff remaining t
+  remaining <- Lifecycle.exercise observe25 (bearer, payoff) remaining t
   remaining === option
 
   -- You must first exercise the 'outer' `Anytime`, and then ...
-  remaining <- Lifecycle.exercise observe25 (payoff `Or` Zero) remaining t
+  remaining <- Lifecycle.exercise observe25 (bearer, payoff `Or` Zero) remaining t
   remaining === Until (O.TimeGte $ succ afterTomorrow) (payoff `Or` Zero)
 
   -- ... the inner `Or`.
-  remaining <- Lifecycle.exercise observe25 payoff remaining t
+  remaining <- Lifecycle.exercise observe25 (bearer, payoff) remaining t
   remaining === Until (O.TimeGte $ succ afterTomorrow) payoff
 
   Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 remaining t
@@ -289,7 +310,7 @@ testAmericanPut = script do
   setDate $ succ afterTomorrow
   t <- getDate
 
-  remaining <- Lifecycle.exercise observe25 payoff option t
+  remaining <- Lifecycle.exercise observe25 (bearer, payoff) option t
   remaining === option -- passed maturity; no exercise possible
 
   Lifecycle.Result{remaining, pending} <- Lifecycle.settle observe25 remaining t
