@@ -46,7 +46,7 @@ template FinancialContract
            let getSpotRate isin t = do
                  (_, Quote{close}) <- fetchByKey (isin, t, bearer) -- FIXME: maintainer should be the market data provider
                  pure close
-           lifecycleResult <- Lifecycle.settle getSpotRate claims t
+           lifecycleResult <- Lifecycle.lifecycle getSpotRate claims t
            settlements <- forA lifecycleResult.pending \(quantity, asset) ->
              create ProposeSettlement
                with

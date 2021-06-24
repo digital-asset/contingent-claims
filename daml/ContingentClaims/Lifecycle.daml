@@ -7,8 +7,8 @@
 {-# OPTIONS -Wno-deprecations #-} -- To supress 'Monad' warnings
 
 module ContingentClaims.Lifecycle (
-    settle
-  , settle'
+    lifecycle
+  , lifecycle'
   , acquire'
   , exercise
   , exercise'
@@ -35,7 +35,7 @@ type F a = ClaimF Observation Date Decimal a
 
 deriving instance Eq a => Eq (C a)
 
--- | Returned from a `settle` operation.
+-- | Returned from a `lifecycle` operation.
 data Result a = Result with
   remaining : C a
     -- ^ the tree after lifecycled branches have been pruned.
@@ -46,11 +46,11 @@ data Result a = Result with
 -- `m` will typically be `Update`. It is parametrised so it can be run in a `Script`.
 -- The first argument is used to lookup the value of any `Observables`.
 -- Results in a function taking today's date, and returning the pruned tree + pending settlements.
-settle : (Eq a, CanAbort m)
+lifecycle : (Eq a, CanAbort m)
   => (Text -> Date -> m Decimal)
   -> C a
   -> Date -> m (Result a)
-settle spot
+lifecycle spot
   = runKleisli
   . fmap (uncurry Result)
   . runWriterT
@@ -62,7 +62,7 @@ settle spot
       . fmap (fmap distE)
       . fmap join
       . fmap (fmap sequence)
-      . fmap (fmap (fmap (settle' spot)))
+      . fmap (fmap (fmap (lifecycle' spot)))
       . fmap (fmap sequence)
       . fmap sequence
       . fmap
@@ -98,20 +98,20 @@ acquire' _ other = pure $ Right <$> project other
 -- | Evaluate any observables in `Scale` nodes, accumulating scale factors
 -- top-down, and log these with their corresponding leaf values. Skip `Or` and
 -- `Anytime` branches, guaranteeing liveness.
-settle' : CanAbort m
+lifecycle' : CanAbort m
         => (Text -> Date -> m Decimal)
         -> (Decimal, C a) -> WriterT [(Decimal, a)] (Kleisli m Date) (F a (Either (C a) (Decimal, C a)))
-settle' _ (qty, One asset) = do
+lifecycle' _ (qty, One asset) = do
   tell [(qty, asset)]
   pure $ Right <$> ZeroF
-settle' _ (qty, Give c) =
+lifecycle' _ (qty, Give c) =
   pure . GiveF $ Right (-qty, c)
-settle' spot (qty, Scale obs c) = do
+lifecycle' spot (qty, Scale obs c) = do
   k <- lift $ eval spot obs
   pure . ScaleF obs $ Right (k * qty, c)
-settle' _ (_, c@(Or _ _)) = pure $ Left <$> project c
-settle' _ (_, c@(Anytime _ _)) = pure $ Left <$> project c
-settle' _ (qty, other) = pure $ Right . (qty, ) <$> project other
+lifecycle' _ (_, c@(Or _ _)) = pure $ Left <$> project c
+lifecycle' _ (_, c@(Anytime _ _)) = pure $ Left <$> project c
+lifecycle' _ (qty, other) = pure $ Right . (qty, ) <$> project other
 
 --  | Acquire `Anytime` and `Or` nodes, by making an election.
 -- `import` this `qualified`, to avoid clashes with `Prelude.exercise`.
