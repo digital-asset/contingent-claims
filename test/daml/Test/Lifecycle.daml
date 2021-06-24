@@ -100,36 +100,36 @@ testAcquire = script do
 -- It ignores `When/Cond` nodes altogether.
 testSettle = script do
   let f = runKleisli
-          . fmap (uncurry Lifecycle.Result)
+          . fmap (uncurry $ flip Lifecycle.Result)
           . runWriterT
           . apoM (Lifecycle.lifecycle' observe25)
           . (1.0, )
 
-  Lifecycle.Result{remaining, pending} <- f (Scale two Zero : C) today
+  Lifecycle.Result{pending, remaining} <- f (Scale two Zero : C) today
   remaining === Scale two Zero
   pending === []
 
-  Lifecycle.Result{remaining, pending} <- f (Scale two (One a)) today
+  Lifecycle.Result{pending, remaining} <- f (Scale two (One a)) today
   remaining === Scale two Zero
   pending === [(2.0, a)]
 
-  Lifecycle.Result{remaining, pending} <- f (Give (One a)) today
+  Lifecycle.Result{pending, remaining} <- f (Give (One a)) today
   remaining === Give Zero
   pending === [(-1.0 , a)]
 
-  Lifecycle.Result{remaining, pending} <- f (Scale two (One a `And` One b)) today
+  Lifecycle.Result{pending, remaining} <- f (Scale two (One a `And` One b)) today
   remaining === Scale two (Zero `And` Zero)
   pending === [(2.0, a), (2.0, b)]
 
-  Lifecycle.Result{remaining, pending} <- f (Scale two (One a) `And` Scale two (One b)) today
+  Lifecycle.Result{pending, remaining} <- f (Scale two (One a) `And` Scale two (One b)) today
   remaining === (Scale two Zero `And` Scale two Zero)
   pending === [(2.0, a), (2.0, b)]
 
-  Lifecycle.Result{remaining, pending} <- f (When false (One a)) today
+  Lifecycle.Result{pending, remaining} <- f (When false (One a)) today
   remaining === When false Zero
   pending === pure (1.0, a)
 
-  Lifecycle.Result{remaining, pending} <- f (Anytime false (One a)) today
+  Lifecycle.Result{pending, remaining} <- f (Anytime false (One a)) today
   remaining === Anytime false (One a)
   pending === []
 
@@ -182,26 +182,26 @@ testBond = script do
   setDate today
   t <- getDate
 
-  Lifecycle.Result{remaining, pending} <- Lifecycle.lifecycle observe25 (bond [today, tomorrow, afterTomorrow]) t
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 (bond [today, tomorrow, afterTomorrow]) t
   remaining === bond [tomorrow, afterTomorrow]
   pending === [(15.0, a)]
 
   setDate tomorrow
   t <- getDate
 
-  Lifecycle.Result{remaining, pending} <- Lifecycle.lifecycle observe25 remaining t
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 remaining t
   remaining === bond [afterTomorrow]
   pending === [(15.0, a)]
 
   -- Check bond coupon doesn't get processed twice
-  Lifecycle.Result{remaining, pending} <- Lifecycle.lifecycle observe25 remaining t
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 remaining t
   remaining === bond [afterTomorrow]
   pending === []
 
   setDate afterTomorrow
   t <- getDate
 
-  Lifecycle.Result{remaining, pending} <- Lifecycle.lifecycle observe25 remaining t
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 remaining t
   remaining === Zero
   pending === [(15.0, a), (1_000.0, a)]
 
@@ -221,7 +221,7 @@ testEuropeanCall = script do
   remaining === option
 
   -- And so is settlement
-  Lifecycle.Result{remaining, pending} <- Lifecycle.lifecycle observe25 option t
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 option t
   remaining === option
   pending === []
 
@@ -232,7 +232,7 @@ testEuropeanCall = script do
   remaining <- Lifecycle.exercise observe25 (bearer, payoff) option t
   remaining === payoff
 
-  Lifecycle.Result{remaining, pending} <- Lifecycle.lifecycle observe25 remaining t
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 remaining t
   remaining === Zero
   pending === pure (2.0, a)
 
@@ -247,7 +247,7 @@ testAmericanPut = script do
   setDate today
   t <- getDate
 
-  Lifecycle.Result{remaining, pending} <- Lifecycle.lifecycle observe25 option t
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 option t
   remaining === option
   pending === []
 
@@ -259,7 +259,7 @@ testAmericanPut = script do
   t <- getDate
 
   -- Settlement before exercise has been done is a no-op
-  Lifecycle.Result{remaining, pending} <- Lifecycle.lifecycle observe25 option t
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 option t
   remaining === option
   pending === []
 
@@ -273,7 +273,7 @@ testAmericanPut = script do
   remaining <- Lifecycle.exercise observe25 (bearer, payoff) remaining t
   remaining === Until (O.TimeGte $ succ afterTomorrow) payoff
 
-  Lifecycle.Result{remaining, pending} <- Lifecycle.lifecycle observe25 remaining t
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 remaining t
   remaining === Zero
   pending === pure (5.0, a)
 
@@ -282,7 +282,7 @@ testAmericanPut = script do
   t <- getDate
 
   -- Settlement before exercise has been done is a no-op
-  Lifecycle.Result{remaining, pending} <- Lifecycle.lifecycle observe25 option t
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 option t
   remaining === option
   pending === []
 
@@ -302,7 +302,7 @@ testAmericanPut = script do
   remaining <- Lifecycle.exercise observe25 (bearer, payoff) remaining t
   remaining === Until (O.TimeGte $ succ afterTomorrow) payoff
 
-  Lifecycle.Result{remaining, pending} <- Lifecycle.lifecycle observe25 remaining t
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 remaining t
   remaining === Zero
   pending === pure (5.0, a)
 
@@ -313,7 +313,7 @@ testAmericanPut = script do
   remaining <- Lifecycle.exercise observe25 (bearer, payoff) option t
   remaining === option -- passed maturity; no exercise possible
 
-  Lifecycle.Result{remaining, pending} <- Lifecycle.lifecycle observe25 remaining t
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 remaining t
   remaining === option
   pending === []
 

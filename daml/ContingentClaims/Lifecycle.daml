@@ -37,10 +37,10 @@ deriving instance Eq a => Eq (C a)
 
 -- | Returned from a `lifecycle` operation.
 data Result a = Result with
-  remaining : C a
-    -- ^ the tree after lifecycled branches have been pruned.
   pending : [(Decimal, a)]
     -- ^ quantity/asset pairs requiring settlement.
+  remaining : C a
+    -- ^ the tree after lifecycled branches have been pruned.
 
 -- | Collect claims falling due into a list, and return the tree with those nodes pruned.
 -- `m` will typically be `Update`. It is parametrised so it can be run in a `Script`.
@@ -52,7 +52,7 @@ lifecycle : (Eq a, CanAbort m)
   -> Date -> m (Result a)
 lifecycle spot
   = runKleisli
-  . fmap (uncurry Result)
+  . fmap (uncurry $ flip Result)
   . runWriterT
   . apoCataM pruneZeros' acquireThenSettle
   . (1.0, )
