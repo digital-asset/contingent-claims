@@ -97,34 +97,6 @@ fixings today = cata \case
   WhenF (Observable.TimeGte t) _ -> Set.fromList [t]
   other -> fold other
 
--- TODO: not sure these make sense
-executorOf : Party -> Party -> Claim f t x a -> Set.Set Party
-executorOf bearer cpty = cata \case
-  ZeroF -> mempty
-  OneF _ -> Set.singleton bearer
-  GiveF p -> case Set.toList p of
-    [p] -> Set.singleton $ if p == bearer then cpty else bearer
-    [] -> mempty
-    _ -> Set.fromList [bearer, cpty]
-  AndF p p' -> p <> p'
-  OrF p p' -> p <> p'
-  ScaleF _ p -> p
-  CondF _ p p' -> p <> p'
-  WhenF _ p -> p
-  AnytimeF _ p -> p
-  UntilF _ p -> p
-
--- TODO: not sure these make sense
-isBearerExecutor : forall f t x a . Claim f t x a -> Bool
-isBearerExecutor = cata \case
-                    OneF _ -> True
-                    GiveF p -> not p
-                    ScaleF _ p -> True
-                    AndF p _ -> True
-                    WhenF p _ -> True
-                    ZeroF -> error "Undefined: ZeroF"
-                    _ -> error "Undefined: isBearerExecutor"
-
 -- | Converts a `Serialized.Claim` read from ledger, to a more general `Claim`, for use with `Daml.Control.Recursion`.
 deserialize : Serialized.Claim t x a -> Claim Observation t x a
 deserialize = ana deserialize'
