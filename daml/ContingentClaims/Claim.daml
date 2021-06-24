@@ -68,6 +68,10 @@ mapParams ft' ft fk fv =
     ScaleF k c -> Scale (f k) c
     WhenF (Lte (x, x')) c -> When (Lte (f x, f x')) c
     WhenF (TimeGte t) c -> When (TimeGte (ft t)) c
+    AnytimeF (Lte (x, x')) c -> Anytime (Lte (f x, f x')) c
+    AnytimeF (TimeGte t) c -> Anytime (TimeGte (ft t)) c
+    UntilF (Lte (x, x')) c -> Until (Lte (f x, f x')) c
+    UntilF (TimeGte t) c -> Until (TimeGte (ft t)) c
 
 -- | Return the upper time bound of the obligation; `None` if it cannot be determined.
 -- This is called `horizon` in the original paper.
