@@ -59,4 +59,5 @@ pruneZeros' (WhenF _ Zero) = Zero
 pruneZeros' (CondF _ Zero Zero) = Zero
 pruneZeros' (OrF Zero Zero) = Zero
 pruneZeros' (UntilF _ Zero) = Zero
+pruneZeros' (AnytimeF _ Zero) = Zero
 pruneZeros' other = embed other
