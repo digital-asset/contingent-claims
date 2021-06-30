@@ -18,7 +18,7 @@ import ContingentClaims.Observable qualified as O (Inequality(..))
 import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..))
 import ContingentClaims.Util.Recursion (synthesize, subTreeSize')
 import Daml.Control.Recursion
-import DA.Foldable (fold)
+import DA.Foldable (fold, maximum)
 import Prelude hiding (sum, sequence, mapA)
 
 -- Given a tree annotated with the number of nodes in each branch, index it, depth first.
@@ -38,6 +38,10 @@ enum' (i, Cofree _ (UntilF p f)) = CofreeF i (UntilF p (succ i, f))
 enumerateFrom : Int -> Claim f t x a -> Cofree (ClaimF f t x a) Int
 enumerateFrom zero = ana enum' . (zero, ) . synthesize subTreeSize'
 
+-- | Return the fixing dates of a claim. This does not discriminate between
+-- optional dates which *may* result as a result of a date, and outright fixings.
+-- It also does not currently account for malformed trees, where subtrees are
+-- orphand due to impossible `When` statements.
 fixings : Claim f t x a -> [t]
 fixings = cata fixings'
 
@@ -45,6 +49,14 @@ fixings = cata fixings'
 fixings' : ClaimF f t x a [t] -> [t]
 fixings' (WhenF (O.TimeGte t) ts) = t :: ts
 fixings' claim = fold claim
+
+-- | Return the time after which the claim is worthless i.e. value = 0,
+-- if such a time exists.
+-- Also known as 'maturity' or 'horizon' in the Ebber/Jones paper.
+expiry : Ord t => Claim f t x a -> Optional t
+expiry c = case fixings c of
+  [] -> None
+  ts -> Some . maximum $ ts
 
 pruneZeros : Claim f t x a -> Claim f t x a
 pruneZeros = cata pruneZeros'
