@@ -1,0 +1,82 @@
+-- Mathematical expression, derived from `Claim`, used for pricing
+
+module ContingentClaims.Math.Stochastic where
+
+import ContingentClaims.Claim
+import ContingentClaims.Observable (Inequality(..))
+import ContingentClaims.Observation qualified as O
+import ContingentClaims.Util.Recursion
+import Daml.Control.Recursion
+import Prelude hiding (Time)
+
+type Time = Decimal
+type Variable θ = θ -> Decimal
+type Process θ = Time -> Variable θ
+
+instance Show (Process θ) where
+  show _ = "S(t, θ)"
+
+data ExprF θ x
+  = ProcF (Process θ)
+  | SupF { f : Time -> x, lowerBound: Time }
+  | AddF (x, x)
+  | NegF x
+  | MulF (x, x)
+  | I_F (Process θ , Process θ)
+  | E_F { rv : x, filtration: Time }
+
+data Expr θ
+  = Proc (Process θ)
+  | Sup { f : Time -> Expr θ, lowerBound: Time }
+  | Add (Expr θ, Expr θ)
+  | Neg (Expr θ)
+  | Mul (Expr θ, Expr θ)
+  | I (Process θ , Process θ)
+  | E { rv : Expr θ, filtration: Time }
+
+instance Additive (Expr θ) where
+  aunit = Proc . const . const $ 0.0
+  (+) = curry Add
+
+instance Multiplicative (Expr θ) where
+  munit = Proc . const . const $ 1.0
+  (*) = curry Mul
+  (^) = undefined
+
+instance Eq (Expr θ) where
+  (==) = undefined -- can't compare `Stochastic.Process`, because it's a function.
+
+instance Ord (Expr θ) where
+  (<=) = undefined -- used in E6, E7
+
+obsToProc : O.Observation Time Decimal -> Process θ
+obsToProc = undefined
+
+eval : Eq a => a -> (a -> a -> Process θ) -> θ -> Claim O.Observation Time Decimal a -> Expr θ
+eval ccy exch theta = cata alg . inherit adapt (0.0: Time) where
+  adapt (When (TimeGte t') _) t = max t' t
+  adapt _ t = t
+  alg (CofreeF t ZeroF) = zero                                                      -- E1
+  alg (CofreeF t (OneF asset)) = E (exch' ccy asset) t where                        -- E2
+    exch' base quote = if base == quote then one else Proc $ exch base quote
+  alg (CofreeF t (GiveF c)) = - E c t                                               -- E3
+  alg (CofreeF t (ScaleF o c)) = E (Proc k) t * E c t where k = obsToProc o         -- E4
+  alg (CofreeF t (AndF c c')) = E c t + E c' t                                      -- E5
+  alg (CofreeF t (OrF c c')) = max (E c t) (E c' t)                                 -- E6
+  alg (CofreeF t (CondF (TimeGte t') c c')) = if t >= t' then E c t else E c' t     -- E7
+  alg (CofreeF t (CondF (Lte (o, o')) c c')) =
+    if (Proc (obsToProc o)) <= (Proc (obsToProc o')) then E c t else E c' t         -- E7
+  alg (CofreeF t (WhenF (TimeGte t') c)) = E (E c t') t                             -- E8
+  alg (CofreeF t (WhenF (Lte _) c)) = error "eval: undefined When S₁ ≤ S₂ _" -- E (E c t') t  -- how do we find `t'` from `o ≤ o'`?
+  alg (CofreeF t (AnytimeF (TimeGte t') c)) = Sup (\ν -> E (E c ν) t) t'            -- E9
+  alg (CofreeF t (AnytimeF (Lte _) c)) = error "eval: undefined Anytime S₁ ≤ S₂ _"
+  alg (CofreeF t (UntilF (TimeGte t') c)) = if t >= t' then zero else E c t         -- E10
+  alg (CofreeF t (UntilF (Lte _) c)) = error "eval: undefined Until S₁ ≤ S₂ _"
+  zero = aunit
+  one = munit
+  
+  
+  
+
+-- test = script do
+  
