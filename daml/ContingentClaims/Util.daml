@@ -14,11 +14,13 @@ module ContingentClaims.Util (
   , pruneZeros'
 ) where
 
+import ContingentClaims.Observable (Observable)
 import ContingentClaims.Observable qualified as O (Inequality(..))
 import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..))
 import ContingentClaims.Util.Recursion (synthesize, subTreeSize')
 import Daml.Control.Recursion
 import DA.Foldable (fold, maximum)
+import DA.Bifunctor (first)
 import Prelude hiding (sum, sequence, mapA)
 
 -- Given a tree annotated with the number of nodes in each branch, index it, depth first.
@@ -57,6 +59,17 @@ expiry : Ord t => Claim f t x a -> Optional t
 expiry c = case fixings c of
   [] -> None
   ts -> Some . maximum $ ts
+
+-- | Return a list of possible scale-factor/payoff pairs.
+-- This does not discriminate between optional and outright payoffs.
+payoffs : Observable f t x => Claim f t x a -> [(f t x, a)]
+payoffs = cata payoffs'
+
+payoffs' : Observable f t x => ClaimF f t x a [(f t x, a)] -> [(f t x, a)]
+payoffs' ZeroF = []
+payoffs' (OneF a) = [(munit, a)]
+payoffs' (ScaleF k as) = first (* k) <$> as
+payoffs' other = fold other
 
 pruneZeros : Claim f t x a -> Claim f t x a
 pruneZeros = cata pruneZeros'
