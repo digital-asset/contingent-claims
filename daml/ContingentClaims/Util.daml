@@ -62,13 +62,16 @@ expiry c = case fixings c of
 
 -- | Return a list of possible scale-factor/payoff pairs.
 -- This does not discriminate between optional and outright payoffs.
-payoffs : Observable f t x => Claim f t x a -> [(f t x, a)]
-payoffs = cata payoffs'
+payoffs : (Eq (f t x), Observable f t x) => Claim f t x a -> [(f t x, a)]
+payoffs = fmap (first ($ munit)) . cata payoffs'
 
-payoffs' : Observable f t x => ClaimF f t x a [(f t x, a)] -> [(f t x, a)]
+-- Algebra for `payoffs`. This also applies 'multiplications by one' identity, hence the continuation.
+payoffs' : (Eq (f t x), Observable f t x) => ClaimF f t x a [(f t x -> f t x, a)] -> [(f t x -> f t x, a)]
 payoffs' ZeroF = []
-payoffs' (OneF a) = [(munit, a)]
-payoffs' (ScaleF k as) = first (* k) <$> as
+payoffs' (OneF a) = [(identity, a)]
+payoffs' (ScaleF k fs) = first multK <$> fs where
+  multK f x | x == munit = f k -- prune unit
+  multK f x = f (x * k)
 payoffs' other = fold other
 
 pruneZeros : Claim f t x a -> Claim f t x a
