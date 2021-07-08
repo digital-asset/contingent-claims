@@ -1,0 +1,21 @@
+-- | Utility functions for insurance contracts.
+-- These are based on: Dickson, David CM, Mary R. Hardy, and Howard R. Waters. Actuarial mathematics for life contingent risks. Cambridge University Press, 2019.
+module ContingentClaims.Insurance where
+
+import ContingentClaims.Claim (Claim(..))
+import ContingentClaims.Observable (Inequality(..), (<=))
+import ContingentClaims.FinancialClaim (floating)
+import Prelude hiding ((<=))
+
+-- | Universal Life
+-- ul : Observable f t x => Claim f t x a -> Claim f t x a -> f t x -> x
+ul ccy paymentDates accountValue premium expenseCost r costOfInsurance surrenderCharge additionalDeathBenefit lifeExpectancy vestingPeriod =
+  Until surrendered . Until deceased $ premiums `And` When deceased (Give deathBenefit) `And` Anytime (after vestingPeriod) (Give cashValue) where -- the last 'anytime' should trigger `Until surrendered`
+   deceased = lifeExpectancy <= zero
+   premiums = floating zero (premium - accountValue * r - costOfInsurance - expenseCost) ccy paymentDates
+   deathBenefit = Scale (accountValue + additionalDeathBenefit) (One ccy)
+   surrendered = accountValue <= zero
+   cashValue = Scale (accountValue - surrenderCharge) (One ccy)
+   zero = aunit
+
+after = TimeGte
