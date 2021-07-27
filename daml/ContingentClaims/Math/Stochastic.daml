@@ -5,8 +5,8 @@ module ContingentClaims.Math.Stochastic where
 import ContingentClaims.Claim
 import ContingentClaims.Observable (Inequality(..))
 import ContingentClaims.Observation qualified as O
-import ContingentClaims.Util.Recursion
 import Daml.Control.Recursion
+import Daml.Control.Arrow ((|||))
 import Prelude hiding (Time)
 
 type Time = Decimal
@@ -19,11 +19,13 @@ instance Show (Process θ) where
 data ExprF θ x
   = ProcF (Process θ)
   | SupF { f : Time -> x, lowerBound: Time }
-  | AddF (x, x)
+  | AddF { lhs: x, rhs: x }
   | NegF x
-  | MulF (x, x)
-  | I_F (Process θ , Process θ)
+  | MulF { lhs: x, rhs: x }
+  | DivF { lhs: x, rhs: x }
+  | I_F { lhs : x, rhs: x }
   | E_F { rv : x, filtration: Time }
+  deriving (Functor)
 
 data Expr θ
   = Proc (Process θ)
@@ -31,52 +33,50 @@ data Expr θ
   | Add (Expr θ, Expr θ)
   | Neg (Expr θ)
   | Mul (Expr θ, Expr θ)
-  | I (Process θ , Process θ)
+  | Div (Expr θ, Expr θ)
+  | I (Expr θ , Expr θ)
   | E { rv : Expr θ, filtration: Time }
 
-instance Additive (Expr θ) where
-  aunit = Proc . const . const $ 0.0
-  (+) = curry Add
+instance Corecursive (Expr θ) (ExprF θ) where
+  embed = undefined
 
-instance Multiplicative (Expr θ) where
-  munit = Proc . const . const $ 1.0
-  (*) = curry Mul
-  (^) = undefined
-
-instance Eq (Expr θ) where
-  (==) = undefined -- can't compare `Stochastic.Process`, because it's a function.
-
-instance Ord (Expr θ) where
-  (<=) = undefined -- used in E6, E7
-
-obsToProc : O.Observation Time Decimal -> Process θ
-obsToProc = undefined
-
-eval : Eq a => a -> (a -> a -> Process θ) -> θ -> Claim O.Observation Time Decimal a -> Expr θ
-eval ccy exch theta = cata alg . inherit adapt (0.0: Time) where
-  adapt (When (TimeGte t') _) t = max t' t
-  adapt _ t = t
-  alg (CofreeF t ZeroF) = zero                                                      -- E1
-  alg (CofreeF t (OneF asset)) = E (exch' ccy asset) t where                        -- E2
-    exch' base quote = if base == quote then one else Proc $ exch base quote
-  alg (CofreeF t (GiveF c)) = - E c t                                               -- E3
-  alg (CofreeF t (ScaleF o c)) = E (Proc k) t * E c t where k = obsToProc o         -- E4
-  alg (CofreeF t (AndF c c')) = E c t + E c' t                                      -- E5
-  alg (CofreeF t (OrF c c')) = max (E c t) (E c' t)                                 -- E6
-  alg (CofreeF t (CondF (TimeGte t') c c')) = if t >= t' then E c t else E c' t     -- E7
-  alg (CofreeF t (CondF (Lte (o, o')) c c')) =
-    if (Proc (obsToProc o)) <= (Proc (obsToProc o')) then E c t else E c' t         -- E7
-  alg (CofreeF t (WhenF (TimeGte t') c)) = E (E c t') t                             -- E8
-  alg (CofreeF t (WhenF (Lte _) c)) = error "eval: undefined When S₁ ≤ S₂ _" -- E (E c t') t  -- how do we find `t'` from `o ≤ o'`?
-  alg (CofreeF t (AnytimeF (TimeGte t') c)) = Sup (\ν -> E (E c ν) t) t'            -- E9
-  alg (CofreeF t (AnytimeF (Lte _) c)) = error "eval: undefined Anytime S₁ ≤ S₂ _"
-  alg (CofreeF t (UntilF (TimeGte t') c)) = if t >= t' then zero else E c t         -- E10
-  alg (CofreeF t (UntilF (Lte _) c)) = error "eval: undefined Until S₁ ≤ S₂ _"
+-- Fundamental asset pricing formula. The ϵ expressions are defined as E1-E10 in the Eber/Peyton-Jones paper.
+fapf : Eq a
+     => a
+     -> (a -> Time -> Process θ)
+     -> (a -> a -> Process θ)
+     -> θ
+     -> Claim O.Observation Time Decimal a -> Expr θ
+fapf ccy disc exch theta = futu coalg . Left where
+  -- coalg : (Either Claim Observable) -> Free ExprF (Either Claim Observable)
+  coalg = ϵ ||| υ
+  -- ϵ : Claim -> Free ExprF (Either Claim Observable)
+  ϵ Zero = ProcF . const . const $ zero
+  ϵ (One asset) = ProcF $ exch asset ccy
+  ϵ (Give c) = NegF . claim $ c
+  ϵ (Scale k c) = obs k `MulF` claim c
+  ϵ (And c c') = claim c `AddF` claim c'
+  ϵ (Or c c') = (ind (claim c) (claim c') * claim c) `AddF` (ind (claim c') (claim c) * claim c') -- How to differentiate these two?
+  ϵ (Cond (TimeGte t) c c') = (ind (claim c) (claim c') * claim c') `AddF` (ind (claim c') (claim c) * claim c') -- where does t go?
+  ϵ (When (TimeGte t') c) = (disc' ccy undefined) `MulF` exp (disc' ccy t' * claim c) undefined
+  ϵ (Anytime (TimeGte t) c) = error "fapf: Anytime"
+  ϵ (Until (TimeGte t) c) = error "fapf: Until"
+  ϵ _ = error "fapf: Stochastic 'Indicator = Lte' functions not supported yet"
+  -- these four operators are sugar for writing the futumorphism using `Free`, above
+  x * y = Impure $ MulF x y
+  ind x y = Impure $ I_F x y
+  exp x t = Impure $ E_F x t
+  claim = Pure . Left
+  obs = Pure . Right
+  disc' x y = Impure . ProcF $ disc x y
+  -- υ : Observable -> ExprF Observable
+  υ (O.Const {value=k}) = ProcF . const . const $ zero
+  υ (O.Observe {key=asset}) = ProcF $ exch (error "TODO asset = key") ccy
+  υ (O.Add (x, x')) = AddF (obs x) (obs x')
+  υ (O.Neg x) = MulF (Impure . ProcF . const . const . negate $ one) (obs x)
+  υ (O.Mul (x, x')) = MulF (obs x) (obs x')
+  υ (O.Div (x, x')) = DivF (obs x) (obs x')
   zero = aunit
   one = munit
-  
-  
-  
 
 -- test = script do
-  
