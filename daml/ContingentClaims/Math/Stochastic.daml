@@ -40,8 +40,10 @@ data Expr θ
 instance Corecursive (Expr θ) (ExprF θ) where
   embed = undefined
 
--- | Converts a `Claim` into the Fundamental Asset Pricing Formula. 
--- The ϵ expressions are defined as E1-E10 in the Eber/Peyton-Jones paper.
+-- | Converts a `Claim` into the Fundamental Asset Pricing Formula. The ϵ
+-- expressions are defined as E1-E10 in the Eber/Peyton-Jones paper. If you
+-- squint you can almost see they correspond one-to-one to the formulae in our
+-- whitepaper.
 fapf : Eq a
      => a
      -> (a -> Time -> Process θ)
@@ -58,13 +60,13 @@ fapf ccy disc exch theta = futu coalg . Left . (, 0.0) where
   ϵ (Scale k c, t) = obs k `MulF` claim (c, t)
   ϵ (And c c', t) = claim (c, t) `AddF` claim (c', t)
   ϵ (Or c c', t) = AddF
-      (ind (claim (c , t)) (claim (c', t)) * claim (c , t)) 
-      (ind (claim (c', t)) (claim (c , t)) * claim (c', t)) -- How to differentiate E6/E7? 
+      (ind (claim (c , t)) (claim (c', t)) * claim (c , t))
+      (ind (claim (c', t)) (claim (c , t)) * claim (c', t)) -- How to differentiate E6/E7?
   ϵ (Cond (TimeGte t') c c', t) = AddF
-      (ind (claim (c , t)) (claim (c', t)) * claim (c', t)) 
-      (ind (claim (c', t)) (claim (c , t)) * claim (c , t)) -- How to differentiate E6/E7? 
+      (ind (claim (c , t)) (claim (c', t)) * claim (c', t))
+      (ind (claim (c', t)) (claim (c , t)) * claim (c , t)) -- How to differentiate E6/E7?
   ϵ (When (TimeGte t') c, t) = MulF
-      (disc' ccy t) 
+      (disc' ccy t)
       $ ex (claim (c, t') / disc' ccy t') t
   ϵ (Anytime (TimeGte t') c, t) = error "fapf: Anytime"
   ϵ (Until (TimeGte t') c, t) = error "fapf: Until"
