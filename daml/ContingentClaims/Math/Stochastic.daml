@@ -71,7 +71,7 @@ fapf ccy disc exch theta = futu coalg . Left . (, 0.0) where
   ϵ _ = error "fapf: Stochastic 'Indicator = Lte' functions not supported yet"
   -- υ : Observable -> ExprF Observable
   υ (O.Const {value=k}) = ProcF . const . const $ k
-  υ (O.Observe {key=asset}) = ProcF $ exch (error "TODO asset = key") ccy
+  υ (O.Observe {key=asset}) = ProcF $ exch asset ccy
   υ (O.Add (x, x')) = AddF (obs x) (obs x')
   υ (O.Neg x) = MulF (Impure . ProcF . const . const . negate $ one) (obs x)
   υ (O.Mul (x, x')) = MulF (obs x) (obs x')
