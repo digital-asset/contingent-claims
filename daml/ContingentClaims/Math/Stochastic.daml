@@ -37,6 +37,9 @@ data Expr θ
   | I (Expr θ , Expr θ)
   | E { rv : Expr θ, filtration: Time }
 
+instance Recursive (Expr θ) (ExprF θ) where
+  project = undefined
+
 instance Corecursive (Expr θ) (ExprF θ) where
   embed = undefined
 
