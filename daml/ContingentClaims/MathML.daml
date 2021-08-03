@@ -1,19 +1,21 @@
-module ContingentClaims.MathML where
+module ContingentClaims.MathML (presentation) where
 
 import ContingentClaims.Math.Stochastic
 import Daml.Control.Recursion
 
-import DA.Map (Map, toList)
+import DA.Map (Map, toList, insert)
 import DA.Text (intercalate)
+import DA.Foldable (fold)
 import Prelude hiding (null, elem)
 
 type Attrs = Map Text Text
 
 data Xml = Elem { attributes : Attrs, name : Text, content: [Xml] }
          | Leaf Text
+       deriving (Eq)
 
 instance Show Xml where
-  show Elem{..} = "<" <> name <> as <> ">" <> show content <> "</" <> name <> ">"
+  show Elem{attributes, name, content} = "<" <> name <> as <> ">" <> (fold $ fmap show content) <> "</" <> name <> ">"
     where as = (<>) " " . intercalate ";" . fmap (\(k,v) -> k <> "=" <> v) . toList $ attributes
   show (Leaf t) = t
 
@@ -22,27 +24,33 @@ data XmlF x = ElemF { attributes : Attrs, name : Text, content: [x] }
             deriving (Show, Eq, Functor)
 
 instance Corecursive Xml XmlF where
-  embed = undefined
+  embed ElemF{..} = Elem with ..
+  embed (LeafF a) = Leaf a
 
 instance Recursive Xml XmlF where
-  project = undefined
+  project Elem{..} = ElemF with ..
+  project (Leaf a) = LeafF a
 
 -- | Renders an `Expr`ession into MathML presentation format
-presentation : Expr θ -> [Xml]
-presentation = cata \case
-  ProcF _f -> [mn "S(θ, t)"]
+presentation : Expr -> Xml
+presentation = math . cata \case
+  ConstF a -> [mn $ show a]
+  ProcF name _f t -> [mi name {-, mo "|" `msub` mn (show t)-}]
   AddF x x' -> x ++ [mo "+"] ++ x'
   NegF x -> mo "-" :: x
   MulF x x' -> x ++ [mo "&InvisibleTimes;"] ++ x'
   DivF x x' -> [mfrac x x']
-  I_F x x' -> x ++ [mo "&le;"] ++ x'
-  E_F x t -> [mi "&Eopf;", mo "&ApplyFunction;", mfenced $ x ++ [mo "&bar" `msub` mn (show t)] ]
+  I_F x x' -> [mi "I" `msub` (mrow $ x ++ [mo "&lt;="] ++ x')]
+  E_F x t -> [mi "&Eopf;", mo "&ApplyFunction;", mrow $ x ++ [mo "|" `msub` mn (show t)] ]
 
 -- | An element with no attributes
 elem = Elem mempty
 
 -- | A leaf node, text content
 text t = [Leaf t]
+
+-- | Top-level math element
+math content = Elem (insert "display" "block" mempty) "math" content 
 
 -- | identifier
 mi = elem "mi" . text
@@ -66,4 +74,6 @@ mfenced = elem "mfenced"
 msub base subscript = elem "msub" [base, subscript]
 
 -- | fraction
-mfrac numerator denominator = elem "mfrac" (numerator ++ denominator)
+mfrac numerator denominator = elem "mfrac" [mrow numerator, mrow denominator]
+
+mrow = elem "mrow"

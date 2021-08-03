@@ -10,14 +10,11 @@ import Daml.Control.Arrow ((|||))
 import Prelude hiding (Time)
 
 type Time = Decimal
-type Variable θ = θ -> Decimal
-type Process θ = Time -> Variable θ
+data Process = ConstOne | Riskless | GBM | Vasicek --TODO: Wiener { dt : Expr, dW : Expr } | Levy { }
 
-instance Show (Process θ) where
-  show _ = "S(t, θ)"
-
-data ExprF θ x
-  = ProcF (Process θ)
+data ExprF x
+  = ConstF Decimal
+  | ProcF { name : Text, process: Process , filtration: Time }
   | SupF { f : Time -> x, lowerBound: Time }
   | AddF { lhs: x, rhs: x }
   | NegF x
@@ -27,47 +24,63 @@ data ExprF θ x
   | E_F { rv : x, filtration: Time }
   deriving (Functor)
 
-data Expr θ
-  = Proc (Process θ)
-  | Sup { f : Time -> Expr θ, lowerBound: Time }
-  | Add (Expr θ, Expr θ)
-  | Neg (Expr θ)
-  | Mul (Expr θ, Expr θ)
-  | Div (Expr θ, Expr θ)
-  | I (Expr θ , Expr θ)
-  | E { rv : Expr θ, filtration: Time }
+data Expr
+  = Const Decimal
+  | Proc { name : Text, process : Process , filtration: Time }
+  | Sup { f : Time -> Expr, lowerBound: Time }
+  | Add (Expr, Expr)
+  | Neg (Expr)
+  | Mul (Expr, Expr)
+  | Div (Expr, Expr)
+  | I (Expr , Expr)
+  | E { rv : Expr, filtration: Time }
 
-instance Recursive (Expr θ) (ExprF θ) where
-  project = undefined
+instance Recursive (Expr) (ExprF) where
+  project (Const x) = ConstF x
+  project Proc{..} = ProcF with ..
+  project Sup{..} = SupF with ..
+  project (Add (x, x')) = AddF x x'
+  project (Neg x) = NegF x
+  project (Mul (x,x')) = MulF x x'
+  project (Div (x, x')) = DivF x x'
+  project (I (x, x')) = I_F x x'
+  project E{..} = E_F with ..
 
-instance Corecursive (Expr θ) (ExprF θ) where
-  embed = undefined
+instance Corecursive (Expr) (ExprF) where
+  embed (ConstF x) = Const x
+  embed ProcF{..} = Proc with ..
+  embed SupF{..} = Sup with ..
+  embed (AddF x x') = Add (x, x')
+  embed (NegF x) = Neg x
+  embed (MulF x x') = Mul (x, x')
+  embed (DivF x x') = Div (x, x')
+  embed (I_F x x') = I (x, x')
+  embed E_F{..} = E with ..
 
 -- | Converts a `Claim` into the Fundamental Asset Pricing Formula. The ϵ
 -- expressions are defined as E1-E10 in the Eber/Peyton-Jones paper. If you
 -- squint you can almost see they correspond one-to-one to the formulae in our
 -- whitepaper.
-fapf : Eq a
+fapf : (Eq a, Show a)
      => a
-     -> (a -> Time -> Process θ)
-     -> (a -> a -> Process θ)
-     -> θ
-     -> Claim O.Observation Time Decimal a -> Expr θ
-fapf ccy disc exch theta = futu coalg . Left . (, 0.0) where
+     -> (a -> Process)
+     -> (a -> a -> Process)
+     -> Claim O.Observation Time Decimal a -> Expr
+fapf ccy disc exch = futu coalg . Left . (, 0.0) where
   -- coalg : (Either (Claim, t) Observable) -> Free ExprF (Either (Claim, t) Observable)
   coalg = ϵ ||| υ
   -- ϵ : (Claim, t) -> Free ExprF (Either (Claim, t) Observable)
-  ϵ (Zero, _) = ProcF . const . const $ zero
-  ϵ (One asset, _) = ProcF $ exch asset ccy
+  ϵ (Zero, _) = ConstF zero
+  ϵ (One asset, t) = ProcF (show asset) (exch asset ccy) t -- assert ident
   ϵ (Give c, t) = NegF . claim $ (c, t)
   ϵ (Scale k c, t) = obs k `MulF` claim (c, t)
   ϵ (And c c', t) = claim (c, t) `AddF` claim (c', t)
   ϵ (Or c c', t) = AddF
       (ind (claim (c , t)) (claim (c', t)) * claim (c , t))
-      (ind (claim (c', t)) (claim (c , t)) * claim (c', t)) -- How to differentiate E6/E7?
+      (ind (claim (c', t)) (claim (c , t)) * claim (c', t)) -- How to distinguish E6/E7?
   ϵ (Cond (TimeGte t') c c', t) = AddF
       (ind (claim (c , t)) (claim (c', t)) * claim (c', t))
-      (ind (claim (c', t)) (claim (c , t)) * claim (c , t)) -- How to differentiate E6/E7?
+      (ind (claim (c', t)) (claim (c , t)) * claim (c , t)) -- How to distinguish E6/E7?
   ϵ (When (TimeGte t') c, t) = MulF
       (disc' ccy t)
       $ ex (claim (c, t') / disc' ccy t') t
@@ -75,10 +88,10 @@ fapf ccy disc exch theta = futu coalg . Left . (, 0.0) where
   ϵ (Until (TimeGte t') c, t) = error "fapf: Until"
   ϵ _ = error "fapf: Stochastic 'Indicator = Lte' functions not supported yet"
   -- υ : Observable -> ExprF Observable
-  υ (O.Const {value=k}) = ProcF . const . const $ k
-  υ (O.Observe {key=asset}) = ProcF $ exch asset ccy
+  υ (O.Const {value=k}) = ConstF k
+  υ (O.Observe {key=asset}) = ProcF (show asset) (exch asset ccy) 0.0 -- FIXME: does it matter this is set to zero?
   υ (O.Add (x, x')) = AddF (obs x) (obs x')
-  υ (O.Neg x) = MulF (Impure . ProcF . const . const . negate $ one) (obs x)
+  υ (O.Neg x) = MulF (Impure . ConstF $ negate one) (obs x)
   υ (O.Mul (x, x')) = MulF (obs x) (obs x')
   υ (O.Div (x, x')) = DivF (obs x) (obs x')
 
@@ -89,7 +102,7 @@ fapf ccy disc exch theta = futu coalg . Left . (, 0.0) where
   ex x t = Impure $ E_F x t
   claim = Pure . Left
   obs = Pure . Right
-  disc' k t = Impure . ProcF $ disc k t
+  disc' k t = Impure $ ProcF (show k) (disc k) t
   zero = aunit
   one = munit
 

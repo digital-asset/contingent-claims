@@ -57,10 +57,6 @@ instance Corecursive (Observation t x a) (ObservationF t x a) where
   embed (MulF (x, x') ) = Mul (x, x')
   embed (DivF (x, x') ) = Div (x, x')
 
-instance O.Point Observation t t a where
-  pure = Const
-  observe = Observe
-
 instance O.Point Observation t x a where
   pure = Const
   observe = Observe
