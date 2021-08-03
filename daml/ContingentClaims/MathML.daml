@@ -33,15 +33,17 @@ instance Recursive Xml XmlF where
 
 -- | Renders an `Expr`ession into MathML presentation format
 presentation : Expr -> Xml
-presentation = math . cata \case
+presentation = math . histo \case
   ConstF a -> [mn $ show a]
   ProcF name _f t -> [mi name {-, mo "|" `msub` mn (show t)-}]
-  AddF x x' -> x ++ [mo "+"] ++ x'
-  NegF x -> mo "-" :: x
-  MulF x x' -> x ++ [mo "&InvisibleTimes;"] ++ x'
-  DivF x x' -> [mfrac x x']
-  I_F x x' -> [mi "I" `msub` (mrow $ x ++ [mo "&lt;="] ++ x')]
-  E_F x t -> [mi "&Eopf;", mo "&ApplyFunction;", mrow $ x ++ [mo "|" `msub` mn (show t)] ]
+  SupF{..} -> error "presentation: SupF"
+  AddF x (Cofree _ (NegF x')) -> x.attribute ++ [mo "-"] ++ x'.attribute
+  AddF x x' -> x.attribute ++ [mo "+"] ++ x'.attribute
+  NegF x -> mo "-" :: x.attribute
+  MulF x x' -> x.attribute ++ [mo "&InvisibleTimes;"] ++ x'.attribute
+  DivF x x' -> [mfrac x.attribute x'.attribute]
+  I_F x x' -> [mi "I" `msub` (mrow $ x.attribute ++ [mo "&le;"] ++ x'.attribute)]
+  E_F x t -> [mi "&Eopf;", mo "&ApplyFunction;", mrow $ x.attribute ++ [mo "|" `msub` mn (show t)] ]
 
 -- | An element with no attributes
 elem = Elem mempty
