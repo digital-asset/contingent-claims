@@ -3,9 +3,9 @@ module ContingentClaims.MathML (presentation) where
 import ContingentClaims.Math.Stochastic
 import Daml.Control.Recursion
 
-import DA.Map (Map, toList, insert)
+import DA.Map (Map, toList, insert, fromList)
 import DA.Text (intercalate)
-import DA.Foldable (fold)
+import DA.Foldable (foldMap)
 import Prelude hiding (null, elem)
 
 type Attrs = Map Text Text
@@ -15,7 +15,7 @@ data Xml = Elem { attributes : Attrs, name : Text, content: [Xml] }
        deriving (Eq)
 
 instance Show Xml where
-  show Elem{attributes, name, content} = "<" <> name <> as <> ">" <> (fold $ fmap show content) <> "</" <> name <> ">"
+  show Elem{attributes, name, content} = "<" <> name <> as <> ">" <> (foldMap show content) <> "</" <> name <> ">"
     where as = (<>) " " . intercalate ";" . fmap (\(k,v) -> k <> "=" <> v) . toList $ attributes
   show (Leaf t) = t
 
@@ -42,8 +42,13 @@ presentation = math . histo \case
   NegF x -> mo "-" :: x.attribute
   MulF x x' -> x.attribute ++ [mo "&InvisibleTimes;"] ++ x'.attribute
   DivF x x' -> [mfrac x.attribute x'.attribute]
-  I_F x x' -> [mi "I" `msub` (mrow $ x.attribute ++ [mo "&le;"] ++ x'.attribute)]
-  E_F x t -> [mi "&Eopf;", mo "&ApplyFunction;", mrow $ x.attribute ++ [mo "|" `msub` mn (show t)] ]
+  I_F x x' -> [mi "I" `msub` mrow (x.attribute ++ [mo "&le;"] ++ x'.attribute)]
+  E_F x t -> let mfenced ctx = [ Elem (just "fence" "true") "mo" (text "[")] ++  ctx ++ [Elem (just "fence" "true") "mo" (text "]")]
+             in [mi "&Eopf;", mo "&ApplyFunction;"] ++ mfenced (x.attribute ++ [mo "|" `msub` mn (show t)])
+
+
+just : Text -> Text -> Attrs
+just a b = fromList [(a, b)]
 
 -- | An element with no attributes
 elem = Elem mempty
@@ -68,9 +73,6 @@ mtext = elem "mtext" . text
 
 -- | string literal
 ms = elem "ms" . text
-
--- | expression inside pair of fences (e.g. brackets)
-mfenced = elem "mfenced"
 
 -- | subscript
 msub base subscript = elem "msub" [base, subscript]
