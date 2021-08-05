@@ -42,6 +42,9 @@ presentation = math . histo \case
   NegF x -> mo "-" :: x.attribute
   MulF x (Cofree s (AddF _ _)) -> x.attribute ++ [mo "&InvisibleTimes;"] ++ mfenced "(" ")" s
   MulF (Cofree s (AddF _ _)) x -> mfenced "(" ")" s ++ [mo "&InvisibleTimes;"] ++ x.attribute
+  MulF x (Cofree s (NegF _)) -> x.attribute ++ [mo "&#xD7;"] ++ s
+  MulF (Cofree s (ConstF _)) x -> s ++ [mo "&#xD7;"] ++ x.attribute
+  MulF x (Cofree s (ConstF _)) -> x.attribute ++ [mo "&#xD7;"] ++ s
   MulF x x' ->  x.attribute ++ [mo "&InvisibleTimes;"] ++ x'.attribute
   DivF x x' -> [mfrac x.attribute x'.attribute]
   I_F x x' -> [mo "I" `msub` mrow (x.attribute ++ [mo "&le;"] ++ x'.attribute)]
