@@ -40,11 +40,12 @@ presentation = math . histo \case
   AddF x (Cofree _ (NegF x')) -> x.attribute ++ [mo "-"] ++ x'.attribute
   AddF x x' -> x.attribute ++ [mo "+"] ++ x'.attribute
   NegF x -> mo "-" :: x.attribute
-  MulF x x' -> x.attribute ++ [mo "&InvisibleTimes;"] ++ x'.attribute
+  MulF x (Cofree s (AddF _ _)) -> x.attribute ++ [mo "&InvisibleTimes;"] ++ mfenced "(" ")" s
+  MulF (Cofree s (AddF _ _)) x -> mfenced "(" ")" s ++ [mo "&InvisibleTimes;"] ++ x.attribute
+  MulF x x' ->  x.attribute ++ [mo "&InvisibleTimes;"] ++ x'.attribute
   DivF x x' -> [mfrac x.attribute x'.attribute]
   I_F x x' -> [mi "I" `msub` mrow (x.attribute ++ [mo "&le;"] ++ x'.attribute)]
-  E_F x t -> let mfenced ctx = [ Elem (just "fence" "true") "mo" (text "[")] ++  ctx ++ [Elem (just "fence" "true") "mo" (text "]")]
-             in [mi "&Eopf;", mo "&ApplyFunction;"] ++ mfenced (x.attribute ++ [mo "|" `msub` mn (show t)])
+  E_F x t -> [mi "&Eopf;", mo "&ApplyFunction;"] ++ mfenced "[" "]" (x.attribute ++ [mo "|" `msub` mn (show t)])
 
 
 just : Text -> Text -> Attrs
@@ -81,3 +82,5 @@ msub base subscript = elem "msub" [base, subscript]
 mfrac numerator denominator = elem "mfrac" [mrow numerator, mrow denominator]
 
 mrow = elem "mrow"
+
+mfenced open close ctx = [ Elem (just "fence" "true") "mo" (text open)] ++ ctx ++ [Elem (just "fence" "true") "mo" (text close)]

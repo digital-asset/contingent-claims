@@ -5,15 +5,17 @@ import ContingentClaims.FinancialClaim (european)
 import ContingentClaims.Observable qualified as O
 import ContingentClaims.Observation (Observation)
 import ContingentClaims.MathML qualified as MathML
-import ContingentClaims.Math.Stochastic (fapf, Expr, Process(..), simplify)
+import ContingentClaims.Math.Stochastic (fapf, Process(..), simplify)
 
 import Daml.Script
 import DA.Assert
 
-data Instrument = USD | EUR | AMZN deriving (Show, Eq)
+data Instrument = USD | EUR | AMZN | APPL deriving (Show, Eq)
 
 call : Instrument -> Decimal -> Instrument -> Claim Observation Decimal Decimal Instrument
 call s k a = Scale (O.observe s - O.pure k) $ One a
+
+margrabe s1 s2 a = Scale (O.observe s1 - O.observe s2) $ One a
 
 days = identity
 
@@ -22,9 +24,13 @@ disc EUR = Riskless
 disc other = error $ "disc: " <> show other
 
 exch AMZN _ = GBM
+exch APPL _ = GBM
 exch a a' = if a == a' then ConstOne else error $ "exch: " <> show a <> "/" <> show a'
 
 test = script do
   let t = 30.0/256.0
-      s_0 : Expr = fapf USD disc exch $ european t (call AMZN 3300.0 USD)
-  (show . MathML.presentation . simplify $ s_0)  === ""
+      s = fapf USD disc exch $ european t (call AMZN 3300.0 USD)
+  (show . MathML.presentation . simplify $ s) === ""
+
+  let s = fapf USD disc exch $ european t (margrabe AMZN APPL USD)
+  (show . MathML.presentation . simplify $ s) === ""
