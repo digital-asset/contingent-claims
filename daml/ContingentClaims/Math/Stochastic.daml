@@ -108,7 +108,7 @@ fapf ccy disc exch = futu coalg . Left . (, 0.0) where
   zero = aunit
 
 simplify : Expr -> Expr
-simplify = cata unitIdentity . cata zeroIdentity . cata factNeg . cata distAdd 
+simplify = {- cata unitIdentity . cata zeroIdentity .-} hylo factNeg distAdd
 
 zeroIdentity : ExprF Expr -> Expr
 zeroIdentity (MulF (Const 0.0) x) = Const 0.0
@@ -126,11 +126,13 @@ unitIdentity other = embed other
 
 factNeg : ExprF Expr -> Expr
 factNeg (NegF (Neg x)) = x
+factNeg (MulF (Neg x) (Neg y)) = Mul (x, y)
 factNeg (MulF (Neg x) y) = Neg $ Mul (x, y)
 factNeg (MulF y (Neg x)) = Neg $ Mul (y, x)
 factNeg (E_F (Neg x) t) = Neg $ E x t
 factNeg other = embed other
 
+{-
 distAdd : ExprF Expr -> Expr
 distAdd (MulF (Add (x, x')) y) = Add (Mul (x, y), Mul (x', y))
 distAdd (MulF y (Add (x, x'))) = Add (Mul (y, x), Mul (y, x'))
@@ -138,7 +140,6 @@ distAdd (DivF (Add (x, x')) y) = Add (Div (x, y), Div (x', y))
 distAdd (E_F (Add (x, x')) t) = Add (E x t, E x' t)
 distAdd other = embed other
 
-{-
 distAdd : Expr-> ExprF (Free ExprF Expr)
 distAdd (Mul (Add (x, x'), y)) = Impure (Pure x `MulF` Pure y) `AddF` Impure (Pure x' `MulF` Pure y)
 distAdd (Mul (y, Add (x, x'))) = Impure (Pure y `MulF` Pure x) `AddF` Impure (Pure y `MulF` Pure x')
@@ -146,3 +147,11 @@ distAdd (Div (Add (x, x'), y)) = Impure (Pure x `DivF` Pure y) `AddF` Impure (Pu
 distAdd (E (Add (x, x')) t) = Impure (E_F (Pure x) t) `AddF` Impure (E_F (Pure x') t)
 distAdd other = Pure <$> project other
 -}
+
+distAdd : Expr -> ExprF Expr
+distAdd (Mul (Add (x, x'), y)) = Mul (x, y) `AddF` Mul (x', y)
+distAdd (Mul (y, Add (x, x'))) = Mul (y, x) `AddF` Mul (y, x')
+distAdd (Div (Add (x, x'), y)) = Div (x, y) `AddF` Div (x', y)
+distAdd (E (Add (x, x')) t) = E x t `AddF` E x' t
+distAdd (Div (Mul (x, x'), y)) = Div (x, y) `MulF` x'
+distAdd other = project other

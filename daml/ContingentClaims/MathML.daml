@@ -62,7 +62,7 @@ elem = Elem mempty
 text t = [Leaf t]
 
 -- | Top-level math element
-math content = Elem (just "display" "block") "math" content 
+math content = Elem (just "display" "block") "math" content
 
 -- | identifier
 mi = elem "mi" . text
