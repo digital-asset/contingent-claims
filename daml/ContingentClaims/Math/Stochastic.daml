@@ -25,7 +25,7 @@ data ExprF x
   | AddF { lhs: x, rhs: x }
   | NegF x
   | MulF { lhs: x, rhs: x }
-  | DivF { lhs: x, rhs: x }
+  | PowF { lhs: x, rhs: x }
   | I_F { lhs : x, rhs: x }
   | E_F { rv : x, filtration: Time }
   deriving (Functor)
@@ -38,7 +38,7 @@ data Expr
   | Add (Expr, Expr)
   | Neg (Expr)
   | Mul (Expr, Expr)
-  | Div (Expr, Expr)
+  | Pow (Expr, Expr)
   | I (Expr , Expr)
   | E { rv : Expr, filtration: Time }
 
@@ -50,7 +50,7 @@ instance Recursive (Expr) (ExprF) where
   project (Add (x, x')) = AddF x x'
   project (Neg x) = NegF x
   project (Mul (x,x')) = MulF x x'
-  project (Div (x, x')) = DivF x x'
+  project (Pow (x, x')) = PowF x x'
   project (I (x, x')) = I_F x x'
   project E{..} = E_F with ..
 
@@ -62,7 +62,7 @@ instance Corecursive (Expr) (ExprF) where
   embed (AddF x x') = Add (x, x')
   embed (NegF x) = Neg x
   embed (MulF x x') = Mul (x, x')
-  embed (DivF x x') = Div (x, x')
+  embed (PowF x x') = Pow (x, x')
   embed (I_F x x') = I (x, x')
   embed E_F{..} = E with ..
 
@@ -102,11 +102,12 @@ fapf ccy disc exch = futu coalg . Left . (, 0.0) where
   υ (O.Add (x, x')) = AddF (obs x) (obs x')
   υ (O.Neg x) = NegF (obs x)
   υ (O.Mul (x, x')) = MulF (obs x) (obs x')
-  υ (O.Div (x, x')) = DivF (obs x) (obs x')
+  υ (O.Div (x, x')) = MulF (obs x) (inv (obs x'))
 
   -- these operators are sugar for writing the futumorphism using `Free`, above
   x * y = Impure $ MulF x y
-  x / y = Impure $ DivF x y
+  x / y = Impure $ MulF x (inv y)
+  inv x = Impure $ PowF x (obs . O.Neg . O.Const $ one)
   ind x y = Impure $ I_F x y
   ex x t = Impure $ E_F x t
   claim = Pure . Left
@@ -122,7 +123,7 @@ simplify = {-cata unitIdentity . cata zeroIdentity . cata factNeg . -} ana distA
 zeroIdentity : ExprF Expr -> Expr
 zeroIdentity (MulF (Const 0.0) x) = Const 0.0
 zeroIdentity (MulF x (Const 0.0)) = Const 0.0
-zeroIdentity (DivF (Const 0.0) x) = Const 0.0
+zeroIdentity (PowF x (Const 0.0)) = Const 1.0
 zeroIdentity (AddF (Const 0.0) x) = x
 zeroIdentity (AddF x (Const 0.0)) = x
 zeroIdentity (E_F (Const 0.0) _) = Const 0.0
@@ -131,6 +132,7 @@ zeroIdentity other = embed other
 unitIdentity : ExprF Expr -> Expr
 unitIdentity (MulF (Const 1.0) x) = x
 unitIdentity (MulF x (Const 1.0)) = x
+unitIdentity (PowF x (Const 1.0)) = x
 unitIdentity other = embed other
 
 factNeg : ExprF Expr -> Expr
@@ -143,7 +145,6 @@ factNeg other = embed other
 
 distAdd : Expr -> ExprF Expr
 distAdd (Mul (x, Add (a, b))) = Mul (x, a) `AddF` Mul (x, b)
-distAdd (Div (Add (a, b), x)) = Div (a, x) `AddF` Div (b, x)
 distAdd other = project other
 
 -- Change `(a + b) x c` to `c x (a + b)`

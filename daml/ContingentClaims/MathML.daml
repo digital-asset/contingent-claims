@@ -40,13 +40,15 @@ presentation = math . histo \case
   AddF x (Cofree _ (NegF x')) -> x.attribute ++ [mo "-"] ++ x'.attribute
   AddF x x' -> x.attribute ++ [mo "+"] ++ x'.attribute
   NegF x -> mo "-" :: x.attribute
+  MulF (Cofree _ (PowF denom (Cofree _ (NegF (Cofree _ (ConstF 1.0)))))) num -> [mfrac num.attribute denom.attribute]
+  MulF num (Cofree _ (PowF denom (Cofree _ (NegF (Cofree _ (ConstF 1.0)))))) -> [mfrac num.attribute denom.attribute]
   MulF x (Cofree s (AddF _ _)) -> x.attribute ++ [mo "&InvisibleTimes;"] ++ mfenced "(" ")" s
   MulF (Cofree s (AddF _ _)) x -> mfenced "(" ")" s ++ [mo "&InvisibleTimes;"] ++ x.attribute
   MulF x (Cofree s (NegF _)) -> x.attribute ++ [mo "&#xD7;"] ++ s
   MulF (Cofree s (ConstF _)) x -> s ++ [mo "&#xD7;"] ++ x.attribute
   MulF x (Cofree s (ConstF _)) -> x.attribute ++ [mo "&#xD7;"] ++ s
   MulF x x' ->  x.attribute ++ [mo "&InvisibleTimes;"] ++ x'.attribute
-  DivF x x' -> [mfrac x.attribute x'.attribute]
+  PowF x i -> [mrow x.attribute `msup` mrow i.attribute]
   I_F x x' -> [mo "I" `msub` mrow (x.attribute ++ [mo "&le;"] ++ x'.attribute)]
   E_F x t -> [mo "&Eopf;", mo "&ApplyFunction;"] ++ mfenced "[" "]" (x.attribute ++ [mo "|", curlyF `msub` mn (show t)])
     where curlyF = Elem (just "mathvariant" "script") "mo" (text "F")
@@ -81,6 +83,9 @@ ms = elem "ms" . text
 
 -- | subscript
 msub base subscript = elem "msub" [base, subscript]
+
+-- | subperscript
+msup base superscript = elem "msup" [base, superscript]
 
 -- | fraction
 mfrac numerator denominator = elem "mfrac" [mrow numerator, mrow denominator]
