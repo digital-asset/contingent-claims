@@ -37,11 +37,12 @@ presentation = math . histo \case
   ConstF a -> [mn $ show a]
   ProcF name _f t -> [mi name {-, mo "|" `msub` mn (show t)-}]
   SupF{..} -> error "presentation: SupF"
+  IdentF _ -> error "presentation: IdentF"
   AddF x (Cofree _ (NegF x')) -> x.attribute ++ [mo "-"] ++ x'.attribute
   AddF x x' -> x.attribute ++ [mo "+"] ++ x'.attribute
   NegF x -> mo "-" :: x.attribute
-  MulF (Cofree _ (PowF denom (Cofree _ (NegF (Cofree _ (ConstF 1.0)))))) num -> [mfrac num.attribute denom.attribute]
-  MulF num (Cofree _ (PowF denom (Cofree _ (NegF (Cofree _ (ConstF 1.0)))))) -> [mfrac num.attribute denom.attribute]
+  -- MulF (Cofree _ (PowF denom (Cofree _ (NegF (Cofree _ (ConstF 1.0)))))) num -> [mfrac num.attribute denom.attribute]
+  -- MulF num (Cofree _ (PowF denom (Cofree _ (NegF (Cofree _ (ConstF 1.0)))))) -> [mfrac num.attribute denom.attribute]
   MulF x (Cofree s (AddF _ _)) -> x.attribute ++ [mo "&InvisibleTimes;"] ++ mfenced "(" ")" s
   MulF (Cofree s (AddF _ _)) x -> mfenced "(" ")" s ++ [mo "&InvisibleTimes;"] ++ x.attribute
   MulF x (Cofree s (NegF _)) -> x.attribute ++ [mo "&#xD7;"] ++ s

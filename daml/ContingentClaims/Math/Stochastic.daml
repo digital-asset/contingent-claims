@@ -10,7 +10,7 @@ import Daml.Control.Arrow ((|||))
 import Prelude hiding (Time)
 
 type Time = Decimal
-data Process = Process { dt : Expr, dW: Expr } -- Geometric i.e. dX / X = α dt + β dW, so we have closed solns.
+data Process = Process { dt : Expr, dW: Expr } deriving (Show, Eq)-- Geometric i.e. dX / X = α dt + β dW, so we have closed solns.
 -- TODO: make sum type and support Poisson
 
 riskless r = Process { dt = Ident r, dW = Const 0.0 }
@@ -21,7 +21,7 @@ data ExprF x
   = ConstF Decimal
   | IdentF Text
   | ProcF { name : Text, process: Process , filtration: Time }
-  | SupF { f : Time -> x, lowerBound: Time }
+  | SupF { f : (), lowerBound: Time }
   | AddF { lhs: x, rhs: x }
   | NegF x
   | MulF { lhs: x, rhs: x }
@@ -34,13 +34,14 @@ data Expr
   = Const Decimal
   | Ident Text
   | Proc { name : Text, process : Process , filtration: Time }
-  | Sup { f : Time -> Expr, lowerBound: Time }
+  | Sup { f : (), lowerBound: Time }
   | Add (Expr, Expr)
   | Neg (Expr)
   | Mul (Expr, Expr)
   | Pow (Expr, Expr)
   | I (Expr , Expr)
   | E { rv : Expr, filtration: Time }
+  deriving (Show, Eq)
 
 instance Recursive (Expr) (ExprF) where
   project (Const x) = ConstF x
@@ -118,7 +119,10 @@ fapf ccy disc exch = futu coalg . Left . (, 0.0) where
   zero = aunit
 
 simplify : Expr -> Expr
-simplify = {-cata unitIdentity . cata zeroIdentity . cata factNeg . -} ana distAdd . cata commuteLeft . cata mulBeforeAdd
+simplify = {-cata unitIdentity . cata zeroIdentity . cata factNeg .-}  
+    ana (commuteLeft . embed . distAdd) 
+  . ana commuteLeft 
+  . cata mulBeforeAdd
 
 zeroIdentity : ExprF Expr -> Expr
 zeroIdentity (MulF (Const 0.0) x) = Const 0.0
@@ -154,10 +158,10 @@ mulBeforeAdd (MulF (Mul (x, y@Add{})) x') = Mul (Mul (x,x'), y)
 mulBeforeAdd other = embed other
 
 -- Change e.g. `a x (b x c)` to `(a x b) x c`
-commuteLeft : ExprF Expr -> Expr
-commuteLeft (MulF x (Mul (a, b))) = Mul (Mul (x, a), b)
-commuteLeft (AddF x (Add (a, b))) = Add (Add (x, a), b)
-commuteLeft other = embed other
+commuteLeft : Expr -> ExprF Expr
+commuteLeft (Mul (x,(Mul (a, b)))) = Mul (x, a) `MulF` b
+commuteLeft (Add (x,(Add (a, b)))) = Add (x, a) `AddF` b
+commuteLeft other = project other
 
 {-
 distAdd : Expr -> ExprF Expr
