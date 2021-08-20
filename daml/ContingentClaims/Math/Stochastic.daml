@@ -77,13 +77,13 @@ fapf : (Eq a, Show a)
      -> t
      -> Claim O.Observation t Decimal a -> Expr t
 fapf ccy disc exch today = futu coalg . Left . (, today) where
-  -- coalg : (Either (Claim, t) Observable) -> Free ExprF (Either (Claim, t) Observable)
+  -- coalg : (Either (Claim, t) (Observable, t)) -> Free ExprF (Either (Claim, t) (Observable, t))
   coalg = ϵ ||| υ
-  -- ϵ : (Claim, t) -> Free ExprF (Either (Claim, t) Observable)
+  -- ϵ : (Claim, t) -> Free ExprF (Either (Claim, t) (Observable, t))
   ϵ (Zero, _) = ConstF zero
-  ϵ (One asset, t) = exch' asset ccy -- assert ident
+  ϵ (One asset, t) = exch' asset ccy t -- assert ident
   ϵ (Give c, t) = NegF . claim $ (c, t)
-  ϵ (Scale k c, t) = obs k `MulF` claim (c, t)
+  ϵ (Scale k c, t) = obs (k, t) `MulF` claim (c, t)
   ϵ (And c c', t) = claim (c, t) `AddF` claim (c', t)
   ϵ (Or c c', t) = AddF
       (ind (claim (c , t)) (claim (c', t)) * claim (c , t))
@@ -91,30 +91,28 @@ fapf ccy disc exch today = futu coalg . Left . (, today) where
   ϵ (Cond (TimeGte t') c c', t) = AddF
       (ind (claim (c , t)) (claim (c', t)) * claim (c', t))
       (ind (claim (c', t)) (claim (c , t)) * claim (c , t)) -- How to distinguish E6/E7?
-  ϵ (When (TimeGte t') c, t) = MulF
-      (disc' ccy t)
-      $ ex (claim (c, t') / disc' ccy t') t
+  ϵ (When (TimeGte t') c, t) = disc' ccy t `MulF` ex (claim (c, t') / disc' ccy t') t
   ϵ (Anytime (TimeGte t') c, t) = error "fapf: Anytime"
   ϵ (Until (TimeGte t') c, t) = error "fapf: Until"
   ϵ _ = error "fapf: Stochastic 'Indicator = Lte' functions not supported yet"
-  -- υ : Observable -> ExprF Observable
-  υ (O.Const {value=k}) = ConstF k
-  υ (O.Observe {key=asset}) = exch' asset ccy
-  υ (O.Add (x, x')) = AddF (obs x) (obs x')
-  υ (O.Neg x) = NegF (obs x)
-  υ (O.Mul (x, x')) = MulF (obs x) (obs x')
-  υ (O.Div (x, x')) = MulF (obs x) (inv (obs x'))
+  -- υ : (Observable, t) -> Free ExprF (Either (Claim, t) (Observable, t))
+  υ (O.Const {value=k}, _) = ConstF k
+  υ (O.Observe {key=asset}, t) = exch' asset ccy t
+  υ (O.Add (x, x'), t) = obs (x, t) `AddF` obs (x', t)
+  υ (O.Neg x, t) = NegF $ obs (x, t)
+  υ (O.Mul (x, x'), t) = obs (x, t) `MulF` obs (x', t)
+  υ (O.Div (x, x'), t) = obs (x, t) `MulF` inv (obs (x', t))
 
   -- these operators are sugar for writing the futumorphism using `Free`, above
   x * y = Impure $ MulF x y
   x / y = Impure $ MulF x (inv y)
-  inv x = Impure $ PowF x (obs . O.Neg . O.Const $ one)
+  inv x = Impure $ PowF x (obs (O.Neg . O.Const $ one, today)) -- t for a `Const` is ignored
   ind x y = Impure $ I_F x y
   ex x t = Impure $ E_F x t
   claim = Pure . Left
   obs = Pure . Right
   disc' k t = Impure $ ProcF (show k) (disc k) t
-  exch' asset ccy = if asset == ccy then ConstF one else ProcF (show asset) (exch asset ccy) today  -- FIXME: does it matter this is set to zero?
+  exch' asset ccy t = if asset == ccy then ConstF one else ProcF (show asset) (exch asset ccy) t
   one = munit
   zero = aunit
 
