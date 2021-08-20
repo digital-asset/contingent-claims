@@ -6,6 +6,7 @@ import Daml.Control.Recursion
 import DA.Map (Map, toList, insert)
 import DA.Text (intercalate)
 import DA.Foldable (foldMap)
+import DA.Date (toGregorian)
 import Prelude hiding (null, elem)
 
 type Attrs = Map Text Text
@@ -31,27 +32,40 @@ instance Recursive Xml XmlF where
   project Elem{..} = ElemF with ..
   project (Leaf a) = LeafF a
 
+class ToXml a where
 -- | Renders an `Expr`ession into MathML presentation format
-presentation : Expr -> Xml
-presentation = math . histo \case
-  ConstF a -> [mn $ show a]
-  ProcF name _f t -> [mi name {-, mo "|" `msub` mn (show t)-}]
---  SupF{..} -> error "presentation: SupF"
-  IdentF _ -> error "presentation: IdentF"
-  AddF x (Cofree _ (NegF x')) -> x.attribute ++ [mo "-"] ++ x'.attribute
-  AddF x x' -> x.attribute ++ [mo "+"] ++ x'.attribute
-  NegF x -> mo "-" :: x.attribute
-  MulF (Cofree _ (PowF denom (Cofree _ (NegF (Cofree _ (ConstF 1.0)))))) num -> [mfrac num.attribute denom.attribute]
-  MulF x (Cofree s (AddF _ _)) -> x.attribute ++ [mo "&InvisibleTimes;"] ++ mfenced "(" ")" s
-  MulF (Cofree s (AddF _ _)) x -> mfenced "(" ")" s ++ [mo "&InvisibleTimes;"] ++ x.attribute
-  MulF x (Cofree s (NegF _)) -> x.attribute ++ [mo "&#xD7;"] ++ s
-  MulF (Cofree s (ConstF _)) x -> s ++ [mo "&#xD7;"] ++ x.attribute
-  MulF x (Cofree s (ConstF _)) -> x.attribute ++ [mo "&#xD7;"] ++ s
-  MulF x x' ->  x.attribute ++ [mo "&InvisibleTimes;"] ++ x'.attribute
-  PowF x i -> [mrow x.attribute `msup` mrow i.attribute]
-  I_F x x' -> [mo "I" `msub` mrow (x.attribute ++ [mo "&le;"] ++ x'.attribute)]
-  E_F x t -> [mo "&Eopf;", mo "&ApplyFunction;"] ++ mfenced "[" "]" (x.attribute ++ [mo "|", curlyF `msub` mn (show t)])
-    where curlyF = Elem (just "mathvariant" "script") "mo" (text "F")
+  presentation : a -> Xml
+
+instance ToXml Text where
+  presentation s = mi s
+
+instance ToXml Date where
+  presentation d = case toGregorian d of
+    (yyyy, mm, dd) -> mi $ show dd <> " " <> show mm <> " " <> show yyyy
+
+instance ToXml Decimal where
+  presentation = mn . show
+
+instance ToXml t => ToXml (Expr t) where
+  presentation = math . histo \case
+    ConstF a -> [mn $ show a]
+    ProcF name _f t -> [mi name `msub` presentation t]
+  --  SupF{..} -> error "presentation: SupF"
+    IdentF _ -> error "presentation: IdentF"
+    AddF x (Cofree _ (NegF x')) -> x.attribute ++ [mo "-"] ++ x'.attribute
+    AddF x x' -> x.attribute ++ [mo "+"] ++ x'.attribute
+    NegF x -> mo "-" :: x.attribute
+    MulF (Cofree _ (PowF denom (Cofree _ (NegF (Cofree _ (ConstF 1.0)))))) num -> [mfrac num.attribute denom.attribute]
+    MulF x (Cofree s (AddF _ _)) -> x.attribute ++ [mo "&InvisibleTimes;"] ++ mfenced "(" ")" s
+    MulF (Cofree s (AddF _ _)) x -> mfenced "(" ")" s ++ [mo "&InvisibleTimes;"] ++ x.attribute
+    MulF x (Cofree s (NegF _)) -> x.attribute ++ [mo "&#xD7;"] ++ s
+    MulF (Cofree s (ConstF _)) x -> s ++ [mo "&#xD7;"] ++ x.attribute
+    MulF x (Cofree s (ConstF _)) -> x.attribute ++ [mo "&#xD7;"] ++ s
+    MulF x x' ->  x.attribute ++ [mo "&InvisibleTimes;"] ++ x'.attribute
+    PowF x i -> [mrow x.attribute `msup` mrow i.attribute]
+    I_F x x' -> [mo "I" `msub` mrow (x.attribute ++ [mo "&le;"] ++ x'.attribute)]
+    E_F x t -> [mo "&Eopf;", mo "&ApplyFunction;"] ++ mfenced "[" "]" (x.attribute ++ [mo "|", curlyF `msub` presentation t])
+      where curlyF = Elem (just "mathvariant" "script") "mo" (text "F")
 
 
 just : Text -> Text -> Attrs

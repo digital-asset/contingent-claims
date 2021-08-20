@@ -12,12 +12,10 @@ import DA.Assert
 
 data Instrument = USD | EUR | AMZN | APPL deriving (Show, Eq)
 
-call : Instrument -> Decimal -> Instrument -> Claim Observation Decimal Decimal Instrument
+call : Instrument -> Decimal -> Instrument -> Claim Observation t Decimal Instrument
 call s k a = Scale (O.observe s - O.pure k) $ One a
 
 margrabe s1 s2 a = Scale (O.observe s1 - O.observe s2) $ One a
-
-days = identity
 
 disc USD = riskless "r_USD"
 disc EUR = riskless "r_EUR"
@@ -28,9 +26,10 @@ exch APPL _ = gbm "μ_APPL" "σ_APPL"
 exch a a' = error $ "exch: " <> show a <> "/" <> show a'
 
 test = script do
-  let t = 30.0/256.0
-      s = fapf USD disc exch $ european t (call AMZN 3300.0 USD)
+  let today = "t"
+      maturity = "T"
+      s = fapf USD disc exch today $ european maturity (call AMZN 3300.0 USD)
   (show . MathML.presentation . simplify $ s) === ""
 
-  let s = fapf USD disc exch $ european t (margrabe AMZN APPL USD)
+  let s = fapf USD disc exch today $ european maturity (margrabe AMZN APPL USD)
   (show . MathML.presentation . simplify $ s) === ""

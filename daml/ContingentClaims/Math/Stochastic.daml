@@ -9,41 +9,40 @@ import Daml.Control.Recursion
 import Daml.Control.Arrow ((|||))
 import Prelude hiding (Time)
 
-type Time = Decimal
-data Process = Process { dt : Expr, dW: Expr } deriving (Show, Eq)-- Geometric i.e. dX / X = α dt + β dW, so we have closed solns.
+data Process t = Process { dt : Expr t, dW: Expr t } deriving (Show, Eq)-- Geometric i.e. dX / X = α dt + β dW, so we have closed solns.
 -- TODO: make sum type and support Poisson
 
 riskless r = Process { dt = Ident r, dW = Const 0.0 }
 
 gbm μ σ = Process { dt = Ident μ, dW = Ident σ }
 
-data ExprF x
+data ExprF t x
   = ConstF Decimal
   | IdentF Text
-  | ProcF { name : Text, process: Process , filtration: Time }
---  | SupF { f : (), lowerBound: Time }
+  | ProcF { name : Text, process: Process t, filtration: t }
+--  | SupF { f : (), lowerBound: t }
   | AddF { lhs: x, rhs: x }
   | NegF x
   | MulF { lhs: x, rhs: x }
   | PowF { lhs: x, rhs: x }
   | I_F { lhs : x, rhs: x }
-  | E_F { rv : x, filtration: Time }
+  | E_F { rv : x, filtration: t }
   deriving (Functor)
 
-data Expr
+data Expr t
   = Const Decimal
   | Ident Text
-  | Proc { name : Text, process : Process , filtration: Time }
---  | Sup { f : (), lowerBound: Time }
-  | Add (Expr, Expr)
-  | Neg (Expr)
-  | Mul (Expr, Expr)
-  | Pow (Expr, Expr)
-  | I (Expr , Expr)
-  | E { rv : Expr, filtration: Time }
+  | Proc { name : Text, process : Process t, filtration: t }
+--  | Sup { f : (), lowerBound: t }
+  | Add (Expr t, Expr t)
+  | Neg (Expr t)
+  | Mul (Expr t, Expr t)
+  | Pow (Expr t, Expr t)
+  | I (Expr t , Expr t)
+  | E { rv : Expr t, filtration: t }
   deriving (Show, Eq)
 
-instance Recursive (Expr) (ExprF) where
+instance Recursive (Expr t) (ExprF t) where
   project (Const x) = ConstF x
   project (Ident x) = IdentF x
   project Proc{..} = ProcF with ..
@@ -55,7 +54,7 @@ instance Recursive (Expr) (ExprF) where
   project (I (x, x')) = I_F x x'
   project E{..} = E_F with ..
 
-instance Corecursive (Expr) (ExprF) where
+instance Corecursive (Expr t) (ExprF t) where
   embed (ConstF x) = Const x
   embed (IdentF x) = Ident x
   embed ProcF{..} = Proc with ..
@@ -73,10 +72,11 @@ instance Corecursive (Expr) (ExprF) where
 -- whitepaper.
 fapf : (Eq a, Show a)
      => a
-     -> (a -> Process)
-     -> (a -> a -> Process)
-     -> Claim O.Observation Time Decimal a -> Expr
-fapf ccy disc exch = futu coalg . Left . (, 0.0) where
+     -> (a -> Process t)
+     -> (a -> a -> Process t)
+     -> t
+     -> Claim O.Observation t Decimal a -> Expr t
+fapf ccy disc exch today = futu coalg . Left . (, today) where
   -- coalg : (Either (Claim, t) Observable) -> Free ExprF (Either (Claim, t) Observable)
   coalg = ϵ ||| υ
   -- ϵ : (Claim, t) -> Free ExprF (Either (Claim, t) Observable)
@@ -114,11 +114,11 @@ fapf ccy disc exch = futu coalg . Left . (, 0.0) where
   claim = Pure . Left
   obs = Pure . Right
   disc' k t = Impure $ ProcF (show k) (disc k) t
-  exch' asset ccy = if asset == ccy then ConstF one else ProcF (show asset) (exch asset ccy) 0.0  -- FIXME: does it matter this is set to zero?
+  exch' asset ccy = if asset == ccy then ConstF one else ProcF (show asset) (exch asset ccy) today  -- FIXME: does it matter this is set to zero?
   one = munit
   zero = aunit
 
-simplify : Expr -> Expr
+simplify : Expr t -> Expr t
 simplify = 
     cata unitIdentity 
   . cata zeroIdentity 
@@ -130,7 +130,7 @@ simplify =
   . ana commuteLeft 
   . cata mulBeforeAdd
 
-zeroIdentity : ExprF Expr -> Expr
+zeroIdentity : ExprF t (Expr t) -> Expr t
 zeroIdentity (MulF (Const 0.0) x) = Const 0.0
 zeroIdentity (MulF x (Const 0.0)) = Const 0.0
 zeroIdentity (PowF x (Const 0.0)) = Const 1.0
@@ -139,13 +139,13 @@ zeroIdentity (AddF x (Const 0.0)) = x
 zeroIdentity (E_F (Const 0.0) _) = Const 0.0
 zeroIdentity other = embed other
 
-unitIdentity : ExprF Expr -> Expr
+unitIdentity : ExprF t (Expr t) -> Expr t
 unitIdentity (MulF (Const 1.0) x) = x
 unitIdentity (MulF x (Const 1.0)) = x
 unitIdentity (PowF x (Const 1.0)) = x
 unitIdentity other = embed other
 
-factNeg : ExprF Expr -> Expr
+factNeg : ExprF t (Expr t) -> Expr t
 factNeg (NegF (Neg x)) = x
 factNeg (MulF (Neg x) (Neg y)) = Mul (x, y)
 factNeg (MulF (Neg x) y) = Neg $ Mul (x, y)
@@ -154,7 +154,7 @@ factNeg (E_F (Neg x) t) = Neg $ E x t
 factNeg other = embed other
 
 -- | Turn any expression into a list of terms to be summed together
-distAdd : ExprF [Expr] -> [Expr]
+distAdd : ExprF t [Expr t] -> [Expr t]
 distAdd (ConstF x) = [Const x]
 distAdd (IdentF x) = [Ident x]
 distAdd (AddF xs xs') = xs ++ xs'
@@ -166,19 +166,19 @@ distAdd (PowF xs is) = [Pow (unroll xs, unroll is)] where unroll xs = cata distA
 distAdd (ProcF{..}) = [Proc{..}]
 
 -- | Unroll a list of terms to be summed together into a (left commutative) tree of `Add`s.
-distAdd' : ListF Expr (Expr -> Expr) -> (Expr -> Expr)
+distAdd' : ListF (Expr t) (Expr t -> Expr t) -> (Expr t -> Expr t)
 distAdd' Nil = identity
 distAdd' (Cons r f) = \l -> f . Add $ (l, r)
 
 
 -- | Change `(a + b) x c` to `c x (a + b)`
-mulBeforeAdd : ExprF Expr -> Expr
+mulBeforeAdd : ExprF t (Expr t) -> Expr t
 mulBeforeAdd (MulF y@Add{} x) = Mul (x, y)
 mulBeforeAdd (MulF (Mul (x, y@Add{})) x') = Mul (Mul (x,x'), y)
 mulBeforeAdd other = embed other
 
 -- | Change e.g. `a x (b x c)` to `(a x b) x c`
-commuteLeft : Expr -> ExprF Expr
+commuteLeft : Expr t -> ExprF t (Expr t)
 commuteLeft (Mul (x,(Mul (a, b)))) = Mul (x, a) `MulF` b
 commuteLeft (Add (x,(Add (a, b)))) = Add (x, a) `AddF` b
 commuteLeft other = project other
