@@ -3,7 +3,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 --
 
-{-# LANGUAGE MultiWayIf #-}
 {-# OPTIONS -Wno-deprecations #-} -- To supress 'Monad' warnings
 
 module ContingentClaims.Lifecycle (
@@ -13,13 +12,7 @@ module ContingentClaims.Lifecycle (
 ) where
 
 import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..))
-import ContingentClaims.Observation (Observation, eval)
-import ContingentClaims.Util (apoCataM, pruneZeros')
-import Daml.Control.Monad.Writer (WriterT, runWriterT)
-import Daml.Control.Monad.State (StateT(..), evalStateT)
-import Daml.Control.Monad.MonadWriter (MonadWriter(..))
-import Daml.Control.Monad.MonadState (MonadState(..), modify)
-import Daml.Control.Monad.Trans
+import ContingentClaims.Observation (Observation, eval, konst)
 import Daml.Control.Arrow (Kleisli(..))
 import Prelude hiding (sequence, mapA)
 
@@ -42,44 +35,104 @@ data Result a = Result with
 -- 4. A function which, given a date, lifecycles the third argument.
 lifecycle : (Eq a, CanAbort m)
   => (Text -> Date -> m Decimal)
-  -> (C a -> C a -> C a)
+  -- -> (C a -> C a -> C a)
+  -> (C a -> C a -> Bool)    -- True -> First, False -> Second
   -> C a
-  -> Date -> m (Result a)
-lifecycle spot choose
+  -> Date
+  -> m (Result a)
+lifecycle spot choose claim date =
+  runKleisli (lifecycle' spot choose claim) date
+
+{-
   = runKleisli
   . fmap (uncurry Result)
   . flip evalStateT 1.0
   . runWriterT
   . apoCataM (pruneZeros') (lifecycle' spot choose)
+  -}
 
-type Seed m a = WriterT [(Decimal, a)] (StateT Decimal (Kleisli m Date)) (F a (Either (C a) (C a)))
+--type Seed m a = WriterT [(Decimal, a)] (StateT Decimal (Kleisli m Date)) (F a (Either (C a) (C a)))
+--type Seed m a = Kleisli m Date)) (F a (Either (C a) (C a)))
 
-lifecycle' : (Eq a, Monad m, CanAbort m)
+-- While lifecycling if the remaining state is zero, then the Claim combinators
+-- can be applied to the pending. Otherwise we need to reconstruct the Claim.
+isZero : C a -> Bool
+isZero Zero = True
+isZero _  = False
+
+scaleBy : Decimal -> (Decimal, a) -> (Decimal, a)
+scaleBy k (c, a) = (k * c, a)
+
+reduceZero : C a -> C a
+reduceZero (And Zero Zero)   = Zero
+reduceZero (And lhs Zero)    = lhs
+reduceZero (And Zero rhs)    = rhs
+reduceZero (Anytime _ Zero)  = Zero   -- ?
+reduceZero (Until _ Zero)    = Zero
+reduceZero c                 = c
+
+lifecycle' : (Eq a, CanAbort m)
   => (Text -> Date -> m Decimal)
-  -> (C a -> C a -> C a)
-  -> C a -> Seed m a
-
-lifecycle' _ _ Zero = pure ZeroF
-lifecycle' _ _ (One id) = do
-  qty <- get
-  tell [(qty, id)]
-  pure ZeroF -- replace lifecycled node with zero, to avoid double-spend.
-lifecycle' _ _ (Give c) = do
-  modify negate
-  pure $ GiveF (Right c)
-lifecycle' spot choose (When obs c) = do
-  predicate <- lift . lift $ eval spot obs
-  if predicate then lifecycle' spot choose c else pure $ WhenF obs (Left c)
-lifecycle' spot _ (Scale obs c) = do
-  k <- lift . lift $ eval spot obs
-  modify (* k)
-  pure $ ScaleF obs (Right c)
-lifecycle' spot choose (Or c c') = do
-  let chosen = choose c c'
-  if | chosen == c -> lifecycle' spot choose c --TODO: should we abort with nested choices?
-     | chosen == c' -> lifecycle' spot choose c'
-     | otherwise -> abort "lifecycle: Invalid branch election"
-lifecycle' _ _ (And c c') = pure $ AndF (Right c) (Right c')
-lifecycle' spot choose (Cond obs c c') = do
-  predicate <- lift . lift $ eval spot obs
-  if predicate then lifecycle' spot choose c else lifecycle' spot choose c'
+  -> (C a -> C a -> Bool)    -- True -> First, False -> Second
+  -> C a
+  -> Kleisli m Date (Result a)
+lifecycle' _    _       Zero      =
+  return Result with remaining = Zero, pending = []
+lifecycle' _    _       (One a)   =
+  return Result with remaining = Zero, pending = [(1.0, a)]
+lifecycle' spot choose  (Give c)  = do
+  r <- lifecycle' spot choose c
+  if isZero r.remaining then
+    return $ r with pending = map (scaleBy (-1.0)) r.pending
+  else
+    return r with remaining = Give r.remaining
+lifecycle' spot choose  (When obs c)   = do
+  predicate <- eval spot obs
+  if predicate then
+    lifecycle' spot choose c
+  else
+    return $ Result with remaining = When obs c, pending = []
+lifecycle' spot choose  (And lhs rhs) = do
+  l <- lifecycle' spot choose lhs
+  r <- lifecycle' spot choose rhs
+  return Result with
+          remaining = reduceZero (And l.remaining r.remaining)
+          pending = l.pending <> r.pending
+lifecycle' spot choose  (Or lhs rhs) = do
+  if choose lhs rhs then
+    lifecycle' spot choose lhs
+  else
+    lifecycle' spot choose rhs
+lifecycle' spot choose  (Cond obs success failure) = do
+  predicate <- eval spot obs
+  if predicate then
+    lifecycle' spot choose success
+  else
+    lifecycle' spot choose failure
+lifecycle' spot choose  (Scale obs c) = do
+  k <- eval spot obs
+  r <- lifecycle' spot choose c
+  if isZero r.remaining then
+    return r with pending = map (scaleBy k) r.pending
+  else
+    -- If this was not a constant before it is now, as the holder has
+    -- acquired the scaled version.
+    return r with remaining = (Scale (konst k) r.remaining)
+lifecycle' spot choose  (Anytime obs c) = do
+  predicate <- eval spot obs
+  r <- lifecycle' spot choose c
+  if predicate && choose c (Anytime obs c) then do
+    debug $ "lifecycle underneath the Anytime."
+    return r
+  else
+    case r.remaining of
+      Zero -> return Result with remaining = Zero, pending = []
+      _ -> return Result with remaining = Anytime obs c, pending = []
+lifecycle' spot choose  (Until obs c)   = do
+  predicate <- eval spot obs
+  debug $ "The result of Until " <> show obs <> " is " <> show predicate
+  if predicate then
+    return Result with remaining = Zero, pending = []
+  else do
+    r <- lifecycle' spot choose c
+    return r with remaining = reduceZero (Until obs r.remaining)

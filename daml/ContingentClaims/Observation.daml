@@ -7,6 +7,7 @@
 
 module ContingentClaims.Observation (
     Observation(..)
+  , konst
   , observe
   , expiry
   , eval
@@ -59,6 +60,9 @@ data ObservationF t a x
   deriving (Eq, Show, Functor)
 -}
 
+konst : Decimal -> Observation t a
+konst = DecimalConst
+
 observe : Text -> Observation t a
 observe = DecimalObs
 
@@ -109,7 +113,7 @@ expiryDt _ = error "Error in  expression structure"
 class Interpret t a where
   eval : Monad m => (Key -> t -> m Decimal) -> Observation t a -> Kleisli m t a
 
-instance Ord t => Interpret t Bool where
+instance (Ord t, Show t) => Interpret t Bool where
   eval _ (BoolConst b) = pure b
   eval spot (BoolNot b) = not <$> eval spot b
   eval spot (BoolAnd (b, b')) = liftA2 (&&) (eval spot b) (eval spot b')
@@ -118,7 +122,7 @@ instance Ord t => Interpret t Bool where
   eval spot (DecimalEqu (d, d')) = liftA2 (==) (eval spot d) (eval spot d')
   eval spot (DateLte (d, d')) = liftA2 (<=) (eval spot d) (eval spot d')
   eval spot (DateEqu (d, d')) = liftA2 (==) (eval spot d) (eval spot d')
-  eval _ _ = error "eval: Interpret Bool"
+  eval _ x = error $ "eval: Interpret Bool " <> show x
 
 instance Interpret t t where
   eval _ (DateConst t) = pure t

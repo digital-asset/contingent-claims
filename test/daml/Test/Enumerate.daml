@@ -29,7 +29,7 @@ deriving instance Eq (F (Cofree F Int))
 
 [a,b,c] = ["a","b","c"]
 
-(===) : CanAbort m => Cofree F Int -> Cofree F Int -> m ()
+(===) : CanAssert m => Cofree F Int -> Cofree F Int -> m ()
 (===) = (Assert.===)
 
 enumerate = script do

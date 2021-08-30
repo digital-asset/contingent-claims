@@ -47,7 +47,8 @@ template FinancialContract
            let getSpotRate isin t = do
                  (_, Quote{close}) <- fetchByKey (isin, t, bearer) -- FIXME: maintainer should be the market data provider
                  pure close
-               elect = const -- always branch left. In a real example, you would pass this in the choice params
+               -- elect = const -- always branch left. In a real example, you would pass this in the choice params
+               elect _ _ = True
            lifecycleResult <- lifecycle getSpotRate elect claims t
            settlements <- forA lifecycleResult.pending \(quantity, asset) ->
              create ProposeSettlement
