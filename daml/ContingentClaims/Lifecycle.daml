@@ -82,6 +82,10 @@ lifecycle' _    _       (One a)   =
   return Result with remaining = Zero, pending = [(1.0, a)]
 lifecycle' spot choose  (Give c)  = do
   r <- lifecycle' spot choose c
+  -- In true Defi, we cannot recurse down `c` as it may contain `Or`'s
+  -- that the counter part might choose differently, then even what is
+  -- in the interest of the current bearer. They may even choose NOT
+  -- to lifecycle the option.
   if isZero r.remaining then
     return $ r with pending = map (scaleBy (-1.0)) r.pending
   else
@@ -99,16 +103,10 @@ lifecycle' spot choose  (And lhs rhs) = do
           remaining = reduceZero (And l.remaining r.remaining)
           pending = l.pending <> r.pending
 lifecycle' spot choose  (Or lhs rhs) = do
-  if choose lhs rhs then
-    lifecycle' spot choose lhs
-  else
-    lifecycle' spot choose rhs
+  lifecycle' spot choose (if choose lhs rhs then lhs else rhs)
 lifecycle' spot choose  (Cond obs success failure) = do
   predicate <- eval spot obs
-  if predicate then
-    lifecycle' spot choose success
-  else
-    lifecycle' spot choose failure
+  lifecycle' spot choose (if predicate then success else failure)
 lifecycle' spot choose  (Scale obs c) = do
   k <- eval spot obs
   r <- lifecycle' spot choose c
@@ -121,8 +119,7 @@ lifecycle' spot choose  (Scale obs c) = do
 lifecycle' spot choose  (Anytime obs c) = do
   predicate <- eval spot obs
   r <- lifecycle' spot choose c
-  if predicate && choose c (Anytime obs c) then do
-    debug $ "lifecycle underneath the Anytime."
+  if predicate && choose c (Anytime obs c) then
     return r
   else
     case r.remaining of
@@ -130,7 +127,6 @@ lifecycle' spot choose  (Anytime obs c) = do
       _ -> return Result with remaining = Anytime obs c, pending = []
 lifecycle' spot choose  (Until obs c)   = do
   predicate <- eval spot obs
-  debug $ "The result of Until " <> show obs <> " is " <> show predicate
   if predicate then
     return Result with remaining = Zero, pending = []
   else do
