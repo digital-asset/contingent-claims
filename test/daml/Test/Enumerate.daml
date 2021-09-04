@@ -21,7 +21,6 @@ import ContingentClaims.Util (enumerateFrom)
 type C = Claim Observation Date Text
 type F = ClaimF Observation Date Text
 
-deriving instance Show C
 deriving instance (Show a, Show (f (Cofree f a))) => Show (Cofree f a)
 deriving instance (Eq a, Eq (f (Cofree f a))) => Eq (Cofree f a)
 deriving instance Show (F (Cofree F Int))
