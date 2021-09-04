@@ -191,3 +191,5 @@ instance Traversable (ClaimF g t x) where
   sequence (CondF p fa fa') = CondF p <$> fa <*> fa'
   sequence (AnytimeF p fa) = AnytimeF p <$> fa
   sequence (UntilF p fa) = UntilF p <$> fa
+
+deriving instance (Show t, Show a) => Show (Claim Observation t a)
