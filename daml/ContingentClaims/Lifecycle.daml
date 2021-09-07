@@ -19,8 +19,6 @@ import Prelude hiding (sequence, mapA)
 type C a = Claim Observation Date a
 type F a = ClaimF Observation Date a
 
-deriving instance Eq a => Eq (C a)
-
 -- | Returned from a lifecycle operation.
 data Result a = Result with
   remaining : C a
