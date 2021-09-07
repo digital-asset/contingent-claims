@@ -98,7 +98,7 @@ workflows:
   test:
     jobs:
       - daml_test:
-          daml_sdk_version: "1.15.0"
+          daml_sdk_version: "1.17.0-snapshot.20210831.7702.0.f058c2f1"
           context: refapps
   scheduled_test:
     triggers:
@@ -112,10 +112,10 @@ workflows:
                 - master
     jobs:
       - daml_test:
-          daml_sdk_version: "1.15.0"
+          daml_sdk_version: "1.17.0-snapshot.20210831.7702.0.f058c2f1"
           context: refapps
       - blackduck_check:
-          daml_sdk_version: "1.15.0"
+          daml_sdk_version: "1.17.0-snapshot.20210831.7702.0.f058c2f1"
           context:
             - blackduck
             - refapps

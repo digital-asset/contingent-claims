@@ -1,4 +1,4 @@
-sdk-version: 1.15.0
+sdk-version: 1.17.0-snapshot.20210831.7702.0.f058c2f1
 name: contingent-claims
 version: 0.0.1
 source: daml
