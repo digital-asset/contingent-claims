@@ -122,11 +122,14 @@ pruneZeros' other = embed other
 
 
 observations : Claim Observation Date a -> [Text]
-observations c = dedupSort $ observations c
+observations c = dedupSort $ observations' c
 
 observations' : Claim Observation Date a -> [Text]
 observations' = cata observations''
 
 observations'' : ClaimF Observation Date a [Text] -> [Text]
+observations'' (CondF p s f) = O.decimalObs p ++ s ++ f
 observations'' (WhenF p ts) = O.decimalObs p ++ ts
+observations'' (AnytimeF p ts) = O.decimalObs p ++ ts
+observations'' (UntilF p ts) = O.decimalObs p ++ ts
 observations'' claim = fold claim
