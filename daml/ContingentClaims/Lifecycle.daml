@@ -137,7 +137,11 @@ lifecycle' spot choose  (Anytime obs c) = do
   else
     case r.remaining of
       -- If the internal is worthless, no use preserving that right.
-      Zero -> return r with pending = []
+      -- The `observed = []` here is wrong from the original intent of labels but
+      -- I added it here to avoid a false positive transition in Bayes.
+      -- Ultimately it highlights that we need to label transitions within the
+      -- Claims (add labels to AST) not the Observations.
+      Zero -> return r with pending = [], observed = []
       _ -> return Result with remaining = Anytime obs c, pending = [], observed = []
 lifecycle' spot choose  (Until obs c)   = do
   predicate <- eval spot obs
