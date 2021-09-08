@@ -12,7 +12,7 @@ module ContingentClaims.Lifecycle (
 ) where
 
 import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..))
-import ContingentClaims.Observation (Observation, eval, konst)
+import ContingentClaims.Observation (Observation, eval, konst, labeled)
 import Daml.Control.Arrow (Kleisli(..))
 import Prelude hiding (sequence, mapA)
 
@@ -25,6 +25,8 @@ data Result a = Result with
     -- ^ the tree after lifecycled branches have been pruned.
   pending : [(Decimal, a)]
     -- ^ quantity/asset pairs requiring settlement.
+  observed : [Text]
+    -- ^ Observed conditionals that we lifecycled.
 
 -- | Lifecycle a Claim. Parameters:
 -- 1. Function taking key and date, used to lookup an observable on the ledger. `m` will typically be `Update`. It is parametrised so it can be run in a `Script`.
@@ -69,15 +71,19 @@ reduceZero (Anytime _ Zero)  = Zero   -- ?
 reduceZero (Until _ Zero)    = Zero
 reduceZero c                 = c
 
+(~::) : Eq a => Optional a -> [a] -> [a]
+(~::) None      l = l
+(~::) (Some a)  l = a :: (filter (/=a) l)
+
 lifecycle' : (Eq a, CanAbort m)
   => (Text -> Date -> m Decimal)
   -> (C a -> C a -> Bool)    -- True -> First, False -> Second
   -> C a
   -> Kleisli m Date (Result a)
 lifecycle' _    _       Zero      =
-  return Result with remaining = Zero, pending = []
+  return Result with remaining = Zero, pending = []         , observed = []
 lifecycle' _    _       (One a)   =
-  return Result with remaining = Zero, pending = [(1.0, a)]
+  return Result with remaining = Zero, pending = [(1.0, a)] , observed = []
 lifecycle' spot choose  (Give c)  = do
   r <- lifecycle' spot choose c
   -- In true Defi, we cannot recurse down `c` as it may contain `Or`'s
@@ -90,21 +96,29 @@ lifecycle' spot choose  (Give c)  = do
     return r with remaining = Give r.remaining
 lifecycle' spot choose  (When obs c)   = do
   predicate <- eval spot obs
-  if predicate then
-    lifecycle' spot choose c
+  if predicate then do
+    labelO <- labeled spot obs
+    s <- lifecycle' spot choose c
+    return $ s with observed = labelO ~:: s.observed
   else
-    return $ Result with remaining = When obs c, pending = []
+    return $ Result with remaining = When obs c, pending = [], observed = []
 lifecycle' spot choose  (And lhs rhs) = do
   l <- lifecycle' spot choose lhs
   r <- lifecycle' spot choose rhs
   return Result with
           remaining = reduceZero (And l.remaining r.remaining)
           pending = l.pending <> r.pending
+          observed = l.observed <> r.observed
 lifecycle' spot choose  (Or lhs rhs) = do
   lifecycle' spot choose (if choose lhs rhs then lhs else rhs)
 lifecycle' spot choose  (Cond obs success failure) = do
   predicate <- eval spot obs
-  lifecycle' spot choose (if predicate then success else failure)
+  if predicate then do
+    labelO <- labeled spot obs
+    s <- lifecycle' spot choose success
+    return $ s with observed = labelO ~:: s.observed
+  else
+    lifecycle' spot choose failure
 lifecycle' spot choose  (Scale obs c) = do
   k <- eval spot obs
   r <- lifecycle' spot choose c
@@ -117,16 +131,20 @@ lifecycle' spot choose  (Scale obs c) = do
 lifecycle' spot choose  (Anytime obs c) = do
   predicate <- eval spot obs
   r <- lifecycle' spot choose c
-  if predicate && choose c (Anytime obs c) then
-    return r
+  if predicate && choose c (Anytime obs c) then do
+    labelO <- labeled spot obs
+    return $ r with observed = labelO ~:: r.observed
   else
     case r.remaining of
-      Zero -> return Result with remaining = Zero, pending = []
-      _ -> return Result with remaining = Anytime obs c, pending = []
+      -- If the internal is worthless, no use preserving that right.
+      Zero -> return r with pending = []
+      _ -> return Result with remaining = Anytime obs c, pending = [], observed = []
 lifecycle' spot choose  (Until obs c)   = do
   predicate <- eval spot obs
-  if predicate then
-    return Result with remaining = Zero, pending = []
+  if predicate then do
+    labelO <- labeled spot obs
+    debug $ "Unit labelO: " <> show labelO
+    return Result with remaining = Zero, pending = [], observed = labelO ~:: []
   else do
     r <- lifecycle' spot choose c
     return r with remaining = reduceZero (Until obs r.remaining)

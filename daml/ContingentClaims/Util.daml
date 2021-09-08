@@ -21,14 +21,12 @@ module ContingentClaims.Util (
   , fixings'
   , pruneZeros
   , pruneZeros'
-  , observations,
 ) where
 
 import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..))
 import ContingentClaims.Observation (Observation)
 import ContingentClaims.Observation qualified as O
 import DA.Foldable (Foldable, sum, fold)
-import DA.List.BuiltinOrder (dedupSort,)
 import Daml.Control.Arrow ((&&&), (|||), (>>>), (<<<), Kleisli(..))
 import Daml.Control.Recursion
 import Prelude hiding (sum, sequence, mapA)
@@ -119,13 +117,3 @@ pruneZeros' (WhenF _ Zero) = Zero
 pruneZeros' (CondF _ Zero Zero) = Zero
 pruneZeros' (OrF Zero Zero) = Zero
 pruneZeros' other = embed other
-
-
-observations : Claim Observation Date a -> [Text]
-observations c = dedupSort $ cata f c
-  where f : ClaimF Observation Date a [Text] -> [Text]
-        f (CondF p s f) = O.decimalObs p ++ s ++ f
-        f (WhenF p ts) = O.decimalObs p ++ ts
-        f (AnytimeF p ts) = O.decimalObs p ++ ts
-        f (UntilF p ts) = O.decimalObs p ++ ts
-        f claim = fold claim

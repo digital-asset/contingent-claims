@@ -8,10 +8,11 @@
 module ContingentClaims.Observation (
     Observation(..)
   , konst
+  , label
   , observe
-  , HasDecimalObs(..)
   , expiry
   , eval
+  , labeled
   , HasFixings(..)
   , Key
 ) where
@@ -33,6 +34,7 @@ data Observation t a
   | DecimalNeg (Observation t Decimal)
   | DecimalMul (Observation t Decimal, Observation t Decimal)
   | DecimalDiv (Observation t Decimal, Observation t Decimal)
+  | Label (Text, Observation t Bool)
   | BoolConst Bool
   | BoolNot (Observation t Bool)
   | BoolAnd (Observation t Bool, Observation t Bool)
@@ -66,6 +68,9 @@ konst = DecimalConst
 
 observe : Text -> Observation t a
 observe = DecimalObs
+
+label : Text -> Observation t Bool -> Observation t Bool
+label = curry Label
 
 instance O.TimeF Observation t where
   time = DateIdentity
@@ -116,6 +121,7 @@ class Interpret t a where
 
 instance (Ord t, Show t) => Interpret t Bool where
   eval _ (BoolConst b) = pure b
+  eval spot (Label (_, b)) = eval spot b
   eval spot (BoolNot b) = not <$> eval spot b
   eval spot (BoolAnd (b, b')) = liftA2 (&&) (eval spot b) (eval spot b')
   eval spot (BoolOr (b, b')) = liftA2 (||) (eval spot b) (eval spot b')
@@ -161,26 +167,9 @@ instance HasFixings t Decimal where
   fixings (DecimalDiv _) = []
   fixings _ = error "fixings: illegal argument"
 
-class HasDecimalObs t a where
-  decimalObs : Observation t a -> [Text]
-    -- ^ Given an observation, return a list of fixing dates.
-
-instance HasDecimalObs t a where
-  decimalObs (DecimalConst _)     = []
-  decimalObs (DecimalObs o)       = [o]
-  decimalObs (DecimalLte (o, o')) = decimalObs o ++ decimalObs o'
-  decimalObs (DecimalEqu (o, o')) = decimalObs o ++ decimalObs o'
-  decimalObs (DecimalNeg o )      = decimalObs o
-  decimalObs (DecimalAdd (o, o')) = decimalObs o ++ decimalObs o'
-  decimalObs (DecimalMul (o, o')) = decimalObs o ++ decimalObs o'
-  decimalObs (DecimalDiv (o, o')) = decimalObs o ++ decimalObs o'
-
-  decimalObs (BoolConst _)        = []
-  decimalObs (BoolNot o)          = decimalObs o
-  decimalObs (BoolAnd (o, o'))    = decimalObs o ++ decimalObs o'
-  decimalObs (BoolOr (o, o'))     = decimalObs o ++ decimalObs o'
-
-  decimalObs DateIdentity         = []
-  decimalObs (DateConst _)        = []
-  decimalObs (DateLte (o, o'))    = decimalObs o ++ decimalObs o'
-  decimalObs (DateEqu (o, o'))    = decimalObs o ++ decimalObs o'
+labeled : (Monad m, Interpret t Bool) => (Key -> t -> m Decimal) -> Observation t Bool -> Kleisli m t (Optional Text)
+labeled spot (Label (l, b)) = do
+  r <- eval spot b
+  return $ if r then Some l else None
+labeled _    _              =
+  return None
