@@ -12,7 +12,7 @@ module ContingentClaims.Lifecycle (
 ) where
 
 import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..))
-import ContingentClaims.Observation (Observation, eval, konst, labeled)
+import ContingentClaims.Observation (Observation, eval, konst)
 import Daml.Control.Arrow (Kleisli(..))
 import Prelude hiding (sequence, mapA)
 
@@ -64,16 +64,18 @@ scaleBy : Decimal -> (Decimal, a) -> (Decimal, a)
 scaleBy k (c, a) = (k * c, a)
 
 reduceZero : C a -> C a
-reduceZero (And Zero Zero)   = Zero
-reduceZero (And lhs Zero)    = lhs
-reduceZero (And Zero rhs)    = rhs
-reduceZero (Anytime _ Zero)  = Zero   -- ?
-reduceZero (Until _ Zero)    = Zero
-reduceZero c                 = c
+reduceZero (And Zero Zero)    = Zero
+reduceZero (And lhs Zero)     = lhs
+reduceZero (And Zero rhs)     = rhs
+reduceZero (Anytime _ _ Zero) = Zero   -- ?
+reduceZero (Until _ _ Zero)   = Zero
+reduceZero c                  = c
 
-(~::) : Eq a => Optional a -> [a] -> [a]
-(~::) None      l = l
-(~::) (Some a)  l = a :: (filter (/=a) l)
+stop : C a -> Result a
+stop r = Result with remaining = r, pending = [], observed = []
+
+observe : Text -> Result a -> Result a
+observe l r = r with observed = l :: r.observed
 
 lifecycle' : (Eq a, CanAbort m)
   => (Text -> Date -> m Decimal)
@@ -81,7 +83,7 @@ lifecycle' : (Eq a, CanAbort m)
   -> C a
   -> Kleisli m Date (Result a)
 lifecycle' _    _       Zero      =
-  return Result with remaining = Zero, pending = []         , observed = []
+  return $ stop Zero
 lifecycle' _    _       (One a)   =
   return Result with remaining = Zero, pending = [(1.0, a)] , observed = []
 lifecycle' spot choose  (Give c)  = do
@@ -97,11 +99,9 @@ lifecycle' spot choose  (Give c)  = do
 lifecycle' spot choose  (When obs c)   = do
   predicate <- eval spot obs
   if predicate then do
-    labelO <- labeled spot obs
-    s <- lifecycle' spot choose c
-    return $ s with observed = labelO ~:: s.observed
+    lifecycle' spot choose c
   else
-    return $ Result with remaining = When obs c, pending = [], observed = []
+    return $ stop $ When obs c
 lifecycle' spot choose  (And lhs rhs) = do
   l <- lifecycle' spot choose lhs
   r <- lifecycle' spot choose rhs
@@ -113,12 +113,7 @@ lifecycle' spot choose  (Or lhs rhs) = do
   lifecycle' spot choose (if choose lhs rhs then lhs else rhs)
 lifecycle' spot choose  (Cond obs success failure) = do
   predicate <- eval spot obs
-  if predicate then do
-    labelO <- labeled spot obs
-    s <- lifecycle' spot choose success
-    return $ s with observed = labelO ~:: s.observed
-  else
-    lifecycle' spot choose failure
+  lifecycle' spot choose $ if predicate then success else failure
 lifecycle' spot choose  (Scale obs c) = do
   k <- eval spot obs
   r <- lifecycle' spot choose c
@@ -128,27 +123,22 @@ lifecycle' spot choose  (Scale obs c) = do
     -- If this was not a constant before it is now, as the holder has
     -- acquired the scaled version.
     return r with remaining = (Scale (konst k) r.remaining)
-lifecycle' spot choose  (Anytime obs c) = do
+lifecycle' spot choose  (Anytime obs zlabel c) = do
   predicate <- eval spot obs
   r <- lifecycle' spot choose c
-  if predicate && choose c (Anytime obs c) then do
-    labelO <- labeled spot obs
-    return $ r with observed = labelO ~:: r.observed
+  if predicate && choose c (Anytime obs zlabel c) then
+    return r
   else
     case r.remaining of
-      -- If the internal is worthless, no use preserving that right.
-      -- The `observed = []` here is wrong from the original intent of labels but
-      -- I added it here to avoid a false positive transition in Bayes.
-      -- Ultimately it highlights that we need to label transitions within the
-      -- Claims (add labels to AST) not the Observations.
-      Zero -> return r with pending = [], observed = []
-      _ -> return Result with remaining = Anytime obs c, pending = [], observed = []
-lifecycle' spot choose  (Until obs c)   = do
+      Zero -> return $ observe zlabel $ r with pending = []
+      _ -> return $ stop $ Anytime obs zlabel c
+lifecycle' spot choose  (Until obs zlabel c)   = do
   predicate <- eval spot obs
   if predicate then do
-    labelO <- labeled spot obs
-    debug $ "Unit labelO: " <> show labelO
-    return Result with remaining = Zero, pending = [], observed = labelO ~:: []
+    return $ observe zlabel $ stop Zero
   else do
     r <- lifecycle' spot choose c
-    return r with remaining = reduceZero (Until obs r.remaining)
+    return r with remaining = reduceZero (Until obs zlabel r.remaining)
+lifecycle' spot choose (Label l o) = do
+  r <- lifecycle' spot choose o
+  return $ observe l r

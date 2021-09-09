@@ -43,11 +43,13 @@ data Claim f t a
       -- ^ Multiplies the `claim` by `k` (which can be non-deterministic).
   | When with predicate: f t Bool, claim: Claim f t a
       -- ^ Defers the acquisition of `claim` until *the first instant* that `predicate` is true.
-  | Anytime with predicate: f t Bool, claim: Claim f t a
+  | Anytime with predicate: f t Bool, zlabel: Text, claim: Claim f t a
       -- ^ Once you acquire (anytime o c), you may acquire c at any time the observable o is true.
-  | Until with predicate: f t Bool, claim: Claim f t a
+  | Until with predicate: f t Bool, zlabel: Text, claim: Claim f t a
       -- ^ Once acquired, (until o c) is exactly like c except that it must be abandoned when
       -- observable o bcomes true.
+  | Label with label: Text, claim: Claim f t a
+      -- ^ Once aqucired you get c but `label` is also passed  out during the lifecycling.
 
 -- | Return the upper time bound of the obligation; `None` if it cannot be determined.
 -- This is called `horizon` in the original paper.
@@ -61,8 +63,9 @@ expiry = cata \case
            CondF _ t t' -> liftA2 max t t'
            ScaleF _ t -> t
            WhenF p _ -> Observation.expiry p
-           AnytimeF p _ -> Observation.expiry p
-           UntilF p _ -> Observation.expiry p
+           AnytimeF p _ _ -> Observation.expiry p
+           UntilF p _ _ -> Observation.expiry p
+           LabelF _ t -> t
 
 -- TODO: not sure these make sense
 executorOf : Party -> Party -> Claim f t a -> Set.Set Party
@@ -78,8 +81,9 @@ executorOf bearer cpty = cata \case
   ScaleF _ p -> p
   CondF _ p p' -> p <> p'
   WhenF _ p -> p
-  AnytimeF _ p -> p
-  UntilF _ p -> p
+  AnytimeF _ _ p -> p
+  UntilF _ _ p -> p
+  LabelF _ p -> p
 
 -- TODO: not sure these make sense
 isBearerExecutor : forall f t a . Claim f t a -> Bool
@@ -108,8 +112,9 @@ deserialize' (Serialized.Or c c') = OrF c c'
 deserialize' (Serialized.Cond k c c') = CondF k c c'
 deserialize' (Serialized.Scale k c) = ScaleF k c
 deserialize' (Serialized.When p c) = WhenF p c
-deserialize' (Serialized.Anytime p c) = AnytimeF p c
-deserialize' (Serialized.Until p c) = UntilF p c
+deserialize' (Serialized.Anytime p z c) = AnytimeF p z c
+deserialize' (Serialized.Until p z c) = UntilF p z c
+deserialize' (Serialized.Label p c) = LabelF p c
 
 -- | Converts a `Claim` into a `Serializable.Claim`, so it can be written to the ledger.
 serialize : Claim Observation t a -> Serialized.Claim t a
@@ -126,8 +131,9 @@ serialize' (OrF c c') = Serialized.Or c.attribute c'.attribute
 serialize' (CondF k c c') = Serialized.Cond k c.attribute c'.attribute
 serialize' (ScaleF k c) = Serialized.Scale k c.attribute
 serialize' (WhenF p c) = Serialized.When p c.attribute
-serialize' (AnytimeF p c) = Serialized.Anytime p c.attribute
-serialize' (UntilF p c) = Serialized.Until p c.attribute
+serialize' (AnytimeF p z c) = Serialized.Anytime p z c.attribute
+serialize' (UntilF p z c) = Serialized.Until p z c.attribute
+serialize' (LabelF p c) = Serialized.Label p c.attribute
 
 -- | Unfixed version of `Claim`, for use with `Daml.Control.Recursion`.
 data ClaimF f t a x
@@ -139,8 +145,9 @@ data ClaimF f t a x
   | CondF with predicate: (f t Bool), success: x, failure: x
   | ScaleF with k: (f t Decimal), claim: x
   | WhenF with predicate: (f t Bool), claim: x
-  | AnytimeF with predicate: (f t Bool), claim: x
-  | UntilF with predicate: (f t Bool), claim: x
+  | AnytimeF with predicate: (f t Bool), zlabel: Text, claim: x
+  | UntilF with predicate: (f t Bool), zlabel: Text, claim: x
+  | LabelF with label: Text, claim: x
   deriving (Functor)
 
 -- TODO: rename variables to be consistent with the types
@@ -153,8 +160,9 @@ instance Recursive (Claim f t a) (ClaimF f t a) where
   project (Cond a c c') = CondF a c c'
   project (Scale k a) = ScaleF k a
   project (When o a) = WhenF o a
-  project (Anytime o a) = AnytimeF o a
-  project (Until o x) = UntilF o x
+  project (Anytime o z a) = AnytimeF o z a
+  project (Until o z x) = UntilF o z x
+  project (Label l x) = LabelF l x
 
 instance Corecursive (Claim f t a) (ClaimF f t a) where
   embed ZeroF = Zero
@@ -165,8 +173,9 @@ instance Corecursive (Claim f t a) (ClaimF f t a) where
   embed (CondF x a b) = Cond x a b
   embed (ScaleF k x) = Scale k x
   embed (WhenF o x) = When o x
-  embed (AnytimeF o x) = Anytime o x
-  embed (UntilF o x) = Until o x
+  embed (AnytimeF o z x) = Anytime o z x
+  embed (UntilF o z x) = Until o z x
+  embed (LabelF l x) = Label l x
 
 instance Foldable (ClaimF f t a) where
   foldr _ seed ZeroF = seed
@@ -177,8 +186,9 @@ instance Foldable (ClaimF f t a) where
   foldr f seed (AndF c c') = f c $ f c' seed
   foldr f seed (OrF c c') = f c $ f c' seed
   foldr f seed (CondF _ c c') = f c $ f c' seed
-  foldr f seed (AnytimeF _ c) = f c seed
-  foldr f seed (UntilF _ c) = f c seed
+  foldr f seed (AnytimeF _ _ c) = f c seed
+  foldr f seed (UntilF _ _ c) = f c seed
+  foldr f seed (LabelF _ c) = f c seed
 
 instance Traversable (ClaimF g t x) where
   sequence ZeroF = pure ZeroF
@@ -189,8 +199,9 @@ instance Traversable (ClaimF g t x) where
   sequence (AndF fa fa') = AndF <$> fa <*> fa'
   sequence (OrF fa fa') = OrF <$> fa <*> fa'
   sequence (CondF p fa fa') = CondF p <$> fa <*> fa'
-  sequence (AnytimeF p fa) = AnytimeF p <$> fa
-  sequence (UntilF p fa) = UntilF p <$> fa
+  sequence (AnytimeF p z fa) = AnytimeF p z <$> fa
+  sequence (UntilF p z fa) = UntilF p z <$> fa
+  sequence (LabelF p fa) = LabelF p <$> fa
 
 deriving instance (Eq t, Eq a) => Eq (Claim Observation t a)
 deriving instance (Show t, Show a) => Show (Claim Observation t a)

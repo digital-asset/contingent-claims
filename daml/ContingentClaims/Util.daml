@@ -89,8 +89,9 @@ enum' (i, Cofree _ (GiveF f)) = CofreeF i (GiveF (succ i, f))
 enum' (i, Cofree _ (AndF f@(Cofree depth _) f')) = CofreeF i (AndF (succ i, f) (succ (i + depth), f'))
 enum' (i, Cofree _ (OrF f@(Cofree depth _) f')) = CofreeF i (OrF (succ i, f) (succ (i + depth), f'))
 enum' (i, Cofree _ (CondF p f@(Cofree depth _) f')) = CofreeF i (CondF p (succ i, f) (succ (i + depth), f'))
-enum' (i, Cofree _ (AnytimeF p f)) = CofreeF i (AnytimeF p (succ i, f))
-enum' (i, Cofree _ (UntilF p f)) = CofreeF i (UntilF p (succ i, f))
+enum' (i, Cofree _ (AnytimeF p z f)) = CofreeF i (AnytimeF p z (succ i, f))
+enum' (i, Cofree _ (UntilF p z f)) = CofreeF i (UntilF p z (succ i, f))
+enum' (i, Cofree _ (LabelF p f)) = CofreeF i (LabelF p (succ i, f))
 
 -- Enumerate each node in the tree, starting from from 'zero'
 enumerateFrom : Int -> Claim f t a -> Cofree (ClaimF f t a) Int

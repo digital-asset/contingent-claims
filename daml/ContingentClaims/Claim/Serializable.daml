@@ -33,8 +33,9 @@ data Claim t a
   | When with predicate: Observation t Bool, claim: Claim t a
       -- ^ Defers the acquisition of `claim` until *the first instant* that `predicate` is true.
 
-  | Anytime with predicate: Observation t Bool, claim: Claim t a
-  | Until with predicate: Observation t Bool, claim: Claim t a
+  | Anytime with predicate: Observation t Bool, zlabel: Text, claim: Claim t a
+  | Until with predicate: Observation t Bool, zlabel: Text, claim: Claim t a
+  | Label with label: Text, claim: Claim t a
   deriving (Eq, Show, Functor)
 
 -- | Unfixed version of `Claim`, for use with `Daml.Control.Recursion`.
@@ -47,8 +48,9 @@ data ClaimF t a x
   | CondF with predicate: (Observation t Bool), success: x, failure: x
   | ScaleF with k: (Observation t Decimal), claim: x
   | WhenF with predicate: (Observation t Bool), claim: x
-  | AnytimeF with predicate: (Observation t Bool), claim: x
-  | UntilF with predicate: (Observation t Bool), claim: x
+  | AnytimeF with predicate: (Observation t Bool), zlabel: Text, claim: x
+  | UntilF with predicate: (Observation t Bool), zlabel: Text, claim: x
+  | LabelF with label: Text, claim: x
   deriving Functor
 
 instance Recursive (Claim t a) (ClaimF t a) where
@@ -60,8 +62,9 @@ instance Recursive (Claim t a) (ClaimF t a) where
   project (Cond a c c') = CondF a c c'
   project (Scale k a) = ScaleF k a
   project (When p a) = WhenF p a
-  project (Anytime o x) = AnytimeF o x
-  project (Until o x) = UntilF o x
+  project (Anytime o z x) = AnytimeF o z x
+  project (Until o z x) = UntilF o z x
+  project (Label l x) = LabelF l x
 
 instance Corecursive (Claim t a) (ClaimF t a) where
   embed ZeroF = Zero
@@ -72,5 +75,6 @@ instance Corecursive (Claim t a) (ClaimF t a) where
   embed (CondF a c c') = Cond a c c'
   embed (ScaleF k a) = Scale k a
   embed (WhenF o a) = When o a
-  embed (AnytimeF o a) = Anytime o a
-  embed (UntilF o x) = Until o x
+  embed (AnytimeF o z a) = Anytime o z a
+  embed (UntilF o z x) = Until o z x
+  embed (LabelF l x) = Label l x

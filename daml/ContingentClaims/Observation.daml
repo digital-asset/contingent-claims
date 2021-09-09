@@ -8,11 +8,9 @@
 module ContingentClaims.Observation (
     Observation(..)
   , konst
-  , label
   , observe
   , expiry
   , eval
-  , labeled
   , HasFixings(..)
   , Key
 ) where
@@ -34,7 +32,6 @@ data Observation t a
   | DecimalNeg (Observation t Decimal)
   | DecimalMul (Observation t Decimal, Observation t Decimal)
   | DecimalDiv (Observation t Decimal, Observation t Decimal)
-  | Label (Text, Observation t Bool)
   | BoolConst Bool
   | BoolNot (Observation t Bool)
   | BoolAnd (Observation t Bool, Observation t Bool)
@@ -68,9 +65,6 @@ konst = DecimalConst
 
 observe : Text -> Observation t a
 observe = DecimalObs
-
-label : Text -> Observation t Bool -> Observation t Bool
-label = curry Label
 
 instance O.TimeF Observation t where
   time = DateIdentity
@@ -121,7 +115,6 @@ class Interpret t a where
 
 instance (Ord t, Show t) => Interpret t Bool where
   eval _ (BoolConst b) = pure b
-  eval spot (Label (_, b)) = eval spot b
   eval spot (BoolNot b) = not <$> eval spot b
   eval spot (BoolAnd (b, b')) = liftA2 (&&) (eval spot b) (eval spot b')
   eval spot (BoolOr (b, b')) = liftA2 (||) (eval spot b) (eval spot b')
@@ -166,10 +159,3 @@ instance HasFixings t Decimal where
   fixings (DecimalMul _) = []
   fixings (DecimalDiv _) = []
   fixings _ = error "fixings: illegal argument"
-
-labeled : (Monad m, Interpret t Bool) => (Key -> t -> m Decimal) -> Observation t Bool -> Kleisli m t (Optional Text)
-labeled spot (Label (l, b)) = do
-  r <- eval spot b
-  return $ if r then Some l else None
-labeled _    _              =
-  return None
