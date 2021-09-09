@@ -33,6 +33,8 @@ data Claim f t a
       -- ^ The bearer acquires one unit of `a` *immediately*.
   | Give (Claim f t a)
       -- ^ The obligations of the bearer and issuer are revesed.
+  | Repeat (Claim f t a)
+      -- Lifecycle c and preserve it.
   | And with lhs: Claim f t a, rhs: Claim f t a
       -- ^ Used to combine multiple rights together.
   | Or with lhs: Claim f t a, rhs: Claim f t a
@@ -58,6 +60,7 @@ expiry = cata \case
            ZeroF -> None
            OneF _ -> None
            GiveF t -> t
+           RepeatF t -> t
            AndF t t' -> liftA2 max t t'
            OrF t t' -> liftA2 max t t'
            CondF _ t t' -> liftA2 max t t'
@@ -76,6 +79,7 @@ executorOf bearer cpty = cata \case
     [p] -> Set.singleton $ if p == bearer then cpty else bearer
     [] -> mempty
     _ -> Set.fromList [bearer, cpty]
+  RepeatF p -> p
   AndF p p' -> p <> p'
   OrF p p' -> p <> p'
   ScaleF _ p -> p
@@ -105,6 +109,7 @@ deserialize' : Serialized.Claim t a -> ClaimF Observation t a (Serialized.Claim 
 deserialize' Serialized.Zero = ZeroF
 deserialize' (Serialized.One a) = OneF a
 deserialize' (Serialized.Give c) = GiveF c
+deserialize' (Serialized.Repeat c) = RepeatF c
 deserialize' (Serialized.And [c]) = deserialize'  c
 deserialize' (Serialized.And (c :: cs)) = AndF c (Serialized.And cs)
 deserialize' (Serialized.And []) = error "deserialize: Malformed `And` (should have at least two elements)"
@@ -125,6 +130,7 @@ serialize' : ClaimF Observation t a (Cofree (ClaimF Observation t a) (Serialized
 serialize' ZeroF = Serialized.Zero
 serialize' (OneF a) = Serialized.One a
 serialize' (GiveF c) = Serialized.Give c.attribute
+serialize' (RepeatF c) = Serialized.Repeat c.attribute
 serialize' (AndF c (Cofree (Serialized.And cs) _) ) = Serialized.And $ c.attribute :: cs
 serialize' (AndF c c') = Serialized.And [c.attribute, c'.attribute]
 serialize' (OrF c c') = Serialized.Or c.attribute c'.attribute
@@ -140,6 +146,7 @@ data ClaimF f t a x
   = ZeroF
   | OneF a
   | GiveF x
+  | RepeatF x
   | AndF with lhs: x, rhs: x
   | OrF with lhs: x, rhs: x
   | CondF with predicate: (f t Bool), success: x, failure: x
@@ -155,6 +162,7 @@ instance Recursive (Claim f t a) (ClaimF f t a) where
   project Zero = ZeroF
   project (One a) = OneF a
   project (Give c) = GiveF c
+  project (Repeat c) = RepeatF c
   project (And c c') = (AndF c c')
   project (Or c c') = (OrF c c')
   project (Cond a c c') = CondF a c c'
@@ -168,6 +176,7 @@ instance Corecursive (Claim f t a) (ClaimF f t a) where
   embed ZeroF = Zero
   embed (OneF x) = One x
   embed (GiveF a) = Give a
+  embed (RepeatF a) = Repeat a
   embed (AndF a b) = (And a b)
   embed (OrF a b) = (Or a b)
   embed (CondF x a b) = Cond x a b
@@ -181,6 +190,7 @@ instance Foldable (ClaimF f t a) where
   foldr _ seed ZeroF = seed
   foldr _ seed (OneF _) = seed
   foldr f seed (GiveF c) = f c seed
+  foldr f seed (RepeatF c) = f c seed
   foldr f seed (WhenF _ c) = f c seed
   foldr f seed (ScaleF _ c) = f c seed
   foldr f seed (AndF c c') = f c $ f c' seed
@@ -194,6 +204,7 @@ instance Traversable (ClaimF g t x) where
   sequence ZeroF = pure ZeroF
   sequence (OneF x) = pure $ OneF x
   sequence (GiveF fa) = GiveF <$> fa
+  sequence (RepeatF fa) = RepeatF <$> fa
   sequence (WhenF p fa) = WhenF p <$> fa
   sequence (ScaleF p fa) = ScaleF p <$> fa
   sequence (AndF fa fa') = AndF <$> fa <*> fa'

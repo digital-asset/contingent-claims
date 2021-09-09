@@ -21,6 +21,7 @@ data Claim t a
       -- ^ The bearer acquires one unit of `a` *immediately*.
   | Give (Claim t a)
       -- ^ The obligations of the bearer and issuer are revesed.
+  | Repeat (Claim t a)
   | And with claims : [Claim t a]
       -- ^ Used to combine multiple rights together.
       --   __Note__ This serialized version flattens right-associative `And`s to mitigate language recursion limits.
@@ -43,6 +44,7 @@ data ClaimF t a x
   = ZeroF
   | OneF a
   | GiveF x
+  | RepeatF x
   | AndF with claims: [x]
   | OrF with lhs: x, rhs: x
   | CondF with predicate: (Observation t Bool), success: x, failure: x
@@ -57,6 +59,7 @@ instance Recursive (Claim t a) (ClaimF t a) where
   project Zero = ZeroF
   project (One a) = OneF a
   project (Give c) = GiveF c
+  project (Repeat x) = RepeatF x
   project (And cs) = (AndF cs)
   project (Or c c') = (OrF c c')
   project (Cond a c c') = CondF a c c'
@@ -70,6 +73,7 @@ instance Corecursive (Claim t a) (ClaimF t a) where
   embed ZeroF = Zero
   embed (OneF a) = One a
   embed (GiveF c) = Give c
+  embed (RepeatF x) = Repeat x
   embed (AndF cs) = (And cs)
   embed (OrF c c') = (Or c c')
   embed (CondF a c c') = Cond a c c'
