@@ -96,9 +96,6 @@ lifecycle' spot choose  (Give c)  = do
     return $ r with pending = map (scaleBy (-1.0)) r.pending
   else
     return r with remaining = Give r.remaining
-lifecycle' spot choose  (Repeat c)  = do
-  r <- lifecycle' spot choose c
-  return $ r with remaining = (Repeat c)
 lifecycle' spot choose  (When obs c)   = do
   predicate <- eval spot obs
   if predicate then do
