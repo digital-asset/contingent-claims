@@ -68,7 +68,7 @@ reduceZero (And Zero Zero)    = Zero
 reduceZero (And lhs Zero)     = lhs
 reduceZero (And Zero rhs)     = rhs
 reduceZero (Anytime _ _ Zero) = Zero   -- ?
-reduceZero (Until _ _ Zero)   = Zero
+reduceZero (Until _ _ _ Zero) = Zero
 reduceZero c                  = c
 
 stop : C a -> Result a
@@ -132,13 +132,14 @@ lifecycle' spot choose  (Anytime obs zlabel c) = do
     case r.remaining of
       Zero -> return $ observe zlabel $ r with pending = []
       _ -> return $ stop $ Anytime obs zlabel c
-lifecycle' spot choose  (Until obs zlabel c)   = do
+lifecycle' spot choose  (Until obs zlabel repeatable c)   = do
   predicate <- eval spot obs
   if predicate then do
     return $ observe zlabel $ stop Zero
   else do
     r <- lifecycle' spot choose c
-    return r with remaining = reduceZero (Until obs zlabel r.remaining)
+    let nc = if repeatable then c else r.remaining
+    return r with remaining = reduceZero $ Until obs zlabel repeatable nc
 lifecycle' spot choose (Label l o) = do
   r <- lifecycle' spot choose o
   return $ observe l r

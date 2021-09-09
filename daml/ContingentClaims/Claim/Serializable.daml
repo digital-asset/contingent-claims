@@ -34,7 +34,7 @@ data Claim t a
       -- ^ Defers the acquisition of `claim` until *the first instant* that `predicate` is true.
 
   | Anytime with predicate: Observation t Bool, zlabel: Text, claim: Claim t a
-  | Until with predicate: Observation t Bool, zlabel: Text, claim: Claim t a
+  | Until with predicate: Observation t Bool, zlabel: Text, repeatable: Bool, claim: Claim t a
   | Label with label: Text, claim: Claim t a
   deriving (Eq, Show, Functor)
 
@@ -49,7 +49,7 @@ data ClaimF t a x
   | ScaleF with k: (Observation t Decimal), claim: x
   | WhenF with predicate: (Observation t Bool), claim: x
   | AnytimeF with predicate: (Observation t Bool), zlabel: Text, claim: x
-  | UntilF with predicate: (Observation t Bool), zlabel: Text, claim: x
+  | UntilF with predicate: (Observation t Bool), zlabel: Text, repeatable: Bool, claim: x
   | LabelF with label: Text, claim: x
   deriving Functor
 
@@ -63,7 +63,7 @@ instance Recursive (Claim t a) (ClaimF t a) where
   project (Scale k a) = ScaleF k a
   project (When p a) = WhenF p a
   project (Anytime o z x) = AnytimeF o z x
-  project (Until o z x) = UntilF o z x
+  project (Until o z r x) = UntilF o z r x
   project (Label l x) = LabelF l x
 
 instance Corecursive (Claim t a) (ClaimF t a) where
@@ -76,5 +76,5 @@ instance Corecursive (Claim t a) (ClaimF t a) where
   embed (ScaleF k a) = Scale k a
   embed (WhenF o a) = When o a
   embed (AnytimeF o z a) = Anytime o z a
-  embed (UntilF o z x) = Until o z x
+  embed (UntilF o z r x) = Until o z r x
   embed (LabelF l x) = Label l x

@@ -45,7 +45,7 @@ data Claim f t a
       -- ^ Defers the acquisition of `claim` until *the first instant* that `predicate` is true.
   | Anytime with predicate: f t Bool, zlabel: Text, claim: Claim f t a
       -- ^ Once you acquire (anytime o c), you may acquire c at any time the observable o is true.
-  | Until with predicate: f t Bool, zlabel: Text, claim: Claim f t a
+  | Until with predicate: f t Bool, zlabel: Text, repeatable: Bool, claim: Claim f t a
       -- ^ Once acquired, (until o c) is exactly like c except that it must be abandoned when
       -- observable o bcomes true.
   | Label with label: Text, claim: Claim f t a
@@ -64,7 +64,7 @@ expiry = cata \case
            ScaleF _ t -> t
            WhenF p _ -> Observation.expiry p
            AnytimeF p _ _ -> Observation.expiry p
-           UntilF p _ _ -> Observation.expiry p
+           UntilF p _ _ _ -> Observation.expiry p
            LabelF _ t -> t
 
 -- TODO: not sure these make sense
@@ -82,7 +82,7 @@ executorOf bearer cpty = cata \case
   CondF _ p p' -> p <> p'
   WhenF _ p -> p
   AnytimeF _ _ p -> p
-  UntilF _ _ p -> p
+  UntilF _ _ _ p -> p
   LabelF _ p -> p
 
 -- TODO: not sure these make sense
@@ -113,7 +113,7 @@ deserialize' (Serialized.Cond k c c') = CondF k c c'
 deserialize' (Serialized.Scale k c) = ScaleF k c
 deserialize' (Serialized.When p c) = WhenF p c
 deserialize' (Serialized.Anytime p z c) = AnytimeF p z c
-deserialize' (Serialized.Until p z c) = UntilF p z c
+deserialize' (Serialized.Until p z r c) = UntilF p z r c
 deserialize' (Serialized.Label p c) = LabelF p c
 
 -- | Converts a `Claim` into a `Serializable.Claim`, so it can be written to the ledger.
@@ -132,7 +132,7 @@ serialize' (CondF k c c') = Serialized.Cond k c.attribute c'.attribute
 serialize' (ScaleF k c) = Serialized.Scale k c.attribute
 serialize' (WhenF p c) = Serialized.When p c.attribute
 serialize' (AnytimeF p z c) = Serialized.Anytime p z c.attribute
-serialize' (UntilF p z c) = Serialized.Until p z c.attribute
+serialize' (UntilF p z r c) = Serialized.Until p z r c.attribute
 serialize' (LabelF p c) = Serialized.Label p c.attribute
 
 -- | Unfixed version of `Claim`, for use with `Daml.Control.Recursion`.
@@ -146,7 +146,7 @@ data ClaimF f t a x
   | ScaleF with k: (f t Decimal), claim: x
   | WhenF with predicate: (f t Bool), claim: x
   | AnytimeF with predicate: (f t Bool), zlabel: Text, claim: x
-  | UntilF with predicate: (f t Bool), zlabel: Text, claim: x
+  | UntilF with predicate: (f t Bool), zlabel: Text, repeatable: Bool, claim: x
   | LabelF with label: Text, claim: x
   deriving (Functor)
 
@@ -161,7 +161,7 @@ instance Recursive (Claim f t a) (ClaimF f t a) where
   project (Scale k a) = ScaleF k a
   project (When o a) = WhenF o a
   project (Anytime o z a) = AnytimeF o z a
-  project (Until o z x) = UntilF o z x
+  project (Until o z r x) = UntilF o z r x
   project (Label l x) = LabelF l x
 
 instance Corecursive (Claim f t a) (ClaimF f t a) where
@@ -174,7 +174,7 @@ instance Corecursive (Claim f t a) (ClaimF f t a) where
   embed (ScaleF k x) = Scale k x
   embed (WhenF o x) = When o x
   embed (AnytimeF o z x) = Anytime o z x
-  embed (UntilF o z x) = Until o z x
+  embed (UntilF o z r x) = Until o z r x
   embed (LabelF l x) = Label l x
 
 instance Foldable (ClaimF f t a) where
@@ -187,7 +187,7 @@ instance Foldable (ClaimF f t a) where
   foldr f seed (OrF c c') = f c $ f c' seed
   foldr f seed (CondF _ c c') = f c $ f c' seed
   foldr f seed (AnytimeF _ _ c) = f c seed
-  foldr f seed (UntilF _ _ c) = f c seed
+  foldr f seed (UntilF _ _ _ c) = f c seed
   foldr f seed (LabelF _ c) = f c seed
 
 instance Traversable (ClaimF g t x) where
@@ -200,7 +200,7 @@ instance Traversable (ClaimF g t x) where
   sequence (OrF fa fa') = OrF <$> fa <*> fa'
   sequence (CondF p fa fa') = CondF p <$> fa <*> fa'
   sequence (AnytimeF p z fa) = AnytimeF p z <$> fa
-  sequence (UntilF p z fa) = UntilF p z <$> fa
+  sequence (UntilF p z r fa) = UntilF p z r <$> fa
   sequence (LabelF p fa) = LabelF p <$> fa
 
 deriving instance (Eq t, Eq a) => Eq (Claim Observation t a)
