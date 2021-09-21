@@ -20,7 +20,7 @@ data ExprF t x
   = ConstF Decimal
   | IdentF Text
   | ProcF { name : Text, process: Process t, filtration: t }
-  | SupF { lowerBound: t, rv : x }
+  | SupF { lowerBound: x, rv : x }
   | AddF { lhs: x, rhs: x }
   | NegF x
   | MulF { lhs: x, rhs: x }
@@ -33,7 +33,7 @@ data Expr t
   = Const Decimal
   | Ident Text
   | Proc { name : Text, process : Process t, filtration: t }
-  | Sup { lowerBound: t, rv : Expr t }
+  | Sup { lowerBound: Expr t, rv : Expr t }
   | Add (Expr t, Expr t)
   | Neg (Expr t)
   | Mul (Expr t, Expr t)
@@ -70,7 +70,7 @@ instance Corecursive (Expr t) (ExprF t) where
 -- expressions are defined as E1-E10 in the Eber/Peyton-Jones paper. If you
 -- squint you can almost see they correspond one-to-one to the formulae in our
 -- whitepaper.
-fapf : (Eq a, Show a)
+fapf : (Eq a, Show a, Show t)
      => a
      -> (a -> Process t)
      -> (a -> a -> Process t)
@@ -92,9 +92,8 @@ fapf ccy disc exch today = futu coalg . Left . (, today) where
       (ind (claim (c , t)) (claim (c', t)) * claim (c', t))
       (ind (claim (c', t)) (claim (c , t)) * claim (c , t)) -- How to distinguish E6/E7?
   ϵ (When (TimeGte t') c, t) = disc' ccy t `MulF` ex (claim (c, t') / disc' ccy t') t
-  ϵ (Anytime (TimeGte t') c, t) = SupF t' $
-    disc' ccy t * ex (claim (c, t') / disc' ccy t' * ind (claim (c, t)) (claim (c, t'))) t
-  ϵ (Until (TimeGte t') c, t) = disc' ccy t `MulF` ex (claim (c, t') / disc' ccy t' * ind (claim (c, t)) (claim (c, t'))) t
+  ϵ (Anytime (TimeGte t') c, t) = SupF (ind (id t') (id t)) . ex (claim (c, t') * ind (claim (c, t)) (claim (c, t'))) $ t
+  ϵ (Until (TimeGte t') c, t) = E_F (claim (c, t') * ind (id t) (id t')) t
   ϵ _ = error "fapf: Stochastic 'Indicator = Lte' functions not supported yet"
   -- υ : (Observable, t) -> Free ExprF (Either (Claim, t) (Observable, t))
   υ (O.Const {value=k}, _) = ConstF k
@@ -111,6 +110,7 @@ fapf ccy disc exch today = futu coalg . Left . (, today) where
   ind x y = Impure $ I_F x y
   sup t x = Impure $ SupF t x
   ex x t = Impure $ E_F x t
+  id = Impure . IdentF . show -- FIXME: this is resulting in quotes wrapped around identifier
   claim = Pure . Left
   obs = Pure . Right
   disc' k t = Impure $ ProcF (show k) (disc k) t
@@ -165,7 +165,7 @@ distAdd = \case
   I_F xs xs' -> [I (unroll xs, unroll xs')]
   PowF xs is -> [Pow (unroll xs, unroll is)]
   ProcF{..} -> [Proc{..}]
-  SupF t xs -> [Sup t (unroll xs)] 
+  SupF xs xs' -> [Sup (unroll xs) (unroll xs')] 
   where unroll xs = cata distAdd' xs (Const aunit)
 
 -- | Unroll a list of terms to be summed together into a (left commutative) tree of `Add`s.
