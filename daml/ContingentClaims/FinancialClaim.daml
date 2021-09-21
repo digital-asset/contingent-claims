@@ -57,9 +57,9 @@ bermudan u = apo \case
   [] -> ZeroF
 
 -- | American option (knock-in). The lead parameter is the first possible acquisition date.
-american : Enum t => t -> t -> Claim f t x a -> Claim f t x a
+american : t -> t -> Claim f t x a -> Claim f t x a
 american t maturity payoff =
-  Until (at (succ maturity)) $
+  Until (at maturity) $
     Anytime ((>=) t) (payoff `Or` Zero)
   where (>=) = at
 
