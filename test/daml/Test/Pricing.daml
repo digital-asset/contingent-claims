@@ -51,7 +51,7 @@ valueMargrabe = script do
   s === Const 0.0
 
 valueAmerican = script do
-  let formula = fapf USD disc exch today $ american today maturity (call AMZN 3300.0 USD)
+  let formula = fapf USD disc exch today $ american today maturity (call APPL 142.50 USD)
       s = simplify formula
   debug . show . MathML.presentation $ s
   s === Const 0.0

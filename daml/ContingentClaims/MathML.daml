@@ -50,21 +50,23 @@ instance ToXml t => ToXml (Expr t) where
   presentation = math . histo \case
     ConstF a -> [mn $ show a]
     ProcF name _f t -> [mi name `msub` presentation t]
-    SupF{..} -> error "presentation: SupF"
+    SupF τ x -> (mo "Sup" `msub` mfenced "{" "}" [presentation τ]) :: x.attribute
     IdentF _ -> error "presentation: IdentF"
     AddF x (Cofree _ (NegF x')) -> x.attribute ++ [mo "-"] ++ x'.attribute
     AddF x x' -> x.attribute ++ [mo "+"] ++ x'.attribute
     NegF x -> mo "-" :: x.attribute
     MulF (Cofree _ (PowF denom (Cofree _ (NegF (Cofree _ (ConstF 1.0)))))) num -> [mfrac num.attribute denom.attribute]
-    MulF x (Cofree s (AddF _ _)) -> x.attribute ++ [mo "&InvisibleTimes;"] ++ mfenced "(" ")" s
-    MulF (Cofree s (AddF _ _)) x -> mfenced "(" ")" s ++ [mo "&InvisibleTimes;"] ++ x.attribute
+    MulF x (Cofree s (AddF _ _)) -> x.attribute ++ [mo "&InvisibleTimes;" , mfenced "(" ")" s ]
+    MulF (Cofree s (AddF _ _)) x -> mfenced "(" ")" s :: mo "&InvisibleTimes;" :: x.attribute
     MulF x (Cofree s (NegF _)) -> x.attribute ++ [mo "&#xD7;"] ++ s
     MulF (Cofree s (ConstF _)) x -> s ++ [mo "&#xD7;"] ++ x.attribute
     MulF x (Cofree s (ConstF _)) -> x.attribute ++ [mo "&#xD7;"] ++ s
     MulF x x' ->  x.attribute ++ [mo "&InvisibleTimes;"] ++ x'.attribute
     PowF x i -> [mrow x.attribute `msup` mrow i.attribute]
     I_F x x' -> [mo "I" `msub` mrow (x.attribute ++ [mo "&le;"] ++ x'.attribute)]
-    E_F x t -> [mo "&Eopf;", mo "&ApplyFunction;"] ++ mfenced "[" "]" (x.attribute ++ [mo "|", curlyF `msub` presentation t])
+    E_F x t -> [mo "&Eopf;"
+              , mo "&ApplyFunction;"
+              , mfenced "[" "]" (x.attribute ++ [mo "|", curlyF `msub` presentation t])]
       where curlyF = Elem (just "mathvariant" "script") "mo" (text "F")
 
 
@@ -106,4 +108,4 @@ mfrac numerator denominator = elem "mfrac" [mrow numerator, mrow denominator]
 
 mrow = elem "mrow"
 
-mfenced open close ctx = [ Elem (just "fence" "true") "mo" (text open)] ++ ctx ++ [Elem (just "fence" "true") "mo" (text close)]
+mfenced open close ctx = mrow $ [ Elem (just "fence" "true") "mo" (text open)] ++ ctx ++ [Elem (just "fence" "true") "mo" (text close)]
