@@ -1,15 +1,14 @@
 module Test.Pricing where
 
 import ContingentClaims.Claim
-import ContingentClaims.FinancialClaim (european)
+import ContingentClaims.FinancialClaim (european, american)
 import ContingentClaims.Observable qualified as O
 import ContingentClaims.Observation (Observation)
 import ContingentClaims.MathML qualified as MathML
-import ContingentClaims.Math.Stochastic (fapf, simplify, riskless, gbm)
+import ContingentClaims.Math.Stochastic (fapf, simplify, riskless, gbm, Expr(..))
 
 import Daml.Script
 import DA.Assert
-
 data Instrument = USD | EUR | AMZN | APPL deriving (Show, Eq)
 
 call : Instrument -> Decimal -> Instrument -> Claim Observation t Decimal Instrument
@@ -25,11 +24,34 @@ exch AMZN _ = gbm "μ_AMZN" "σ_AMZN"
 exch APPL _ = gbm "μ_APPL" "σ_APPL"
 exch a a' = error $ "exch: " <> show a <> "/" <> show a'
 
-test = script do
-  let today = "t"
-      maturity = "T"
-      s = fapf USD disc exch today $ european maturity (call AMZN 3300.0 USD)
-  (show . MathML.presentation . simplify $ s) === ""
+today = "t"
+maturity = "T"
 
-  let s = fapf USD disc exch today $ european maturity (margrabe AMZN APPL USD)
-  (show . MathML.presentation . simplify $ s) === ""
+-- This is needed because of the way we define `american`
+instance Enum Text where
+  toEnum 1 = "t"
+  toEnum 2 = "T"
+  toEnum 3 = "T+1"
+  toEnum x = error $ "toEnum not handled " <> show x
+  fromEnum "t" = 1
+  fromEnum "T" = 2
+  fromEnum "T+1" = 3
+  fromEnum x = error $ "fromEnum not handled " <> x
+
+valueCall = script do
+  let formula = fapf USD disc exch today $ european maturity (call AMZN 3300.0 USD)
+      s = simplify formula
+  debug . show . MathML.presentation $ s
+  s === Const 0.0
+
+valueMargrabe = script do
+  let formula = fapf USD disc exch today $ european maturity (margrabe AMZN APPL USD)
+      s = simplify formula
+  debug . show . MathML.presentation $ s
+  s === Const 0.0
+
+valueAmerican = script do
+  let formula = fapf USD disc exch today $ american today maturity (call AMZN 3300.0 USD)
+      s = simplify formula
+  debug . show . MathML.presentation $ s
+  s === Const 0.0

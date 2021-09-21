@@ -20,7 +20,7 @@ data ExprF t x
   = ConstF Decimal
   | IdentF Text
   | ProcF { name : Text, process: Process t, filtration: t }
---  | SupF { f : (), lowerBound: t }
+  | SupF { lowerBound: t, rv : x }
   | AddF { lhs: x, rhs: x }
   | NegF x
   | MulF { lhs: x, rhs: x }
@@ -33,7 +33,7 @@ data Expr t
   = Const Decimal
   | Ident Text
   | Proc { name : Text, process : Process t, filtration: t }
---  | Sup { f : (), lowerBound: t }
+  | Sup { lowerBound: t, rv : Expr t }
   | Add (Expr t, Expr t)
   | Neg (Expr t)
   | Mul (Expr t, Expr t)
@@ -46,7 +46,7 @@ instance Recursive (Expr t) (ExprF t) where
   project (Const x) = ConstF x
   project (Ident x) = IdentF x
   project Proc{..} = ProcF with ..
---  project Sup{..} = SupF with ..
+  project Sup{..} = SupF with ..
   project (Add (x, x')) = AddF x x'
   project (Neg x) = NegF x
   project (Mul (x,x')) = MulF x x'
@@ -58,7 +58,7 @@ instance Corecursive (Expr t) (ExprF t) where
   embed (ConstF x) = Const x
   embed (IdentF x) = Ident x
   embed ProcF{..} = Proc with ..
---  embed SupF{..} = Sup with ..
+  embed SupF{..} = Sup with ..
   embed (AddF x x') = Add (x, x')
   embed (NegF x) = Neg x
   embed (MulF x x') = Mul (x, x')
@@ -92,8 +92,9 @@ fapf ccy disc exch today = futu coalg . Left . (, today) where
       (ind (claim (c , t)) (claim (c', t)) * claim (c', t))
       (ind (claim (c', t)) (claim (c , t)) * claim (c , t)) -- How to distinguish E6/E7?
   ϵ (When (TimeGte t') c, t) = disc' ccy t `MulF` ex (claim (c, t') / disc' ccy t') t
-  ϵ (Anytime (TimeGte t') c, t) = error "fapf: Anytime"
-  ϵ (Until (TimeGte t') c, t) = error "fapf: Until"
+  ϵ (Anytime (TimeGte t') c, t) = SupF t' $
+    disc' ccy t * ex (claim (c, t') / disc' ccy t' * ind (claim (c, t)) (claim (c, t'))) t
+  ϵ (Until (TimeGte t') c, t) = disc' ccy t `MulF` ex (claim (c, t') / disc' ccy t' * ind (claim (c, t)) (claim (c, t'))) t
   ϵ _ = error "fapf: Stochastic 'Indicator = Lte' functions not supported yet"
   -- υ : (Observable, t) -> Free ExprF (Either (Claim, t) (Observable, t))
   υ (O.Const {value=k}, _) = ConstF k
@@ -108,6 +109,7 @@ fapf ccy disc exch today = futu coalg . Left . (, today) where
   x / y = Impure $ MulF x (inv y)
   inv x = Impure $ PowF x (obs (O.Neg . O.Const $ one, today)) -- t for a `Const` is ignored
   ind x y = Impure $ I_F x y
+  sup t x = Impure $ SupF t x
   ex x t = Impure $ E_F x t
   claim = Pure . Left
   obs = Pure . Right
@@ -153,15 +155,18 @@ factNeg other = embed other
 
 -- | Turn any expression into a list of terms to be summed together
 distAdd : ExprF t [Expr t] -> [Expr t]
-distAdd (ConstF x) = [Const x]
-distAdd (IdentF x) = [Ident x]
-distAdd (AddF xs xs') = xs ++ xs'
-distAdd (MulF xs xs') = curry Mul <$> xs <*> xs'
-distAdd (NegF xs) = Neg <$> xs
-distAdd (E_F xs t) = flip E t <$> xs
-distAdd (I_F xs xs') = [I (unroll xs, unroll xs')] where unroll xs = cata distAdd' xs (Const aunit)
-distAdd (PowF xs is) = [Pow (unroll xs, unroll is)] where unroll xs = cata distAdd' xs (Const aunit)
-distAdd (ProcF{..}) = [Proc{..}]
+distAdd = \case
+  ConstF x -> [Const x]
+  IdentF x -> [Ident x]
+  AddF xs xs' -> xs ++ xs'
+  MulF xs xs' -> curry Mul <$> xs <*> xs'
+  NegF xs -> Neg <$> xs
+  E_F xs t -> flip E t <$> xs
+  I_F xs xs' -> [I (unroll xs, unroll xs')]
+  PowF xs is -> [Pow (unroll xs, unroll is)]
+  ProcF{..} -> [Proc{..}]
+  SupF t xs -> [Sup t (unroll xs)] 
+  where unroll xs = cata distAdd' xs (Const aunit)
 
 -- | Unroll a list of terms to be summed together into a (left commutative) tree of `Add`s.
 distAdd' : ListF (Expr t) (Expr t -> Expr t) -> (Expr t -> Expr t)
