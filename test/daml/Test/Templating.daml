@@ -43,8 +43,8 @@ demoTemplate = script do
 
   aTemplate === When (O.TimeGte 37) (Scale (Observe "s" - Const "k") (One usd) `Or` Zero)
 
-  let constants : Map.Map O.Param Decimal = Map.fromList [("k", 99.8)]
-      observables : Map.Map O.Param O.Key = Map.fromList [("s", "VOD.L")]
+  let constants : Map.Map Text Decimal = Map.fromList [("k", 99.8)]
+      observables : Map.Map Text Text = Map.fromList [("s", "VOD.L")]
       get dict k = fromSome (Map.lookup k dict)
       f = mapParams (`subDate` today) (today `addDays`) (get observables) (get constants)
 
