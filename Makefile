@@ -1,5 +1,3 @@
-include ../make/daml-common.mk
-
 DAML_SRC:=$(shell find daml/ContingentClaims -name '*.daml')
 
 doc: $(DAML_SRC)
