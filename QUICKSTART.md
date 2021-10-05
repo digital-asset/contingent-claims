@@ -48,7 +48,7 @@ Additionally we have several constructors which we've not used in this example:
 * `Give` would flip the direction of the arrows in our diagram. So for example, in a swap we could use `Give` to distinguishing the received/paid legs.
 * `Or` is used to give the bearer the right to choose between two different claims.
 * `Anytime` is like `When`, except it allows the bearer to choose (vs. no choice) acquisition in a *region* (vs. a point).
-* `Until` is used to adjust the expiration (*horizon* in [[1]]) of a claim. Typically used with `Anytime` to limit aforesaid acquisition region.
+* `Until` is used to adjust the expiration (*horizon* in [[1]](#1)) of a claim. Typically used with `Anytime` to limit aforesaid acquisition region.
 
 The tree produced by our expression is pictured below:
 
