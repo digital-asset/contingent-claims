@@ -56,7 +56,7 @@ valueCall = script do
       s = Proc "AMZN" (exch AMZN USD)
       k = Const 3300.0
       usd = Proc "USD" (disc USD)
-  debug . show . MathML.presentation . simplify $ formula
+  debug . show . MathML.presentation {- . simplify -} $ formula
   multIdentity formula === usd t * E (max (s t' - k) aunit / usd t') t
 
 valueMargrabe = script do
@@ -64,12 +64,10 @@ valueMargrabe = script do
       s = Proc "AMZN" (exch AMZN USD)
       s' = Proc "APPL" (exch APPL USD)
       usd = Proc "USD" (disc USD)
-  debug . show . MathML.presentation . simplify $ formula
+  debug . show . MathML.presentation {- . simplify -} $ formula
   multIdentity formula === usd t * E (max (s t' - s' t') aunit / usd t') t
 
-{-
 valueAmerican = script do
   let formula = fapf USD disc exch t $ american t t' (call APPL 142.50 USD)
-  debug . show . MathML.presentation . simplify $ formula
+  debug . show . MathML.presentation {- . simplify -} $ formula
   multIdentity formula === Const 0.0
--}

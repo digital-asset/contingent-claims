@@ -10,7 +10,7 @@ import Daml.Control.Arrow ((|||))
 import Daml.Control.Monad.State (State, runState)
 import Daml.Control.Monad.MonadState
 import Daml.Control.Monad.Free (FreeT(..), FreeF(..))
-import Prelude hiding (Time, sequence, mapA)
+import Prelude hiding (Time, sequence, mapA, const)
 
 data Process t = Process { dt : Expr t, dW: Expr t } deriving (Show, Eq)-- Geometric i.e. dX / X = α dt + β dW, so we have closed solns.
 -- TODO: make sum type and support Poisson
@@ -23,7 +23,7 @@ data ExprF t x
   = ConstF Decimal
   | IdentF Text
   | ProcF { name : Text, process: Process t, filtration: t }
-  | SupF { lowerBound: x, rv : x }
+  | SupF { lowerBound: t, tauIdx: x, rv : x } -- tauIdx is the subscript to τ
   | AddF { lhs: x, rhs: x }
   | NegF x
   | MulF { lhs: x, rhs: x }
@@ -36,7 +36,7 @@ data Expr t
   = Const Decimal
   | Ident Text
   | Proc { name : Text, process : Process t, filtration: t }
-  | Sup { lowerBound: Expr t, rv : Expr t }
+  | Sup { lowerBound: t, tauIdx: Expr t, rv : Expr t }
   | Add (Expr t, Expr t)
   | Neg (Expr t)
   | Mul (Expr t, Expr t)
@@ -46,8 +46,8 @@ data Expr t
   deriving (Show, Eq)
 
 instance Recursive (Expr t) (ExprF t) where
-  project (Const x) = ConstF x
-  project (Ident x) = IdentF x
+  project (Const d) = ConstF d
+  project (Ident s) = IdentF s
   project Proc{..} = ProcF with ..
   project Sup{..} = SupF with ..
   project (Add (x, x')) = AddF x x'
@@ -58,8 +58,8 @@ instance Recursive (Expr t) (ExprF t) where
   project E{..} = E_F with ..
 
 instance Corecursive (Expr t) (ExprF t) where
-  embed (ConstF x) = Const x
-  embed (IdentF x) = Ident x
+  embed (ConstF d) = Const d
+  embed (IdentF s) = Ident s
   embed ProcF{..} = Proc with ..
   embed SupF{..} = Sup with ..
   embed (AddF x x') = Add (x, x')
@@ -108,8 +108,12 @@ fapf ccy disc exch today = gana (distFutuT distCounter) coalg . Left . (, today)
       (ind (claim (c , t)) (claim (c', t)) * claim (c', t))
       (ind (claim (c', t)) (claim (c , t)) * claim (c , t)) -- How to distinguish E6/E7?
   ϵ (When (TimeGte t') c, t) = disc' ccy t `MulF` ex (claim (c, t') / disc' ccy t') t
-  ϵ (Anytime (TimeGte t') c, t) = SupF (ind (id t') (id t)) . ex (claim (c, t') * ind (claim (c, t)) (claim (c, t'))) $ t
-  ϵ (Until (TimeGte t') c, t) = E_F (claim (c, t') * ind (id t) (id t')) t
+  ϵ (Anytime (TimeGte t') c, t) = SupF t' τ $ disc' ccy t' * ex (claim (c, t') / disc' ccy t) t
+    where τ = do 
+              i <- get
+              put $ i + 1
+              id $ show i
+  ϵ (Until (TimeGte t') c, t) = E_F (claim (c, t') * ind (id $ show t) (id $ show t')) t
   ϵ _ = error "fapf: Stochastic 'Indicator = Lte' functions not supported yet"
   -- υ : (Observable, t) -> ExprF (FreeT (ExprF t) (State Int) (Either (Claim, t) (Observable, t)))
   υ (O.Const {value=k}, _) = ConstF k
@@ -124,9 +128,9 @@ fapf ccy disc exch today = gana (distFutuT distCounter) coalg . Left . (, today)
   x / y = FreeT . pure . Free $ MulF x (inv y)
   inv x = FreeT . pure . Free $ PowF x (obs (O.Neg . O.Const $ one, today)) -- t for a `Const` is ignored
   ind x y = FreeT . pure . Free $ I_F x y
-  sup t x = FreeT . pure . Free $ SupF t x
+  sup t i x = FreeT . pure . Free $ SupF t i x
   ex x t = FreeT . pure . Free $ E_F x t
-  id = FreeT . pure . Free . IdentF . show -- FIXME: this is resulting in quotes wrapped around identifier
+  id = FreeT . pure . Free . IdentF -- FIXME: this is resulting in quotes wrapped around identifier
   claim = pure . Left
   obs = pure . Right
   disc' k t = FreeT . pure . Free $ ProcF (show k) (disc k) t
@@ -181,7 +185,7 @@ distAdd = \case
   I_F xs xs' -> [I (unroll xs, unroll xs')]
   PowF xs is -> [Pow (unroll xs, unroll is)]
   ProcF{..} -> [Proc{..}]
-  SupF xs xs' -> [Sup (unroll xs) (unroll xs')] 
+  SupF t xs xs' -> [Sup t (unroll xs) (unroll xs')]
   where unroll xs = cata distAdd' xs (Const aunit)
 
 -- | Unroll a list of terms to be summed together into a (left commutative) tree of `Add`s.

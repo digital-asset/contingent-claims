@@ -50,7 +50,8 @@ instance ToXml t => ToXml (Expr t) where
   presentation = math . histo \case
     ConstF a -> [mn $ show a]
     ProcF name _f t -> [mi name `msub` presentation t]
-    SupF τ x -> (mo "Sup" `msub` mfenced "{" "}" τ.attribute) :: mo "&ApplyFunction;" :: x.attribute
+    SupF t i x -> (mo "Sup" `msub` mfenced "{" "}" bound ) :: mo "&ApplyFunction;" :: x.attribute
+                  where bound = presentation t :: mo "&le;" :: [mi "τ" `msub` mrow i.attribute]
     IdentF t -> [presentation t]
     AddF x (Cofree _ (NegF x')) -> x.attribute ++ [mo "-"] ++ x'.attribute
     AddF x x' -> x.attribute ++ [mo "+"] ++ x'.attribute
