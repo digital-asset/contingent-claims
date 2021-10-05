@@ -5,9 +5,12 @@ module ContingentClaims.Math.Stochastic where
 import ContingentClaims.Claim
 import ContingentClaims.Observable (Inequality(..))
 import ContingentClaims.Observation qualified as O
-import Daml.Control.Recursion
+import Daml.Control.Recursion hiding (Free(..))
 import Daml.Control.Arrow ((|||))
-import Prelude hiding (Time)
+import Daml.Control.Monad.State (State, runState)
+import Daml.Control.Monad.MonadState
+import Daml.Control.Monad.Free (FreeT(..), FreeF(..))
+import Prelude hiding (Time, sequence, mapA)
 
 data Process t = Process { dt : Expr t, dW: Expr t } deriving (Show, Eq)-- Geometric i.e. dX / X = α dt + β dW, so we have closed solns.
 -- TODO: make sum type and support Poisson
@@ -66,6 +69,19 @@ instance Corecursive (Expr t) (ExprF t) where
   embed (I_F x x') = I (x, x')
   embed E_F{..} = E with ..
 
+distFutuT
+  : (Functor f, Action m)
+  => (forall c. m (f c) -> f (m c))
+  -> FreeT f m (f a)
+  -> f (FreeT f m a)
+distFutuT distM = fmap FreeT . distM . fmap g . runFreeT where
+  g (Pure fa) = Pure <$> fa
+  g (Free fFreeT) = fmap (Free . distFutuT distM) fFreeT
+
+distCounter : Functor f => State Int (f a) -> f (State Int a)
+distCounter st = case runState st 0 of 
+  (fa, i) -> fmap (\a -> state \j -> (a, i + j)) fa
+
 -- | Converts a `Claim` into the Fundamental Asset Pricing Formula. The ϵ
 -- expressions are defined as E1-E10 in the Eber/Peyton-Jones paper. If you
 -- squint you can almost see they correspond one-to-one to the formulae in our
@@ -76,10 +92,10 @@ fapf : (Eq a, Show a, Show t)
      -> (a -> a -> Process t)
      -> t
      -> Claim O.Observation t Decimal a -> Expr t
-fapf ccy disc exch today = futu coalg . Left . (, today) where
-  -- coalg : (Either (Claim, t) (Observable, t)) -> Free ExprF (Either (Claim, t) (Observable, t))
+fapf ccy disc exch today = gana (distFutuT distCounter) coalg . Left . (, today) where
+  -- coalg : (Either (Claim, t) (Observable, t)) -> ExprF (FreeT ExprF (State Int) (Either (Claim, t) (Observable, t)))
   coalg = ϵ ||| υ
-  -- ϵ : (Claim, t) -> Free ExprF (Either (Claim, t) (Observable, t))
+  -- ϵ : (Claim, t) -> ExprF (FreeT (ExprF t) (State Int) (Either (Claim, t) (Observable, t)))
   ϵ (Zero, _) = ConstF zero
   ϵ (One asset, t) = exch' asset ccy t -- assert ident
   ϵ (Give c, t) = NegF . claim $ (c, t)
@@ -95,7 +111,7 @@ fapf ccy disc exch today = futu coalg . Left . (, today) where
   ϵ (Anytime (TimeGte t') c, t) = SupF (ind (id t') (id t)) . ex (claim (c, t') * ind (claim (c, t)) (claim (c, t'))) $ t
   ϵ (Until (TimeGte t') c, t) = E_F (claim (c, t') * ind (id t) (id t')) t
   ϵ _ = error "fapf: Stochastic 'Indicator = Lte' functions not supported yet"
-  -- υ : (Observable, t) -> Free ExprF (Either (Claim, t) (Observable, t))
+  -- υ : (Observable, t) -> ExprF (FreeT (ExprF t) (State Int) (Either (Claim, t) (Observable, t)))
   υ (O.Const {value=k}, _) = ConstF k
   υ (O.Observe {key=asset}, t) = exch' asset ccy t
   υ (O.Add (x, x'), t) = obs (x, t) `AddF` obs (x', t)
@@ -104,16 +120,16 @@ fapf ccy disc exch today = futu coalg . Left . (, today) where
   υ (O.Div (x, x'), t) = obs (x, t) `MulF` inv (obs (x', t))
 
   -- these operators are sugar for writing the futumorphism using `Free`, above
-  x * y = Impure $ MulF x y
-  x / y = Impure $ MulF x (inv y)
-  inv x = Impure $ PowF x (obs (O.Neg . O.Const $ one, today)) -- t for a `Const` is ignored
-  ind x y = Impure $ I_F x y
-  sup t x = Impure $ SupF t x
-  ex x t = Impure $ E_F x t
-  id = Impure . IdentF . show -- FIXME: this is resulting in quotes wrapped around identifier
-  claim = Pure . Left
-  obs = Pure . Right
-  disc' k t = Impure $ ProcF (show k) (disc k) t
+  x * y = FreeT . pure . Free $ MulF x y
+  x / y = FreeT . pure . Free $ MulF x (inv y)
+  inv x = FreeT . pure . Free $ PowF x (obs (O.Neg . O.Const $ one, today)) -- t for a `Const` is ignored
+  ind x y = FreeT . pure . Free $ I_F x y
+  sup t x = FreeT . pure . Free $ SupF t x
+  ex x t = FreeT . pure . Free $ E_F x t
+  id = FreeT . pure . Free . IdentF . show -- FIXME: this is resulting in quotes wrapped around identifier
+  claim = pure . Left
+  obs = pure . Right
+  disc' k t = FreeT . pure . Free $ ProcF (show k) (disc k) t
   exch' asset ccy t = if asset == ccy then ConstF one else ProcF (show asset) (exch asset ccy) t
   one = munit
   zero = aunit
