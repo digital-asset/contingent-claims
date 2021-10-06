@@ -267,9 +267,11 @@ testAmericanPut = script do
   remaining <- Lifecycle.expire observe25 remaining t
   remaining === option
 
-  remaining <- Lifecycle.exercise observe25 (bearer, payoff `Or` Zero) remaining t
+  -- Exercise `Anytime`
+  remaining <- Lifecycle.exercise observe25 (bearer, remaining.claim) remaining t
   remaining === Until (O.TimeGte $ afterTomorrow) (payoff `Or` Zero)
 
+  -- Exercise `Or`
   remaining <- Lifecycle.exercise observe25 (bearer, payoff) remaining t
   remaining === Until (O.TimeGte afterTomorrow) payoff
 
@@ -295,7 +297,7 @@ testAmericanPut = script do
   remaining === option
 
   -- You must first exercise the 'outer' `Anytime`, and then ...
-  remaining <- Lifecycle.exercise observe25 (bearer, payoff `Or` Zero) remaining t
+  remaining <- Lifecycle.exercise observe25 (bearer, remaining.claim) remaining t
   remaining === Until (O.TimeGte $ afterTomorrow) (payoff `Or` Zero)
 
   -- ... the inner `Or`.
