@@ -21,8 +21,8 @@ gbm μ σ = Process { dt = Ident μ, dW = Ident σ }
 
 data ExprF t x
   = ConstF Decimal
-  | IdentF Text
-  | ProcF { name : Text, process: Process t, filtration: t }
+  | IdentF t
+  | ProcF { name : Text, process: Process t, filtration : t }
   | SupF { lowerBound: t, tauIdx: x, rv : x } -- tauIdx is the subscript to τ
   | AddF { lhs: x, rhs: x }
   | NegF x
@@ -34,8 +34,8 @@ data ExprF t x
 
 data Expr t
   = Const Decimal
-  | Ident Text
-  | Proc { name : Text, process : Process t, filtration: t }
+  | Ident t
+  | Proc { name : Text, process : Process t, filtration : t }
   | Sup { lowerBound: t, tauIdx: Expr t, rv : Expr t }
   | Add (Expr t, Expr t)
   | Neg (Expr t)
@@ -78,15 +78,20 @@ distFutuT distM = fmap FreeT . distM . fmap g . runFreeT where
   g (Pure fa) = Pure <$> fa
   g (Free fFreeT) = fmap (Free . distFutuT distM) fFreeT
 
+data Vars t = Vars with t : t, counter : Int
 distCounter : Functor f => State Int (f a) -> f (State Int a)
 distCounter st = case runState st 0 of 
   (fa, i) -> fmap (\a -> state \j -> (a, i + j)) fa
+
+class IsIdentifier t where
+  -- | Produce a local identifier of type `t`, subindexed by `i`
+  localVar : Int -> t
 
 -- | Converts a `Claim` into the Fundamental Asset Pricing Formula. The ϵ
 -- expressions are defined as E1-E10 in the Eber/Peyton-Jones paper. If you
 -- squint you can almost see they correspond one-to-one to the formulae in our
 -- whitepaper.
-fapf : (Eq a, Show a, Show t)
+fapf : (Eq a, Show a, IsIdentifier t)
      => a
      -> (a -> Process t)
      -> (a -> a -> Process t)
@@ -108,12 +113,16 @@ fapf ccy disc exch today = gana (distFutuT distCounter) coalg . Left . (, today)
       (ind (claim (c , t)) (claim (c', t)) * claim (c', t))
       (ind (claim (c', t)) (claim (c , t)) * claim (c , t)) -- How to distinguish E6/E7?
   ϵ (When (TimeGte t') c, t) = disc' ccy t `MulF` ex (claim (c, t') / disc' ccy t') t
-  ϵ (Anytime (TimeGte t') c, t) = SupF t' τ $ disc' ccy t' * ex (claim (c, t') / disc' ccy t) t
+  ϵ (Anytime (TimeGte t') c, t) = SupF t' τ $ disc' ccy t' * e
     where τ = do 
-              i <- get
-              put $ i + 1
-              id $ show i
-  ϵ (Until (TimeGte t') c, t) = E_F (claim (c, t') * ind (id $ show t) (id $ show t')) t
+            i <- get
+            id $ localVar i
+          e = do
+            i <- get
+            let τ = localVar i
+            put (i + 1)
+            ex (claim (c, τ) / disc' ccy τ) t
+  ϵ (Until (TimeGte t') c, t) = claim (c, t) `MulF` ind (id t) (id t')
   ϵ _ = error "fapf: Stochastic 'Indicator = Lte' functions not supported yet"
   -- υ : (Observable, t) -> ExprF (FreeT (ExprF t) (State Int) (Either (Claim, t) (Observable, t)))
   υ (O.Const {value=k}, _) = ConstF k

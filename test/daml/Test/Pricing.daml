@@ -5,7 +5,7 @@ import ContingentClaims.FinancialClaim (european, american)
 import ContingentClaims.Observable qualified as O
 import ContingentClaims.Observation (Observation)
 import ContingentClaims.MathML qualified as MathML
-import ContingentClaims.Math.Stochastic (fapf, simplify, riskless, gbm, Expr(..), unitIdentity)
+import ContingentClaims.Math.Stochastic (fapf, {- simplify, -} riskless, gbm, Expr(..), unitIdentity, IsIdentifier(..))
 import Daml.Control.Recursion (cata)
 
 import Daml.Script
@@ -29,6 +29,10 @@ exch a a' = error $ "exch: " <> show a <> "/" <> show a'
 
 t = "t"  -- today
 t' = "T" -- maturity
+
+-- TODO: use XML instead of Text for nice output.
+instance IsIdentifier Text where
+  localVar i = "τ_" <> show i
 
 instance Additive (Expr t) where
   (+) = curry Add
