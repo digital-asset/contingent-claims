@@ -73,5 +73,10 @@ valueMargrabe = script do
 
 valueAmerican = script do
   let formula = fapf USD disc exch t $ american t t' (call APPL 142.50 USD)
+      s = Proc "APPL" (exch APPL USD)
+      k = Const 142.50
+      usd = Proc "USD" (disc USD)
+      τ = "τ_0"
   debug . show . MathML.presentation {- . simplify -} $ formula
-  multIdentity formula === Const 0.0
+  multIdentity formula === 
+    Sup t (Ident τ) (usd t * E (max (s τ - k) aunit * I (Ident τ, Ident t') / usd τ ) t)
