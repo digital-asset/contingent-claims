@@ -1,4 +1,4 @@
-module ContingentClaims.MathML (presentation) where
+module ContingentClaims.MathML (presentation, Xml, mi, msub) where -- TODO figure out api/exports
 
 import ContingentClaims.Math.Stochastic
 import Daml.Control.Recursion
@@ -36,6 +36,9 @@ class ToXml a where
 -- | Renders an `Expr`ession into MathML presentation format
   presentation : a -> Xml
 
+instance ToXml Xml where
+  presentation = identity
+
 instance ToXml Text where
   presentation s = mi s
 
@@ -51,7 +54,7 @@ instance ToXml t => ToXml (Expr t) where
     ConstF a -> [mn $ show a]
     ProcF name _f t -> [mi name `msub` presentation t]
     SupF t τ x -> (mo "Sup" `msub` mfenced "{" "}" bound ) :: mo "&ApplyFunction;" :: x.attribute
-                  where bound = presentation t :: mo "&le;" :: presentation τ :: []
+                  where bound = [presentation t, mo "&le;", presentation τ]
     IdentF t -> [presentation t]
     AddF x (Cofree _ (NegF x')) -> x.attribute ++ [mo "-"] ++ x'.attribute
     AddF x x' -> x.attribute ++ [mo "+"] ++ x'.attribute
