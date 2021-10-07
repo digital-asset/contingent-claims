@@ -117,6 +117,7 @@ instance Traversable (ExprF t) where
   sequence (I_F fa fa') = I_F <$> fa <*> fa'
   sequence (E_F fa t) = flip E_F t <$> fa
 
+{-# WARNING fapf "This is an experimental feature" #-}
 -- | Converts a `Claim` into the Fundamental Asset Pricing Formula. The ϵ
 -- expressions are defined as E1-E10 in the Eber/Peyton-Jones paper. If you
 -- squint you can almost see they correspond one-to-one to the formulae in our
