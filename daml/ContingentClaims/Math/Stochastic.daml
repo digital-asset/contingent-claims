@@ -1,19 +1,28 @@
 -- Mathematical expression, derived from `Claim`, used for pricing
 
-module ContingentClaims.Math.Stochastic where
+module ContingentClaims.Math.Stochastic (
+    Expr(..)
+  , ExprF(..)
+  , fapf
+  , gbm
+  , IsIdentifier(..)
+  , Process(..)
+  , riskless
+  , simplify
+  , unitIdentity
+) where
 
 import ContingentClaims.Claim
 import ContingentClaims.Observable (Inequality(..))
 import ContingentClaims.Observation qualified as O
-import Daml.Control.Recursion
-import Daml.Control.Arrow ((|||))
-import Daml.Control.Monad.State (evalState)
-import Daml.Control.Monad.MonadState
--- import Daml.Control.Monad.Free (FreeT(..), FreeF(..))
-import Prelude hiding (Time, sequence, mapA, const)
-import DA.Traversable
-import DA.Foldable
 import ContingentClaims.Util.Recursion (futuM)
+import DA.Foldable
+import Daml.Control.Arrow ((|||))
+import Daml.Control.Monad.MonadState
+import Daml.Control.Monad.State (evalState)
+import Daml.Control.Recursion
+import DA.Traversable
+import Prelude hiding (Time, sequence, mapA, const)
 
 data Process t = Process { dt : Expr t, dW: Expr t } deriving (Show, Eq)-- Geometric i.e. dX / X = α dt + β dW, so we have closed solns.
 -- TODO: make sum type and support Poisson
@@ -72,21 +81,6 @@ instance Corecursive (Expr t) (ExprF t) where
   embed (I_F x x') = I (x, x')
   embed E_F{..} = E with ..
 
-{-
-distFutuT
-  : (Functor f, Action m)
-  => (forall c. m (f c) -> f (m c))
-  -> FreeT f m (f a)
-  -> f (FreeT f m a)
-distFutuT distM = fmap FreeT . distM . fmap g . runFreeT where
-  g (Pure fa) = Pure <$> fa
-  g (Free fFreeT) = fmap (Free . distFutuT distM) fFreeT
-
-distCounter : Functor f => State Int (f a) -> f (State Int a)
-distCounter st = case runState st 0 of 
-  (fa, i) -> fmap (\a -> state \j -> (a, i + j)) fa
--}
-
 class IsIdentifier t where
   -- | Produce a local identifier of type `t`, subindexed by `i`
   localVar : Int -> t
@@ -126,11 +120,11 @@ fapf : (Eq a, Show a, IsIdentifier t)
      -> t
      -> Claim O.Observation t Decimal a -> Expr t
 fapf ccy disc exch today = flip evalState 0 . futuM coalg . Left . (, today) where
-  -- coalg : (Either (Claim, t) (Observable, t)) -> ExprF (FreeT ExprF (State Int) (Either (Claim, t) (Observable, t)))
+  -- coalg : (Either (Claim, t) (Observable, t)) -> State Int (ExprF t (Free (ExprF t) (Either (Claim, t) (Observation, t))))
   coalg = ϵ ||| υ
-  -- ϵ : (Claim, t) -> ExprF (FreeT (ExprF t) (State Int) (Either (Claim, t) (Observable, t)))
+  -- ϵ : (Claim, t) -> State Int (ExprF t (Free (ExprF t) (Claim, t)))
   ϵ (Zero, _) = pure $ ConstF zero
-  ϵ (One asset, t) = pure $ exch' asset ccy t -- assert ident
+  ϵ (One asset, t) = pure $ exch' asset ccy t
   ϵ (Give c, t) = pure . NegF . claim $ (c, t)
   ϵ (Scale k c, t) = pure $ obs (k, t) `MulF` claim (c, t)
   ϵ (And c c', t) = pure $ claim (c, t) `AddF` claim (c', t)
@@ -148,7 +142,7 @@ fapf ccy disc exch today = flip evalState 0 . futuM coalg . Left . (, today) whe
     return $ SupF t' τ $ disc' ccy t * ex (claim (c, τ) / disc' ccy τ) t
   ϵ (Until (TimeGte t') c, t) = pure $ claim (c, t) `MulF` ind (id t) (id t')
   ϵ _ = error "fapf: Stochastic 'Indicator = Lte' functions not supported yet"
-  -- υ : (Observable, t) -> ExprF (FreeT (ExprF t) (State Int) (Either (Claim, t) (Observable, t)))
+  -- υ : (Observable, t) -> State Int (ExprF t (Free (ExprF t) (Observation, t)))
   υ (O.Const {value=k}, _) = pure $ ConstF k
   υ (O.Observe {key=asset}, t) = pure $ exch' asset ccy t
   υ (O.Add (x, x'), t) = pure $ obs (x, t) `AddF` obs (x', t)
@@ -163,7 +157,7 @@ fapf ccy disc exch today = flip evalState 0 . futuM coalg . Left . (, today) whe
   ind x y =  Free $ I_F x y
   sup t i x =  Free $ SupF t i x
   ex x t =  Free $ E_F x t
-  id =  Free . IdentF -- FIXME: this is resulting in quotes wrapped around identifier
+  id =  Free . IdentF
   claim = Pure . Left
   obs = Pure . Right
   disc' k t =  Free $ ProcF (show k) (disc k) t
@@ -171,6 +165,7 @@ fapf ccy disc exch today = flip evalState 0 . futuM coalg . Left . (, today) whe
   one = munit
   zero = aunit
 
+{-# WARNING simplify "Experimental" #-}
 simplify : Expr t -> Expr t
 simplify = 
     cata unitIdentity 
