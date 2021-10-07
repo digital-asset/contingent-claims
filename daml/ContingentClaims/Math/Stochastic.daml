@@ -139,10 +139,13 @@ fapf ccy disc exch today = flip evalState 0 . futuM coalg . Left . (, today) whe
   ϵ (And c c', t) = pure $ claim (c, t) `AddF` claim (c', t)
   ϵ (Or c c', t) = pure $ AddF
       (ind (claim (c , t)) (claim (c', t)) * claim (c , t))
-      (ind (claim (c', t)) (claim (c , t)) * claim (c', t)) -- How to distinguish E6/E7?
-  ϵ (Cond (TimeGte t') c c', t) = pure $ AddF
-      (ind (claim (c , t)) (claim (c', t)) * claim (c', t))
-      (ind (claim (c', t)) (claim (c , t)) * claim (c , t)) -- How to distinguish E6/E7?
+      (ind (claim (c', t)) (claim (c , t)) * claim (c', t))
+  ϵ (Cond (TimeGte t') c c', t) = pure $ AddF --FIXME: both conditions are true when t == t'
+      (ind (id t) (id t') * claim (c, t))
+      (ind (id t') (id t) * claim (c' ,t))
+  ϵ (Cond (Lte (x, x')) c c', t) = pure $ AddF
+      (ind (obs (x, t)) (obs (x', t)) * claim (c, t))
+      (ind (obs (x', t)) (obs (x, t)) * claim (c', t))
   ϵ (When (TimeGte t') c, t) = pure $ disc' ccy t `MulF` ex (claim (c, t') / disc' ccy t') t
   ϵ (Anytime (TimeGte t') c, t) = do
     i <- get
@@ -174,7 +177,7 @@ fapf ccy disc exch today = flip evalState 0 . futuM coalg . Left . (, today) whe
   one = munit
   zero = aunit
 
-{-# WARNING simplify "Experimental" #-}
+{-# WARNING simplify "This is an experimental feature" #-}
 -- | This is meant to be a function that algebraically simplifies the FAPF by
 -- 1) using simple identities and ring laws
 -- 2) change of numeraire technique.
@@ -189,7 +192,6 @@ simplify =
   . cata distAdd
   . ana commuteLeft 
   . cata mulBeforeAdd
-
 
 {- Functions below here are helpers for simplifying the expression tree, used mainly in `simplify` -}
 
