@@ -33,7 +33,6 @@ exch a a' = error $ "exch: " <> show a <> "/" <> show a'
 t = MathML.mi "t"  -- today
 t' = MathML.mi "T" -- maturity
 
--- TODO: use XML instead of Text for nice output.
 instance IsIdentifier MathML.Xml where
   localVar i = "τ" `sub` show i
 
@@ -89,7 +88,7 @@ valueAmerican = script do
       τ = "τ" `sub` show 0
       expect = Sup t τ (usd t * E (max (s τ - k) aunit * I (Ident τ, Ident t') / usd τ ) t)
   print formula expect
-  multIdentity formula =/= expect
+  multIdentity formula === expect
     
 
 -- Check to see that the subscript numbering works
