@@ -24,13 +24,20 @@ import Daml.Control.Recursion
 import DA.Traversable
 import Prelude hiding (Time, sequence, mapA, const)
 
+-- | A stochastic processes. Currently this represents GBM - eventually we
+-- wish to support other processes such as Levy.
 data Process t = Process { dt : Expr t, dW: Expr t } deriving (Show, Eq)-- Geometric i.e. dX / X = α dt + β dW, so we have closed solns.
 -- TODO: make sum type and support Poisson
 
+-- | Helper function to create a riskless process `dS = r dt`
 riskless r = Process { dt = Ident r, dW = Const 0.0 }
 
+-- | Helper function to create a geometric BM `dS = μ dt + σ dW`
 gbm μ σ = Process { dt = Ident μ, dW = Ident σ }
 
+-- | Base functor for `Expr`. Note that this is ADT is re-used in a couple of
+-- places e.g. `Process`, where however not every choice is legal and will lead to
+-- a partial evaluator.
 data ExprF t x
   = ConstF Decimal
   | IdentF t
@@ -44,6 +51,7 @@ data ExprF t x
   | E_F { rv : x, filtration: t }
   deriving (Functor)
 
+-- | Represents an expression of t-adapted stochastic processes
 data Expr t
   = Const Decimal
   | Ident t
@@ -166,6 +174,9 @@ fapf ccy disc exch today = flip evalState 0 . futuM coalg . Left . (, today) whe
   zero = aunit
 
 {-# WARNING simplify "Experimental" #-}
+-- | This is meant to be a function that algebraically simplifies the FAPF by
+-- 1) using simple identities and ring laws
+-- 2) change of numeraire technique.
 simplify : Expr t -> Expr t
 simplify = 
     cata unitIdentity 
@@ -177,6 +188,9 @@ simplify =
   . cata distAdd
   . ana commuteLeft 
   . cata mulBeforeAdd
+
+
+{- Functions below here are helpers for simplifying the expression tree, used mainly in `simplify` -}
 
 zeroIdentity : ExprF t (Expr t) -> Expr t
 zeroIdentity (MulF (Const 0.0) x) = Const 0.0
