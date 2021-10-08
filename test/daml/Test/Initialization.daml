@@ -12,7 +12,7 @@ import DA.Date (date, Month(..))
 import DA.Time (time)
 import ContingentClaims.Claim
 import Test.FinancialContract
-import ContingentClaims.FinancialClaim
+import ContingentClaims.Financial
 import Test.Currency
 
 createContracts = script do

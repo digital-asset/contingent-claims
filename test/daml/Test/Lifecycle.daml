@@ -10,7 +10,7 @@
 module Test.Lifecycle where
 
 import ContingentClaims.Claim hiding (C, F)
-import ContingentClaims.FinancialClaim (fixed, european, american)
+import ContingentClaims.Financial (fixed, european, american)
 import ContingentClaims.Lifecycle qualified as Lifecycle
 import ContingentClaims.Observable (at)
 import ContingentClaims.Observable qualified as O

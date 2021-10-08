@@ -3,7 +3,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 --
 
-module ContingentClaims.FinancialClaim where
+module ContingentClaims.Financial where
 
 import Prelude hiding (and, or, (<=))
 import ContingentClaims.Claim

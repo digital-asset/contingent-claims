@@ -1,7 +1,7 @@
 module Test.Pricing where
 
 import ContingentClaims.Claim
-import ContingentClaims.FinancialClaim (european, american)
+import ContingentClaims.Financial (european, american)
 import ContingentClaims.Observable qualified as O
 import ContingentClaims.Observation (Observation)
 import ContingentClaims.MathML qualified as MathML

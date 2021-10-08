@@ -12,7 +12,7 @@
 module Test.Templating where
 
 import Daml.Script
-import ContingentClaims.FinancialClaim
+import ContingentClaims.Financial
 import ContingentClaims.Observable qualified as O
 import ContingentClaims.Observation (Observation(..))
 import ContingentClaims.Claim

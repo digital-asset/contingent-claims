@@ -13,7 +13,7 @@ import ContingentClaims.Claim hiding (C, F)
 import ContingentClaims.Observable qualified as O
 import ContingentClaims.Observation qualified as O
 import ContingentClaims.Observation (Observation)
-import ContingentClaims.FinancialClaim
+import ContingentClaims.Financial
 import DA.Assert ((===))
 import DA.Date
 import Daml.Control.Recursion
