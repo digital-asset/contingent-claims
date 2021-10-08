@@ -1,11 +1,11 @@
-module ContingentClaims.MathML (presentation, Xml, mi, msub) where -- TODO figure out api/exports
+module ContingentClaims.MathML (presentation) where
 
 import ContingentClaims.Math.Stochastic
 import Daml.Control.Recursion
 
 import DA.Map (Map, toList, insert)
-import DA.Text (intercalate)
-import DA.Foldable (foldMap)
+import DA.Text (intercalate, wordsBy)
+import DA.Foldable (foldMap, foldr1)
 import DA.Date (toGregorian)
 import Prelude hiding (null, elem)
 
@@ -36,11 +36,9 @@ class ToXml a where
 -- | Renders an `Expr`ession into MathML presentation format
   presentation : a -> Xml
 
-instance ToXml Xml where
-  presentation = identity
-
+-- | Supports LaTeX-style use of underscore for subscript
 instance ToXml Text where
-  presentation s = mi s
+  presentation = foldr1 msub . fmap mi . wordsBy (\case "_" -> True; _ -> False)
 
 instance ToXml Date where
   presentation d = case toGregorian d of

@@ -19,22 +19,19 @@ call s k a = Scale (O.observe s - O.pure k) $ One a
 
 margrabe s1 s2 a = Scale (O.observe s1 - O.observe s2) $ One a
 
--- | subscript
-sub x s = MathML.mi x `MathML.msub` MathML.mi s
-
-disc USD = riskless $ "r" `sub` show USD
-disc EUR = riskless $ "r" `sub` show EUR
+disc USD = riskless "r_USD"
+disc EUR = riskless "r_EUR"
 disc other = error $ "disc: " <> show other
 
-exch AMZN _ = gbm ("μ" `sub` show AMZN) ("σ" `sub` show AMZN)
-exch APPL _ = gbm ("μ" `sub` show APPL) ("σ" `sub` show APPL)
+exch AMZN _ = gbm "μ_AMZN" "σ_AMZN"
+exch APPL _ = gbm "μ_APPL" "σ_APPL"
 exch a a' = error $ "exch: " <> show a <> "/" <> show a'
 
-t = MathML.mi "t"  -- today
-t' = MathML.mi "T" -- maturity
+t = "t"  -- today
+t' = "T" -- maturity
 
-instance IsIdentifier MathML.Xml where
-  localVar i = "τ" `sub` show i
+instance IsIdentifier Text where
+  localVar i = "τ_" <> show i
 
 instance Additive (Expr t) where
   (+) = curry Add
@@ -85,7 +82,7 @@ valueAmerican = script do
       s = Proc "APPL" (exch APPL USD)
       k = Const 142.50
       usd = Proc "USD" (disc USD)
-      τ = "τ" `sub` show 0
+      τ = "τ_0"
       expect = Sup t τ (usd t * E (max (s τ - k) aunit * I (Ident τ, Ident t') / usd τ ) t)
   print formula expect
   multIdentity formula === expect
@@ -93,10 +90,10 @@ valueAmerican = script do
 
 -- Check to see that the subscript numbering works
 testMonadicBind = script do
-  let τ₀ = "τ" `sub` show 0
-      τ₁ = "τ" `sub` show 1
-      t₀ = "t" `sub` show 0
-      t₁ = "t" `sub` show 1
+  let τ₀ = "τ_0"
+      τ₁ = "τ_1"
+      t₀ = "t_0"
+      t₁ = "t_1"
       usd = Proc "USD" (disc USD)
       formula = fapf USD disc exch t $ Anytime (O.TimeGte t₀) (Anytime (O.TimeGte t₁) (One USD))
       expect = Sup t₀ τ₀ (usd t * E (Sup t₁ τ₁ (usd τ₀ * E (munit / usd τ₁) τ₀) / usd τ₀) t) -- note the innermost 1/USD_τ₁ is mult identity
