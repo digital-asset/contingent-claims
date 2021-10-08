@@ -164,6 +164,20 @@ The return value, `lifecycleResult`, will contain both the remaining tree after 
 
 You may wonder why we've separated the settlement procedure from the lifecycling function. The reason is that we can't assume that settlement will happen on-chain; if it does, that is great, as we can embed this call into a template choice, and lifecycle & settle atomically. However, in the case where settlement must happen off-chain, there's no way to to do this in one step. This design supports both choices.
 
+# Pricing (Experimental)
+
+This is an **experimental** feature. Expect breaking changes.
+
+The `Daml.ContigentClaims.Math.Stochastic` module can be used for valuation. There is a `fapf` function which is used to derive a _fundamental asset pricing formula_ for an arbitrary `Claim` tree. The resulting AST is represented by `Expr`, but can be rendered as XML/MathML with the provided `MathML.presentation` function, for display in a web browser. See the `Test/Pricing` module for examples. Here is a sample rendering of a margrabe option:
+
+```html
+<math display="block"><msub><mi>USD</mi><mi>t</mi></msub><mo>⁢</mo><mo>𝔼</mo><mo>⁡</mo><mrow><mo fence="true">[</mo><mrow><mo fence="true">(</mo><msub><mo>I</mo><mrow><msub><mi>AMZN</mi><mi>T</mi></msub><mo>-</mo><msub><mi>APPL</mi><mi>T</mi></msub><mo>≤</mo><mn>0.0</mn></mrow></msub><mo>⁢</mo><mrow><mo fence="true">(</mo><msub><mi>AMZN</mi><mi>T</mi></msub><mo>-</mo><msub><mi>APPL</mi><mi>T</mi></msub><mo fence="true">)</mo></mrow><mo>+</mo><msub><mo>I</mo><mrow><mn>0.0</mn><mo>≤</mo><msub><mi>AMZN</mi><mi>T</mi></msub><mo>-</mo><msub><mi>APPL</mi><mi>T</mi></msub></mrow></msub><mo>×</mo><mn>0.0</mn><mo fence="true">)</mo></mrow><mo>⁢</mo><msup><mrow><msub><mi>USD</mi><mi>T</mi></msub></mrow><mrow><mo>-</mo><mn>1.0</mn></mrow></msup><mo>|</mo><msub><mo mathvariant="script">F</mo><mi>t</mi></msub><mo fence="true">]</mo></mrow></math>
+```
+
+You can cut-and-paste this into a web page in 'developer mode' in any modern browser.
+
+We plan to write a white-paper explaining our methodology in more detail (forthcoming).
+
 # References
 
 <a id="1">[1]</a>
