@@ -10,9 +10,7 @@
 module Test.Util where
 
 import ContingentClaims.Claim hiding (C, F)
-import ContingentClaims.Observable qualified as O
 import ContingentClaims.Observation qualified as O
-import ContingentClaims.Observation (Observation)
 import ContingentClaims.Financial
 import DA.Assert ((===))
 import DA.Date
@@ -21,10 +19,9 @@ import Daml.Script
 import Prelude hiding (enumerate, length, or, and)
 import ContingentClaims.Util (enumerateFrom, expiry, payoffs)
 
-type C = Claim Observation Date Decimal Text
-type F = ClaimF Observation Date Decimal Text
+type C = Claim Date Decimal Text
+type F = ClaimF Date Decimal Text
 
-deriving instance Show C
 deriving instance (Show a, Show (f (Cofree f a))) => Show (Cofree f a)
 deriving instance (Eq a, Eq (f (Cofree f a))) => Eq (Cofree f a)
 deriving instance Show (F (Cofree F Int))

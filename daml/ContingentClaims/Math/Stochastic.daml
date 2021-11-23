@@ -13,7 +13,6 @@ module ContingentClaims.Math.Stochastic (
 ) where
 
 import ContingentClaims.Claim
-import ContingentClaims.Observable (Inequality(..))
 import ContingentClaims.Observation qualified as O
 import ContingentClaims.Util.Recursion (futuM)
 import DA.Foldable
@@ -127,7 +126,7 @@ fapf : (Eq a, Show a, IsIdentifier t)
      -> (a -> Process t)
      -> (a -> a -> Process t)
      -> t
-     -> Claim O.Observation t Decimal a -> Expr t
+     -> Claim t Decimal a -> Expr t
 fapf ccy disc exch today = flip evalState 0 . futuM coalg . Left . (, today) where
   -- coalg : (Either (Claim, t) (Observable, t)) -> State Int (ExprF t (Free (ExprF t) (Either (Claim, t) (Observation, t))))
   coalg = ϵ ||| υ

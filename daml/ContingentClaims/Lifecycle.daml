@@ -16,9 +16,8 @@ module ContingentClaims.Lifecycle (
   , Result(..)
 ) where
 
-import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..))
-import ContingentClaims.Observation (Observation)
-import ContingentClaims.Observable (Interpret(..))
+import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..), compare)
+import ContingentClaims.Observation qualified as Observation
 import ContingentClaims.Util.Recursion (apoCataM)
 import ContingentClaims.Util (pruneZeros')
 import Daml.Control.Recursion (project, embed, distApo)
@@ -30,10 +29,8 @@ import DA.Traversable (sequence)
 import DA.Foldable (sequence_)
 import Prelude hiding (sequence, mapA, exercise, compare)
 
-type C a = Claim Observation Date Decimal a
-type F a = ClaimF Observation Date Decimal a
-
-deriving instance Eq a => Eq (C a)
+type C a = Claim Date Decimal a
+type F a = ClaimF Date Decimal a
 
 -- | Returned from a `lifecycle` operation.
 data Result a = Result with
@@ -107,7 +104,7 @@ lifecycle' _ (qty, One asset) = do
 lifecycle' _ (qty, Give c) =
   pure . GiveF $ Right (-qty, c)
 lifecycle' spot (qty, Scale obs c) = do
-  k <- lift $ eval spot obs
+  k <- lift $ Observation.eval spot obs
   pure . ScaleF obs $ Right (k * qty, c)
 lifecycle' _ (_, c@(Or _ _)) = pure $ Left <$> project c
 lifecycle' _ (_, c@(Anytime _ _)) = pure $ Left <$> project c

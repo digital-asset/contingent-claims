@@ -6,11 +6,10 @@
 module ContingentClaims.Claim where
 
 import Prelude hiding (or, and)
+import Daml.Control.Arrow (Kleisli(..), arr)
 import Daml.Control.Recursion
-import ContingentClaims.Claim.Serializable qualified as Serialized
 import ContingentClaims.Observation (Observation)
-import ContingentClaims.Observable (Inequality(..))
-import ContingentClaims.Observable qualified as Observable
+import ContingentClaims.Observation qualified as Observation
 import DA.Foldable (Foldable(..))
 import DA.Traversable (Traversable(..))
 
@@ -23,39 +22,39 @@ type F = ClaimF
 -- See [quickstart](../QUICKSTART.md) for detailed explanation.
 -- In Petyon-Jones' paper, this is called 'Contract'.
 -- We renamed it to avoid ambiguity.
--- * `f`, `t` and `x` respectively correspond to the `Observable`, it's input type and the resulting output type.
+-- * `t` and `x` respectively correspond to the `Observation`s, input type and the resulting output type.
 -- * `a` is the representation of an asset, e.g. a `Text` ISIN code.
-data Claim f t x a
+data Claim t x a
   = Zero
       -- ^ Represents an absence of claims.
   | One a
       -- ^ The bearer acquires one unit of `a` *immediately*.
-  | Give (Claim f t x a)
+  | Give (Claim t x a)
       -- ^ The obligations of the bearer and issuer are revesed.
-  | And with lhs: Claim f t x a, rhs: Claim f t x a
+  | And with lhs: Claim t x a, rhs: Claim t x a
       -- ^ Used to combine multiple rights together.
-  | Or with lhs: Claim f t x a, rhs: Claim f t x a
+  | Or with lhs: Claim t x a, rhs: Claim t x a
       -- ^ Gives the bearer the right to choose between two claims.
-  | Cond with predicate: Inequality f t x a, success: Claim f t x a, failure: Claim f t x a --TODO rename predicate -> `lte` or `inequality`
+  | Cond with predicate: Inequality t x a, success: Claim t x a, failure: Claim t x a
       -- ^ Gives the bearer the right to the first claim if `predicate` is true, else the second claim.
-  | Scale with k: f t x a, claim: Claim f t x a
+  | Scale with k: Observation t x a, claim: Claim t x a
       -- ^ Multiplies the `claim` by `k` (which can be non-deterministic).
-  | When with predicate: Inequality f t x a, claim: Claim f t x a
+  | When with predicate: Inequality t x a, claim: Claim t x a
       -- ^ Defers the acquisition of `claim` until *the first instant* that `predicate` is true.
-  | Anytime with predicate: Inequality f t x a, claim: Claim f t x a
+  | Anytime with predicate: Inequality t x a, claim: Claim t x a
       -- ^ Like `When`, but valid any time the predicate is true (not just infinium).
-  | Until with predicate: Inequality f t x a, claim: Claim f t x a
+  | Until with predicate: Inequality t x a, claim: Claim t x a
       -- ^ Expires said claim on the *first instant* that `predicate` is true.
+  deriving (Show, Eq)
 
 -- | Replace parameters in an `Claim` with actual values.
-mapParams :  Observable.Interpret f
-          => (t -> i)
+mapParams :  (t -> i)
           -> (i -> t)
           -> (a -> a')
           -> (x -> x')
-          -> Claim f i x a -> Claim f t x' a'
+          -> Claim i x a -> Claim t x' a'
 mapParams ft' ft fk fv =
-  let f = Observable.mapParams ft' fk fv
+  let f = Observation.mapParams ft' fk fv
   in cata \case
     ZeroF -> Zero
     OneF a -> One $ fk a
@@ -72,66 +71,21 @@ mapParams ft' ft fk fv =
     UntilF (Lte (x, x')) c -> Until (Lte (f x, f x')) c
     UntilF (TimeGte t) c -> Until (TimeGte (ft t)) c
 
--- | Converts a `Serialized.Claim` read from ledger, to a more general `Claim`, for use with `Daml.Control.Recursion`.
-deserialize : Serialized.Claim t x a -> Claim Observation t x a
-deserialize = ana deserialize'
-
--- | F-algebra for `deserialize`; it can be composed in unfolds.
-deserialize' : Serialized.Claim t x a -> ClaimF Observation t x a (Serialized.Claim t x a)
-deserialize' Serialized.Zero = ZeroF
-deserialize' (Serialized.One a) = OneF a
-deserialize' (Serialized.Give c) = GiveF c
-deserialize' (Serialized.And [c]) = deserialize'  c
-deserialize' (Serialized.And (c :: cs)) = AndF c (Serialized.And cs)
-deserialize' (Serialized.And []) = error "deserialize: Malformed `And` (should have at least two elements)"
-deserialize' (Serialized.Or c c') = OrF c c'
-deserialize' (Serialized.Cond p c c') = CondF (deserializeInequality p) c c'
-deserialize' (Serialized.Scale k c) = ScaleF k c
-deserialize' (Serialized.When p c) = WhenF (deserializeInequality p) c
-deserialize' (Serialized.Anytime p c) = AnytimeF (deserializeInequality p) c
-deserialize' (Serialized.Until p c) = UntilF (deserializeInequality p) c
-
-deserializeInequality : Serialized.Inequality t x a -> Inequality Observation t x a
-deserializeInequality (Serialized.TimeGte t) = TimeGte t
-deserializeInequality (Serialized.Lte (f, f')) = Lte (f, f')
-
-serializeInequality : Inequality Observation t x a -> Serialized.Inequality t x a
-serializeInequality (TimeGte t) = Serialized.TimeGte t
-serializeInequality (Lte (f, f')) = Serialized.Lte (f, f')
-
--- | Converts a `Claim` into a `Serializable.Claim`, so it can be written to the ledger.
-serialize : Claim Observation t x a -> Serialized.Claim t x a
-serialize = histo serialize'
-
--- | F-coalgebra for `serialize`; it can be composed with other folds.
-serialize' : ClaimF Observation t x a (Cofree (ClaimF Observation t x a) (Serialized.Claim t x a)) -> Serialized.Claim t x a 
-serialize' ZeroF = Serialized.Zero
-serialize' (OneF a) = Serialized.One a
-serialize' (GiveF c) = Serialized.Give c.attribute
-serialize' (AndF c (Cofree (Serialized.And cs) _) ) = Serialized.And $ c.attribute :: cs
-serialize' (AndF c c') = Serialized.And [c.attribute, c'.attribute]
-serialize' (OrF c c') = Serialized.Or c.attribute c'.attribute
-serialize' (CondF k c c') = Serialized.Cond (serializeInequality k) c.attribute c'.attribute
-serialize' (ScaleF k c) = Serialized.Scale k c.attribute
-serialize' (WhenF p c) = Serialized.When (serializeInequality p) c.attribute
-serialize' (AnytimeF p c) = Serialized.Anytime (serializeInequality p) c.attribute
-serialize' (UntilF p c) = Serialized.Until (serializeInequality p) c.attribute
-
 -- | Unfixed version of `Claim`, for use with `Daml.Control.Recursion`.
-data ClaimF f t x a b
+data ClaimF t x a b
   = ZeroF
   | OneF a
   | GiveF b
   | AndF with lhs: b, rhs: b
   | OrF with lhs: b, rhs: b
-  | CondF with predicate: Inequality f t x a, success: b, failure: b
-  | ScaleF with k: f t x a, claim: b
-  | WhenF with predicate: Inequality f t x a, claim: b
-  | AnytimeF with predicate: Inequality f t x a, claim: b
-  | UntilF with predicate: Inequality f t x a, claim: b
+  | CondF with predicate: Inequality t x a, success: b, failure: b
+  | ScaleF with k: Observation t x a, claim: b
+  | WhenF with predicate: Inequality t x a, claim: b
+  | AnytimeF with predicate: Inequality t x a, claim: b
+  | UntilF with predicate: Inequality t x a, claim: b
   deriving (Functor)
 
-instance Recursive (Claim f t x a) (ClaimF f t x a) where
+instance Recursive (Claim t x a) (ClaimF t x a) where
   project Zero = ZeroF
   project (One a) = OneF a
   project (Give c) = GiveF c
@@ -143,7 +97,7 @@ instance Recursive (Claim f t x a) (ClaimF f t x a) where
   project (Anytime p c) = AnytimeF p c
   project (Until p c) = UntilF p c
 
-instance Corecursive (Claim f t x a) (ClaimF f t x a) where
+instance Corecursive (Claim t x a) (ClaimF t x a) where
   embed ZeroF = Zero
   embed (OneF x) = One x
   embed (GiveF a) = Give a
@@ -155,7 +109,7 @@ instance Corecursive (Claim f t x a) (ClaimF f t x a) where
   embed (AnytimeF p c) = Anytime p c
   embed (UntilF p c) = Until p c
 
-instance Foldable (ClaimF f t x a) where
+instance Foldable (ClaimF t x a) where
   foldr _ seed ZeroF = seed
   foldr _ seed (OneF _) = seed
   foldr f seed (GiveF c) = f c seed
@@ -167,7 +121,7 @@ instance Foldable (ClaimF f t x a) where
   foldr f seed (AnytimeF _ c) = f c seed
   foldr f seed (UntilF _ c) = f c seed
 
-instance Traversable (ClaimF g t x b) where
+instance Traversable (ClaimF t x b) where
   sequence ZeroF = pure ZeroF
   sequence (OneF asset) = pure $ OneF asset
   sequence (GiveF fa) = GiveF <$> fa
@@ -178,3 +132,23 @@ instance Traversable (ClaimF g t x b) where
   sequence (CondF p fa fa') = CondF p <$> fa <*> fa'
   sequence (AnytimeF p fa) = AnytimeF p <$> fa
   sequence (UntilF p fa) = UntilF p <$> fa
+
+-- Inequality --
+
+-- | This is either `time ≥ t | f t x ≤ f t x`
+data Inequality t x a = TimeGte t | Lte (Observation t x a, Observation t x a) 
+     deriving (Eq, Show)
+
+-- | Observable that is true on the passed time. i.e. identity for the time observable.
+at : t -> Inequality t x a
+at t = TimeGte t
+
+infix 4 <=
+-- | `import Prelude hiding ((<=))` in order to use this.
+(<=) : Observation t x a -> Observation t x a -> Inequality t x a
+(<=) = curry Lte
+
+-- | Reify the `Observable.Inequality` into a Kleisli function.
+compare : (Ord t, Ord x, Number x, Divisible x, Action m) => (a -> t -> m x) -> Inequality t x a -> Kleisli m t Bool
+compare doObserve (Lte (f, f')) = liftA2 (Prelude.<=) (Observation.eval doObserve f) (Observation.eval doObserve f')
+compare _ (TimeGte t) = arr (>= t)

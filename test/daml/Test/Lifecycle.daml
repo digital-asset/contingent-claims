@@ -12,9 +12,6 @@ module Test.Lifecycle where
 import ContingentClaims.Claim hiding (C, F)
 import ContingentClaims.Financial (fixed, european, american)
 import ContingentClaims.Lifecycle qualified as Lifecycle
-import ContingentClaims.Observable (at)
-import ContingentClaims.Observable qualified as O
-import ContingentClaims.Observation (Observation())
 import ContingentClaims.Observation qualified as O
 import ContingentClaims.Util.Recursion
 import DA.Action ((>=>))
@@ -27,12 +24,8 @@ import Daml.Control.Recursion
 import Daml.Script
 import Prelude hiding (enumerate, length, or, and)
 
-type C = Claim Observation Date Decimal Text
-type F = ClaimF Observation Date Decimal Text
-
-deriving instance Show C
-deriving instance Show a => Show (F a)
-deriving instance Eq a => Eq (F a)
+type C = Claim Date Decimal Text
+type F = ClaimF Date Decimal Text
 
 [a,b,c] = ["a","b","c"]
 today = date 1970 Jan 1
@@ -40,8 +33,8 @@ tomorrow = succ today
 afterTomorrow = succ tomorrow
 two : O.Observation Date Decimal Text = O.pure 2.0
 observe25: Text -> Date -> Script Decimal = const . const . pure $ 25.0
-false = O.TimeGte $ date 3000 Jan 1
-true = O.TimeGte $ date 1970 Jan 1
+false = TimeGte $ date 3000 Jan 1
+true = TimeGte $ date 1970 Jan 1
 getDate = toDateUTC <$> getTime
 setDate = setTime . noon where noon d = time d 12 0 0
 
@@ -78,7 +71,7 @@ testAcquire = script do
   res === (When (O.TimeGte today) (When (at tomorrow) (One a)) )
 -}
 
-  res <- f (When (O.TimeGte today) (When (O.TimeGte tomorrow) (One a)) ) tomorrow
+  res <- f (When (TimeGte today) (When (TimeGte tomorrow) (One a)) ) tomorrow
   res === acquired a
 
   res <- f (One a `Or` One b) today
@@ -269,11 +262,11 @@ testAmericanPut = script do
 
   -- Exercise `Anytime`
   remaining <- Lifecycle.exercise observe25 (bearer, remaining.claim) remaining t
-  remaining === Until (O.TimeGte $ afterTomorrow) (payoff `Or` Zero)
+  remaining === Until (TimeGte $ afterTomorrow) (payoff `Or` Zero)
 
   -- Exercise `Or`
   remaining <- Lifecycle.exercise observe25 (bearer, payoff) remaining t
-  remaining === Until (O.TimeGte afterTomorrow) payoff
+  remaining === Until (TimeGte afterTomorrow) payoff
 
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 remaining t
   remaining === Zero
@@ -298,11 +291,11 @@ testAmericanPut = script do
 
   -- You must first exercise the 'outer' `Anytime`, and then ...
   remaining <- Lifecycle.exercise observe25 (bearer, remaining.claim) remaining t
-  remaining === Until (O.TimeGte $ afterTomorrow) (payoff `Or` Zero)
+  remaining === Until (TimeGte $ afterTomorrow) (payoff `Or` Zero)
 
   -- ... the inner `Or`.
   remaining <- Lifecycle.exercise observe25 (bearer, payoff) remaining t
-  remaining === Until (O.TimeGte $ afterTomorrow) payoff
+  remaining === Until (TimeGte $ afterTomorrow) payoff
 
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 remaining t
   remaining === Zero
