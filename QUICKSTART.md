@@ -66,7 +66,7 @@ zcb maturity principal asset =
 Here we've just wrapped our expression from the previous section in a function `zcb`, that we can reuse to build the `fixed`-rate bond:
 
 ```Haskell
-fixed : Decimal -> Decimal -> a -> [t] -> Claim a
+fixed : Decimal -> Decimal -> a -> [Date] -> Claim a
 fixed principal coupon asset [] = Zero
 fixed principal coupon asset [maturity] = zcb maturity coupon asset `And` zcb maturity principal asset
 fixed principal coupon asset (t :: ts) = zcb t coupon asset `And` fixed principal coupon asset ts
@@ -92,36 +92,21 @@ Another major advantage of this approach is its extensibility. Unlike a traditio
 
 # Concerning Type Parameters
 
-The curious reader may have noticed that the signature we gave for `data Claim` is not quite what is in the library, where we have `data Claim f t a`. In our examples, we have specialised this to `type Claim' f t a = Claim (->) Date a`. We'll briefly explain the need for this generality, and the three type parameters:
-
-## The Effect Parameter
-
-`f : * -> * -> *` is a binary type constructor, and in our examples we used `f t a = (->) t a`, which you should think of as `t -> a`. This allows us to express time-dependent values in expressions involving `Scale` or `When`. Although using `(->)` is great for learning the library, it has two main limitations. First, it is not serializable, which means you can't store it in a contract on-ledger; and second, because functions in Daml are pure, it means we can't really have unknown (future) quantities. So we *could* write something like:
-
-```Haskell
-price : Date -> Decimal
-price t = case toGregorian t of
-   (2021, May, 4) -> 121.50
-   (2021, May, 5) -> 121.00
-   (2021, May, 6) -> 123.35
-   anotherDate -> error "No stock price for this date"
-```
-
-to use as an `(->) Date Decimal`. But as you can see, this isn't practical: we'd need to enumerate all future stock prices.
-
-The solution is to read this data from a contract on the ledger. In Daml, the effect of reading (or writing) from the ledger is encapsulated by the `data Update` type. So what we would want is something like `f = (-> Update _)`. Unfortunately this still doesn't solve the serializability issue.
-
-To work around this, the typeclass [Observable](./daml/ContingentClaims/Observable.daml) abstracts these details away. We provide a concrete implementation that is both serializable and effectful, in [`Serializable/Claim.daml`](./daml/ContingentClaims/Serializable/Claim.daml). It uses `Observation` as a concrete, serializable implementation of `Observable`.
+The curious reader may have noticed that the signature we gave for `data Claim` is not quite what is in the library, where we have `data Claim t x a`. In our examples, we have specialised this to `type Claim' t x a = Claim Date Decimal a`. Parametrising these variables allows us to reason about `Observation`s that appear in`Claim`s as function-like objects. The main use of this is to create claims with 'placeholders' for actual parameters, that can later be 'filled in' by mapping over them (`mapParams`).
 
 ## The Time Parameter
 
-`t` is used to represent the input argument to `f`, and above we used `Date` for this purpose. The reason this has been left parametrised is to be able to distinguish different calendar and day count conventions at the type level. This is quite a technical topic, but it suffices to know that for financial calculations, interest is not always accrued the same way, nor is settlement possible every day, as this depends on local jurisdictions or market conventions. Having different types makes this explicit at the instrument level.
+`t` is used to represent the first input argument to an `Observation`, and above we used `Date` for this purpose. One reason this has been left parametrised is to be able to distinguish different calendar and day count conventions at the type level. This is quite a technical topic, but it suffices to know that for financial calculations, interest is not always accrued the same way, nor is settlement possible every day, as this depends on local jurisdictions or market conventions. Having different types makes this explicit at the instrument level.
 
-One use of this is having instruments 'templates' expressed with time as an ordinal value, representing e.g. days from issue, which can then be re-used to list at different dates. Think for example, of listed futures or options which are listed at regular intervals.
+Another use for this is expressing time as an ordinal values, representing e.g. days from issue. Such a `Claim` can be used repeatedly to list at different dates, but with the same durations. Think for example, of series of listed futures or options which are issued with quarterly/monthly maturities - their duration is about the same, but they are issued on different dates.
 
 ## The Asset Parameter
 
-`a` as we already explained, is the type used to represent assets in our program. Keeping this generic means the library can be used with any asset representation. For example, you could use that in [lib-finance](https://github.com/digital-asset/lib-finance), but are not forced to do so.
+`a` as we already explained, is the type used to represent assets in our program. This is the second parameter to `Observation`. Keeping this generic means the library can be used with any asset representation. For example, you could use that in [lib-finance](https://github.com/digital-asset/lib-finance), but are not forced to do so.
+
+## The Value Parameter
+
+`x` is the 'output' type of an `Observation`, but it can also serve as input when defining a constant observation using e.g. `Observation.pure 10.08`.
 
 # Lifecycling
 
