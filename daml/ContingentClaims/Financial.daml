@@ -33,11 +33,11 @@ zcb maturity principal ccy = forward maturity (O.pure principal) (One ccy)
 
 -- | A floating rate bond. The first two arguments are `Observable`s.
 floating : Observation t x ccy -> Observation t x ccy -> ccy -> [t] -> Claim t x ccy
-floating principal coupon asset = apo \case
-     [maturity] -> Left (forward maturity coupon (One asset)) `AndF`
-                   Left (forward maturity principal (One asset))
-     (t :: ts) -> Left (forward t coupon (One asset)) `AndF` Right ts
-     [] -> ZeroF
+floating principal coupon asset = And . futu \case
+     [maturity] -> Cons (forward maturity coupon (One asset))
+                     (Free (Cons (forward maturity principal (One asset)) (Pure [])))
+     (t :: ts) -> Cons (forward t coupon (One asset)) (Pure ts)
+     [] -> Nil
 
 -- | A (fixed rate) coupon paying bond.
 fixed : x -> x -> ccy -> [t] -> Claim t x ccy
@@ -48,17 +48,15 @@ fixed principal coupon = floating (O.pure principal) (O.pure coupon)
 -- european (at $ date 2021 05 14) (Zero `Or` observe "SPX" - pure 4200)
 -- ```
 european : t -> Claim t x a -> Claim t x a -- TODO : consider swapping ordre of parameters for consistency with bermudan?
-european maturity payoff = When (at maturity) (payoff `Or` Zero)
+european maturity payoff = When (at maturity) (Or [payoff, Zero])
 
 -- | Bermudan option on the passed claim.
 bermudan : Claim t x a -> [t] -> Claim t x a
-bermudan u = apo \case
-  (t :: ts) -> Left (european t u) `OrF` Right ts
-  [] -> ZeroF
+bermudan u = Or . fmap (`european` u)
 
 -- | American option (knock-in). The lead parameter is the first possible acquisition date.
 american : t -> t -> Claim t x a -> Claim t x a
-american t maturity payoff = Anytime ((>=) t) $ Until (at maturity) (payoff `Or` Zero)
+american t maturity payoff = Anytime ((>=) t) $ Until (at maturity) (Or [payoff, Zero])
   where (>=) = at
 
 -- | Asset swap on specific fixing dates `[t]`. For example:
@@ -67,4 +65,4 @@ american t maturity payoff = Anytime ((>=) t) $ Until (at maturity) (payoff `Or`
 -- fixedUsdVsFloatingEur = fixed 100.0 0.02 "USD" `swap` floating (observe "USDEUR" * pure 100.0) (observe "EUR1M") "EUR"
 -- ```
 swap : ([t] -> Claim t x a) -> ([t] -> Claim t x a) -> [t] -> Claim t x a
-swap receive pay ts = receive ts `And` Give (pay ts)
+swap receive pay ts = And [receive ts, Give (pay ts)]

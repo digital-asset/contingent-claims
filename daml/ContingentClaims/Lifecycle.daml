@@ -106,7 +106,7 @@ lifecycle' _ (qty, Give c) =
 lifecycle' spot (qty, Scale obs c) = do
   k <- lift $ Observation.eval spot obs
   pure . ScaleF obs $ Right (k * qty, c)
-lifecycle' _ (_, c@(Or _ _)) = pure $ Left <$> project c
+lifecycle' _ (_, c@(Or _)) = pure $ Left <$> project c
 lifecycle' _ (_, c@(Anytime _ _)) = pure $ Left <$> project c
 lifecycle' _ (qty, other) = pure $ Right . (qty, ) <$> project other
 
@@ -135,10 +135,11 @@ exercise spot election = runKleisli . apoCataM pruneZeros' acquireThenExercise .
 -- and this is compared against available branches of the choice.
 exercise' : Eq a => (Bool, C a) -> (Bool, C a) -> (F a (Either (C a) (Bool, C a)))
 exercise' _ (isBearer, Give c) = GiveF . Right $ (not isBearer, c)
-exercise' (elector, election) (isBearer, Or c c') =
-  if | elector == isBearer && election == c  -> Right . (isBearer, ) <$> project c
-     | elector == isBearer && election == c' -> Right . (isBearer, ) <$> project c'
-     | otherwise -> OrF (Left c) (Left c')
+exercise' (elector, election) (isBearer, Or cs) =
+  if elector /= isBearer then OrF $ fmap Left cs
+  else case find (election ==) cs of
+         None -> OrF $ fmap Left cs
+         Some c -> Right . (isBearer, ) <$> project c
 exercise' (elector, election) (isBearer, f@(Anytime _ c)) =
   if elector == isBearer && election == c then Right . (isBearer, ) <$> project c
                                           else Left <$> project f

@@ -6,9 +6,7 @@
 {-# OPTIONS -Wno-deprecations #-} -- To supress 'Monad' warnings
 
 module ContingentClaims.Util (
-    enumerateFrom
-  , enum'
-  , fixings
+    fixings
   , fixings'
   , pruneZeros
   , pruneZeros'
@@ -18,28 +16,10 @@ module ContingentClaims.Util (
 
 import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..), Inequality(..))
 import ContingentClaims.Observation (Observation)
-import ContingentClaims.Util.Recursion (synthesize, subTreeSize')
 import Daml.Control.Recursion
 import DA.Foldable (fold, maximum)
 import DA.Bifunctor (first)
 import Prelude hiding (sum, sequence, mapA)
-
--- Given a tree annotated with the number of nodes in each branch, index it, depth first.
-enum' : (Int, Cofree (ClaimF t x a) Int) -> CofreeF (ClaimF t x a) Int (Int, Cofree (ClaimF t x a) Int)
-enum' (i, Cofree _ ZeroF) = CofreeF i ZeroF
-enum' (i, Cofree _ (OneF id)) = CofreeF i (OneF id)
-enum' (i, Cofree _ (WhenF p f)) = CofreeF i (WhenF p (succ i, f))
-enum' (i, Cofree _ (ScaleF p f)) = CofreeF i (ScaleF p (succ i, f))
-enum' (i, Cofree _ (GiveF f)) = CofreeF i (GiveF (succ i, f))
-enum' (i, Cofree _ (AndF f@(Cofree depth _) f')) = CofreeF i (AndF (succ i, f) (succ (i + depth), f'))
-enum' (i, Cofree _ (OrF f@(Cofree depth _) f')) = CofreeF i (OrF (succ i, f) (succ (i + depth), f'))
-enum' (i, Cofree _ (CondF p f@(Cofree depth _) f')) = CofreeF i (CondF p (succ i, f) (succ (i + depth), f'))
-enum' (i, Cofree _ (AnytimeF p f)) = CofreeF i (AnytimeF p (succ i, f))
-enum' (i, Cofree _ (UntilF p f)) = CofreeF i (UntilF p (succ i, f))
-
--- Enumerate each node in the tree, starting from from 'zero'
-enumerateFrom : Int -> Claim t x a -> Cofree (ClaimF t x a) Int
-enumerateFrom zero = ana enum' . (zero, ) . synthesize subTreeSize'
 
 -- | Return the fixing dates of a claim. This does not discriminate between
 -- optional dates which *may* result from a condition, and outright fixings.  It
@@ -83,11 +63,17 @@ pruneZeros = cata pruneZeros'
 pruneZeros' : ClaimF t x a (Claim t x a) -> Claim t x a
 pruneZeros' (ScaleF _ Zero) = Zero
 pruneZeros' (GiveF Zero) = Zero
-pruneZeros' (AndF Zero c) = c
-pruneZeros' (AndF c Zero) = c
+pruneZeros' (AndF cs) = case filter (not . isZero) cs of
+  [] -> Zero
+  [c] -> c
+  cs -> And cs
 pruneZeros' (WhenF _ Zero) = Zero
 pruneZeros' (CondF _ Zero Zero) = Zero
-pruneZeros' (OrF Zero Zero) = Zero
+pruneZeros' (OrF cs) | all isZero cs = Zero -- TODO: what about more than one zero?
 pruneZeros' (UntilF _ Zero) = Zero
 pruneZeros' (AnytimeF _ Zero) = Zero
 pruneZeros' other = embed other
+
+-- | This avoids requiring the equality type constraint on `a`
+isZero Zero = True
+isZero _ = False

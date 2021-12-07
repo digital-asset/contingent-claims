@@ -31,10 +31,10 @@ data Claim t x a
       -- ^ The bearer acquires one unit of `a` *immediately*.
   | Give (Claim t x a)
       -- ^ The obligations of the bearer and issuer are revesed.
-  | And with lhs: Claim t x a, rhs: Claim t x a
+  | And with claims: [Claim t x a]
       -- ^ Used to combine multiple rights together.
-  | Or with lhs: Claim t x a, rhs: Claim t x a
-      -- ^ Gives the bearer the right to choose between two claims.
+  | Or with claims: [Claim t x a]
+      -- ^ Gives the bearer the right to choose between several claims.
   | Cond with predicate: Inequality t x a, success: Claim t x a, failure: Claim t x a
       -- ^ Gives the bearer the right to the first claim if `predicate` is true, else the second claim.
   | Scale with k: Observation t x a, claim: Claim t x a
@@ -59,8 +59,8 @@ mapParams ft' ft fk fv =
     ZeroF -> Zero
     OneF a -> One $ fk a
     GiveF c -> Give c
-    AndF c c' -> And c c'
-    OrF c c' -> Or c c'
+    AndF cs -> And cs
+    OrF cs -> Or cs
     CondF (Lte (x, x')) c c' -> Cond (Lte(f x, f x')) c c'
     CondF (TimeGte t) c c' -> Cond (TimeGte (ft t)) c c'
     ScaleF k c -> Scale (f k) c
@@ -76,8 +76,8 @@ data ClaimF t x a b
   = ZeroF
   | OneF a
   | GiveF b
-  | AndF with lhs: b, rhs: b
-  | OrF with lhs: b, rhs: b
+  | AndF with claims: [b]
+  | OrF with claims: [b]
   | CondF with predicate: Inequality t x a, success: b, failure: b
   | ScaleF with k: Observation t x a, claim: b
   | WhenF with predicate: Inequality t x a, claim: b
@@ -89,8 +89,8 @@ instance Recursive (Claim t x a) (ClaimF t x a) where
   project Zero = ZeroF
   project (One a) = OneF a
   project (Give c) = GiveF c
-  project (And c c') = (AndF c c')
-  project (Or c c') = (OrF c c')
+  project (And cs) = (AndF cs)
+  project (Or cs) = (OrF cs)
   project (Cond p c c') = CondF p c c'
   project (Scale k c) = ScaleF k c
   project (When p c) = WhenF p c
@@ -101,8 +101,8 @@ instance Corecursive (Claim t x a) (ClaimF t x a) where
   embed ZeroF = Zero
   embed (OneF x) = One x
   embed (GiveF a) = Give a
-  embed (AndF c c') = (And c c')
-  embed (OrF c c') = (Or c c')
+  embed (AndF cs) = (And cs)
+  embed (OrF cs) = (Or cs)
   embed (CondF p c c') = Cond p c c'
   embed (ScaleF k c) = Scale k c
   embed (WhenF p c) = When p c
@@ -115,8 +115,8 @@ instance Foldable (ClaimF t x a) where
   foldr f seed (GiveF c) = f c seed
   foldr f seed (WhenF _ c) = f c seed
   foldr f seed (ScaleF _ c) = f c seed
-  foldr f seed (AndF c c') = f c $ f c' seed
-  foldr f seed (OrF c c') = f c $ f c' seed
+  foldr f seed (AndF cs) = Prelude.foldr f seed cs
+  foldr f seed (OrF cs) = Prelude.foldr f seed cs
   foldr f seed (CondF _ c c') = f c $ f c' seed
   foldr f seed (AnytimeF _ c) = f c seed
   foldr f seed (UntilF _ c) = f c seed
@@ -127,8 +127,14 @@ instance Traversable (ClaimF t x b) where
   sequence (GiveF fa) = GiveF <$> fa
   sequence (WhenF p fa) = WhenF p <$> fa
   sequence (ScaleF p fa) = ScaleF p <$> fa
-  sequence (AndF fa fa') = AndF <$> fa <*> fa'
-  sequence (OrF fa fa') = OrF <$> fa <*> fa'
+  sequence (AndF [fa]) = (\a -> AndF [a]) <$> fa
+  sequence (AndF (fa :: fas)) =  and <$> fa <*> Prelude.sequence fas
+    where and a as = AndF (a :: as)
+  sequence (AndF []) = error "Traversable ClaimF : sequence empty AndF"
+  sequence (OrF [fa]) = (\a -> OrF [a]) <$> fa
+  sequence (OrF (fa :: fas)) = or <$> fa <*> Prelude.sequence fas
+    where or a as = OrF (a :: as)
+  sequence (OrF []) = error "Traversable ClaimF : sequence empty OrF"
   sequence (CondF p fa fa') = CondF p <$> fa <*> fa'
   sequence (AnytimeF p fa) = AnytimeF p <$> fa
   sequence (UntilF p fa) = UntilF p <$> fa

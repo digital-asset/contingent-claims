@@ -33,7 +33,7 @@ instance IsIdentifier Text where
   localVar i = "τ_" <> show i
 
 instance Additive (Expr t) where
-  (+) = curry Add
+  x + y = Sum [x, y]
   negate = Neg
   aunit = Const 0.0
 

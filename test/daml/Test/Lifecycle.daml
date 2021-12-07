@@ -74,8 +74,8 @@ testAcquire = script do
   res <- f (When (TimeGte today) (When (TimeGte tomorrow) (One a)) ) tomorrow
   res === acquired a
 
-  res <- f (One a `Or` One b) today
-  res === (acquired a `Or` acquired b)
+  res <- f (Or [One a, One b]) today
+  res === Or [acquired a, acquired b]
 
   res <- f (Anytime true (One a)) today
   res === Anytime true (acquired a)
@@ -110,12 +110,12 @@ testSettle = script do
   remaining === Give Zero
   pending === [(-1.0 , a)]
 
-  Lifecycle.Result{pending, remaining} <- f (Scale two (One a `And` One b)) today
-  remaining === Scale two (Zero `And` Zero)
+  Lifecycle.Result{pending, remaining} <- f (Scale two (And [One a, One b])) today
+  remaining === Scale two  (And [Zero, Zero])
   pending === [(2.0, a), (2.0, b)]
 
-  Lifecycle.Result{pending, remaining} <- f (Scale two (One a) `And` Scale two (One b)) today
-  remaining === (Scale two Zero `And` Scale two Zero)
+  Lifecycle.Result{pending, remaining} <- f (And [Scale two (One a), Scale two (One b)]) today
+  remaining === And [Scale two Zero, Scale two Zero]
   pending === [(2.0, a), (2.0, b)]
 
   Lifecycle.Result{pending, remaining} <- f (When false (One a)) today
@@ -130,14 +130,14 @@ testSettle = script do
 testExercise = script do
   let f election = apo (Lifecycle.exercise' election) . (True, )
 
-  let rem = f (True, One a) (One a `Or` One b)
+  let rem = f (True, One a) (Or [One a, One b])
   rem === One a
 
-  let rem = f (True, One b) (One a `Or` One b)
+  let rem = f (True, One b) (Or [One a,  One b])
   rem === One b
 
-  let rem = f (True, One c) (One a `Or` One b)
-  rem === One a `Or` One b
+  let rem = f (True, One c) (Or [One a ,One b])
+  rem === Or [One a, One b]
 
   let rem = f (True, One a) (Anytime true (One a))
   rem === One a
@@ -262,7 +262,7 @@ testAmericanPut = script do
 
   -- Exercise `Anytime`
   remaining <- Lifecycle.exercise observe25 (bearer, remaining.claim) remaining t
-  remaining === Until (TimeGte $ afterTomorrow) (payoff `Or` Zero)
+  remaining === Until (TimeGte $ afterTomorrow) (Or [payoff, Zero])
 
   -- Exercise `Or`
   remaining <- Lifecycle.exercise observe25 (bearer, payoff) remaining t
@@ -291,7 +291,7 @@ testAmericanPut = script do
 
   -- You must first exercise the 'outer' `Anytime`, and then ...
   remaining <- Lifecycle.exercise observe25 (bearer, remaining.claim) remaining t
-  remaining === Until (TimeGte $ afterTomorrow) (payoff `Or` Zero)
+  remaining === Until (TimeGte $ afterTomorrow) (Or [payoff,  Zero])
 
   -- ... the inner `Or`.
   remaining <- Lifecycle.exercise observe25 (bearer, payoff) remaining t

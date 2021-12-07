@@ -39,12 +39,12 @@ demoTemplate = script do
       call spot strike = O.observe spot - O.pure strike
       aTemplate = european (date 2021 Jul 15 `subDate` today) (Scale (call "s" "k") (One ccy))
 
-  aTemplate === When (TimeGte 37) (Scale (Observe "s" - Const "k") (One ccy) `Or` Zero)
+  aTemplate === When (TimeGte 37) (Or [Scale (Observe "s" - Const "k") (One ccy), Zero])
 
   let constants : Map.Map Text Decimal = Map.fromList [("k", 99.8)]
       observables : Map.Map Text Text = Map.fromList [("s", "VOD.L"), (ccy, usd)]
       get dict k = fromSomeNote ("failed to template " <> k) (Map.lookup k dict)
       f = mapParams (`subDate` today) (today `addDays`) (get observables) (get constants)
 
-  f aTemplate === When (TimeGte $ date 2021 Jul 15) (Scale (Observe "VOD.L" - Const 99.8) (One usd) `Or` Zero)
+  f aTemplate === When (TimeGte $ date 2021 Jul 15) (Or [Scale (Observe "VOD.L" - Const 99.8) (One usd), Zero])
 
