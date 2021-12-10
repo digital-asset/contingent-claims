@@ -98,6 +98,8 @@ testSettle = script do
           . apoM (Lifecycle.lifecycle' observe25)
           . (1.0, )
 
+  let and x y = And x y []
+
   Lifecycle.Result{pending, remaining} <- f (Scale two Zero : C) today
   remaining === Scale two Zero
   pending === []
@@ -110,12 +112,12 @@ testSettle = script do
   remaining === Give Zero
   pending === [(-1.0 , a)]
 
-  Lifecycle.Result{pending, remaining} <- f (Scale two (And [One a, One b])) today
-  remaining === Scale two  (And [Zero, Zero])
+  Lifecycle.Result{pending, remaining} <- f (Scale two (One a `and` One b)) today
+  remaining === Scale two (Zero `and` Zero)
   pending === [(2.0, a), (2.0, b)]
 
-  Lifecycle.Result{pending, remaining} <- f (And [Scale two (One a), Scale two (One b)]) today
-  remaining === And [Scale two Zero, Scale two Zero]
+  Lifecycle.Result{pending, remaining} <- f (Scale two (One a) `and` Scale two (One b)) today
+  remaining === (Scale two Zero `and` Scale two Zero)
   pending === [(2.0, a), (2.0, b)]
 
   Lifecycle.Result{pending, remaining} <- f (When false (One a)) today

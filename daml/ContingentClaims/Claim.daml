@@ -5,7 +5,7 @@
 
 module ContingentClaims.Claim where
 
-import Prelude hiding (or, and)
+import Prelude hiding (or, and, fst, snd)
 import Daml.Control.Arrow (Kleisli(..), arr)
 import Daml.Control.Recursion
 import ContingentClaims.Observation (Observation)
@@ -31,7 +31,7 @@ data Claim t x a
       -- ^ The bearer acquires one unit of `a` *immediately*.
   | Give (Claim t x a)
       -- ^ The obligations of the bearer and issuer are revesed.
-  | And with claims: [Claim t x a]
+  | And with fst: Claim t x a, snd: Claim t x a, tail: [Claim t x a]
       -- ^ Used to combine multiple rights together.
   | Or with claims: [Claim t x a]
       -- ^ Gives the bearer the right to choose between several claims.
@@ -59,7 +59,7 @@ mapParams ft' ft fk fv =
     ZeroF -> Zero
     OneF a -> One $ fk a
     GiveF c -> Give c
-    AndF cs -> And cs
+    AndF c c' cs -> And c c' cs
     OrF cs -> Or cs
     CondF (Lte (x, x')) c c' -> Cond (Lte(f x, f x')) c c'
     CondF (TimeGte t) c c' -> Cond (TimeGte (ft t)) c c'
@@ -76,7 +76,7 @@ data ClaimF t x a b
   = ZeroF
   | OneF a
   | GiveF b
-  | AndF with claims: [b]
+  | AndF with fst: b, snd: b, tail : [b]
   | OrF with claims: [b]
   | CondF with predicate: Inequality t x a, success: b, failure: b
   | ScaleF with k: Observation t x a, claim: b
@@ -89,7 +89,7 @@ instance Recursive (Claim t x a) (ClaimF t x a) where
   project Zero = ZeroF
   project (One a) = OneF a
   project (Give c) = GiveF c
-  project (And cs) = (AndF cs)
+  project (And c1 c2 cs) = AndF c1 c2 cs
   project (Or cs) = (OrF cs)
   project (Cond p c c') = CondF p c c'
   project (Scale k c) = ScaleF k c
@@ -101,7 +101,7 @@ instance Corecursive (Claim t x a) (ClaimF t x a) where
   embed ZeroF = Zero
   embed (OneF x) = One x
   embed (GiveF a) = Give a
-  embed (AndF cs) = (And cs)
+  embed (AndF c c' cs) = And c c' cs
   embed (OrF cs) = (Or cs)
   embed (CondF p c c') = Cond p c c'
   embed (ScaleF k c) = Scale k c
@@ -115,7 +115,7 @@ instance Foldable (ClaimF t x a) where
   foldr f seed (GiveF c) = f c seed
   foldr f seed (WhenF _ c) = f c seed
   foldr f seed (ScaleF _ c) = f c seed
-  foldr f seed (AndF cs) = Prelude.foldr f seed cs
+  foldr f seed (AndF c c' cs) = Prelude.foldr f seed $ c :: c' :: cs
   foldr f seed (OrF cs) = Prelude.foldr f seed cs
   foldr f seed (CondF _ c c') = f c $ f c' seed
   foldr f seed (AnytimeF _ c) = f c seed
@@ -127,10 +127,7 @@ instance Traversable (ClaimF t x b) where
   sequence (GiveF fa) = GiveF <$> fa
   sequence (WhenF p fa) = WhenF p <$> fa
   sequence (ScaleF p fa) = ScaleF p <$> fa
-  sequence (AndF [fa]) = (\a -> AndF [a]) <$> fa
-  sequence (AndF (fa :: fas)) =  and <$> fa <*> Prelude.sequence fas
-    where and a as = AndF (a :: as)
-  sequence (AndF []) = error "Traversable ClaimF : sequence empty AndF"
+  sequence (AndF fa fa' fas) = AndF <$> fa <*> fa' <*> Prelude.sequence fas
   sequence (OrF [fa]) = (\a -> OrF [a]) <$> fa
   sequence (OrF (fa :: fas)) = or <$> fa <*> Prelude.sequence fas
     where or a as = OrF (a :: as)

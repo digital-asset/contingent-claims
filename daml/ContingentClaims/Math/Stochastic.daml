@@ -138,7 +138,7 @@ fapf ccy disc exch today = flip evalState 0 . futuM coalg . Left . (, today) whe
   ϵ (One asset, t) = pure $ exch' asset ccy t
   ϵ (Give c, t) = pure . NegF . claim $ (c, t)
   ϵ (Scale k c, t) = pure $ obs (k, t) `MulF` claim (c, t)
-  ϵ (And cs, t) = pure . SumF $ fmap (claim . (, t)) cs 
+  ϵ (And c c' cs, t) = pure . SumF $ fmap (claim . (, t)) (c :: c' :: cs)
   ϵ (Or [c, c'], t) = pure $ SumF [
       (ind (claim (c , t)) (claim (c', t)) * claim (c , t)),
       (ind (claim (c', t)) (claim (c , t)) * claim (c', t))

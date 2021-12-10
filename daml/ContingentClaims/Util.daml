@@ -63,10 +63,10 @@ pruneZeros = cata pruneZeros'
 pruneZeros' : ClaimF t x a (Claim t x a) -> Claim t x a
 pruneZeros' (ScaleF _ Zero) = Zero
 pruneZeros' (GiveF Zero) = Zero
-pruneZeros' (AndF cs) = case filter (not . isZero) cs of
+pruneZeros' (AndF c c' cs) = case filter (not . isZero) (c :: c' :: cs) of
   [] -> Zero
   [c] -> c
-  cs -> And cs
+  c :: c' :: cs -> And c c' cs
 pruneZeros' (WhenF _ Zero) = Zero
 pruneZeros' (CondF _ Zero Zero) = Zero
 pruneZeros' (OrF cs) | all isZero cs = Zero -- TODO: what about more than one zero?
