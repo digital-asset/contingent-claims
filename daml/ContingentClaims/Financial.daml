@@ -9,8 +9,9 @@ import Prelude hiding (and, or, (<=))
 import ContingentClaims.Claim
 import ContingentClaims.Observation qualified as O
 import ContingentClaims.Observation (Observation)
-import Daml.Control.Recursion
 import DA.Date (date, Month)
+import DA.Foldable (foldMap)
+import DA.List.Total (last)
 
 -- | Helper function to generate a series of fixing dates, e.g. for coupon payments in `fixed`.
 -- This assumes `fixingMonths` and `fixingDates` are ordered.
@@ -32,16 +33,10 @@ zcb : t -> x -> ccy -> Claim t x ccy
 zcb maturity principal ccy = forward maturity (O.pure principal) (One ccy)
 
 -- | A floating rate bond.
-floating : Observation t x ccy -> Observation t x ccy -> ccy -> [t] -> Claim t x ccy
-floating principal coupon asset fixings = 
-  case futu fixingToClaim fixings of
-    c :: c' :: cs -> And c c' cs
-    c :: [] -> c
-    [] -> Zero
-  where fixingToClaim [maturity] = Cons (forward maturity coupon (One asset))
-                   (Free (Cons (forward maturity principal (One asset)) (Pure [])))
-        fixingToClaim (t :: ts) = Cons (forward t coupon (One asset)) (Pure ts)
-        fixingToClaim [] = Nil
+floating : forall t x ccy . Observation t x ccy -> Observation t x ccy -> ccy -> [t] -> Claim t x ccy
+floating principal coupon asset fixings = foldMap mkCoupon fixings <> mkPrincipal (last fixings : Optional t) -- TODO: not very efficient, but easy to understand
+  where mkCoupon t = forward t coupon (One asset)
+        mkPrincipal = foldMap \t -> forward t principal (One asset)
 
 -- | A (fixed rate) coupon paying bond.
 fixed : x -> x -> ccy -> [t] -> Claim t x ccy
@@ -69,4 +64,4 @@ american t maturity payoff = Anytime ((>=) t) $ Until (at maturity) (Or [payoff,
 -- fixedUsdVsFloatingEur = fixed 100.0 0.02 "USD" `swap` floating (observe "USDEUR" * pure 100.0) (observe "EUR1M") "EUR"
 -- ```
 swap : ([t] -> Claim t x a) -> ([t] -> Claim t x a) -> [t] -> Claim t x a
-swap receive pay ts = And (receive ts) (Give (pay ts)) []
+swap receive pay ts = receive ts <> Give (pay ts)

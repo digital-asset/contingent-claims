@@ -22,7 +22,7 @@ type F = ClaimF
 -- See [quickstart](../QUICKSTART.md) for detailed explanation.
 -- In Petyon-Jones' paper, this is called 'Contract'.
 -- We renamed it to avoid ambiguity.
--- * `t` and `x` respectively correspond to the `Observation`s, input type and the resulting output type.
+-- * `t` and `x` respectively correspond to the `Observation`s input type and the resulting output type.
 -- * `a` is the representation of an asset, e.g. a `Text` ISIN code.
 data Claim t x a
   = Zero
@@ -108,6 +108,17 @@ instance Corecursive (Claim t x a) (ClaimF t x a) where
   embed (WhenF p c) = When p c
   embed (AnytimeF p c) = Anytime p c
   embed (UntilF p c) = Until p c
+
+instance Semigroup (Claim t x a) where
+  And a b cs <> And d e fs = And a b (cs ++ d :: e :: fs)
+  x <> Zero = x
+  And a b cs <> claim = And a b (cs ++ [claim])
+  Zero <> x = x
+  claim <> And a b cs = And claim a (b :: cs)
+  claim <> claim' = And claim claim' []
+
+instance Monoid (Claim t x a) where
+  mempty = Zero
 
 instance Foldable (ClaimF t x a) where
   foldr _ seed ZeroF = seed
