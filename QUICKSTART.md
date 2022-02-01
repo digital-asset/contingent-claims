@@ -16,39 +16,39 @@ We use the following data type, slightly simplified from [`Claim.daml`](./daml/C
 
 ```Haskell
 data Claim a
- = Zero
- | One a
- | Give (Claim a)
- | And with lhs: Claim a, rhs: Claim a
- | Or with lhs: Claim a, rhs: Claim a
- | Scale with k: Date -> Decimal, claim: Claim a
- | When with predicate: Date -> Bool, claim: Claim a
- | Anytime with predicate : Date -> Bool, claim: Claim a
- | Until with predicate : Date -> Bool, claim: Claim a
+ = zero
+ | one a
+ | give (Claim a)
+ | and with lhs: Claim a, rhs: Claim a
+ | or with lhs: Claim a, rhs: Claim a
+ | scale with k: Date -> Decimal, claim: Claim a
+ | when with predicate: Date -> Bool, claim: Claim a
+ | anytime with predicate : Date -> Bool, claim: Claim a
+ | until with predicate : Date -> Bool, claim: Claim a
 ```
 
 There are couple of things to consider.
 
-First note that the constructors of this data type create a tree structure. The leaf constructors are `Zero` and `One a`, and the other constructors create branches (observe they call `Claim a` recursively). The constructors are just functions, and can be combined to produce complex cashflows. For example, to represent the above bond, we could write the following:
+First note that the constructors of this data type create a tree structure. The leaf constructors are `zero` and `one a`, and the other constructors create branches (observe they call `Claim a` recursively). The constructors are just functions, and can be combined to produce complex cashflows. For example, to represent the above bond, we could write the following:
 
 ```Haskell
-When (time == t_0) (Scale (pure coupon) (One “USD”)) `And` ...
+when (time == t_0) (scale (pure coupon) (one “USD”)) `and` ...
 ```
 
 Let's look at the constructors used in the above expression in more detail:
 
-* `One "USD"` means that the acquirer of the contract receives one unit of the asset, parametrised by `a`, *immediately*. In this case we use a 3-letter ISO code to represent a currency. But you can use your own type to represent any asset.
-* `Scale (pure coupon)` modifies the *magnitude* of the arrow in the diagram. So for example, in the diagram, the big arrow would have a distinct scale factor from the small arrows. Note also, that in our example the scale factor is constant : `pure coupon = const coupon`. However, it's possible to have a scale factor that varies on an unobserved value, such as a stock price, the weather, or any other measurable quantity.
-* `When (time == t_0)` tells us where along the x-axis the arrow is placed. i.e. it modifies the moment the claim is acquired. The convention is that this must be the first instant that the predicate (`time == t_0` in this case) is true. In our example it is a point, but again, we could have used an expression with an unknown quantity, for example `spotPrice > pure k`, and it would trigger *the first instant* that the expression becomes true.
-* `And` is used to chain multiple expressions together. Remember that in the `data` definition above, each constructor is a function: `And : Claim a -> Claim a -> Claim a`. We use the Daml backtick syntax to write `And` as an infix operator, for legibility.
+* `one "USD"` means that the acquirer of the contract receives one unit of the asset, parametrised by `a`, *immediately*. In this case we use a 3-letter ISO code to represent a currency. But you can use your own type to represent any asset.
+* `scale (pure coupon)` modifies the *magnitude* of the arrow in the diagram. So for example, in the diagram, the big arrow would have a distinct scale factor from the small arrows. Note also, that in our example the scale factor is constant : `pure coupon = const coupon`. However, it's possible to have a scale factor that varies on an unobserved value, such as a stock price, the weather, or any other measurable quantity.
+* `when (time == t_0)` tells us where along the x-axis the arrow is placed. i.e. it modifies the moment the claim is acquired. The convention is that this must be the first instant that the predicate (`time == t_0` in this case) is true. In our example it is a point, but again, we could have used an expression with an unknown quantity, for example `spotPrice > pure k`, and it would trigger *the first instant* that the expression becomes true.
+* `and` is used to chain multiple expressions together. Remember that in the `data` definition above, each constructor is a function: `and : Claim a -> Claim a -> Claim a`. We use the Daml backtick syntax to write `and` as an infix operator, for legibility.
 
 Additionally we have several constructors which we've not used in this example:
 
-* `Zero`, used to indicate an absence of obligations. While it may not make sense to create a `Zero` claim, it could, for example, result from applying a function on a tree of claims.
-* `Give` would flip the direction of the arrows in our diagram. So for example, in a swap we could use `Give` to distinguishing the received/paid legs.
-* `Or` is used to give the bearer the right to choose between two different claims.
-* `Anytime` is like `When`, except it allows the bearer to choose (vs. no choice) acquisition in a *region* (vs. a point).
-* `Until` is used to adjust the expiration (*horizon* in [[1]](#1)) of a claim. Typically used with `Anytime` to limit aforesaid acquisition region.
+* `zero`, used to indicate an absence of obligations. While it may not make sense to create a `zero` claim, it could, for example, result from applying a function on a tree of claims.
+* `give` would flip the direction of the arrows in our diagram. So for example, in a swap we could use `give` to distinguishing the received/paid legs.
+* `or` is used to give the bearer the right to choose between two different claims.
+* `anytime` is like `when`, except it allows the bearer to choose (vs. no choice) acquisition in a *region* (vs. a point).
+* `until` is used to adjust the expiration (*horizon* in [[1]](#1)) of a claim. Typically used with `anytime` to limit aforesaid acquisition region.
 
 The tree produced by our expression is pictured below:
 
@@ -67,11 +67,11 @@ Here we've just wrapped our expression from the previous section in a function `
 
 ```Haskell
 fixed : Decimal -> Decimal -> a -> [Date] -> Claim a
-fixed principal coupon asset [] = Zero
-fixed principal coupon asset [maturity] = zcb maturity coupon asset `And` zcb maturity principal asset
-fixed principal coupon asset (t :: ts) = zcb t coupon asset `And` fixed principal coupon asset ts
+fixed principal coupon asset [] = zero
+fixed principal coupon asset [maturity] = zcb maturity coupon asset `and` zcb maturity principal asset
+fixed principal coupon asset (t :: ts) = zcb t coupon asset `and` fixed principal coupon asset ts
 ```
-We define the fixed rate bond by induction, iterating over a list of dates `[t]`, and producing multiple zero-coupon bonds `zcb` combined together with `And`.
+We define the fixed rate bond by induction, iterating over a list of dates `[t]`, and producing multiple zero-coupon bonds `zcb` combined together with `and`.
 * The first definition covers the trivial case where we pass an empty list of dates.
 * The second definition handles the base case, at maturity: we create both a coupon (interest) payment, and the principal payment.
 * The third definition is the induction step; it peels the first element off the list, and calls itself recursively on the tail of the list, until it reaches the base case at maturity.

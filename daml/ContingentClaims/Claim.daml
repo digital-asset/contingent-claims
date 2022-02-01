@@ -26,7 +26,7 @@ type F = ClaimF
 -- * `a` is the representation of an asset, e.g. a `Text` ISIN code.
 data Claim t x a
   = Zero
-      -- ^ Represents an absence of claims.
+      -- ^ Represents an absence of claims. Monoid `And` identity.
   | One a
       -- ^ The bearer acquires one unit of `a` *immediately*.
   | Give (Claim t x a)
@@ -46,6 +46,54 @@ data Claim t x a
   | Until with predicate: Inequality t x a, claim: Claim t x a
       -- ^ Expires said claim on the *first instant* that `predicate` is true.
   deriving (Show, Eq)
+
+-- | Smart constructor for `Zero`.
+zero : forall t x a . Claim t x a
+zero = Zero
+
+-- | Smart constructor for `One`.
+one : a -> Claim t x a
+one = One
+
+-- | Smart constructor for `Give`.
+give : Claim t x a -> Claim t x a
+give = Give
+
+-- | Smart constructor for `And`. Because of the explicit representation of the
+-- first two arguments of an `And`, it can be inconvenient to write `And c c' []`.
+-- With this constructor, you can write `c \`and\` c'` instead. Flattens nested 
+-- `And`s and Applies monoid identity eagerly.
+and : Claim t x a -> Claim t x a -> Claim t x a
+and (And a b cs) (And d e fs) = And a b (cs ++ d :: e :: fs)
+and x Zero = x
+and (And a b cs) claim = And a b (cs ++ [claim])
+and Zero x = x
+and claim (And a b cs) = And claim a (b :: cs)
+and claim claim' = And claim claim' []
+
+-- | Smart constructor for `Or`.
+or : Claim t x a -> Claim t x a -> Claim t x a
+or a b = Or [a, b]
+
+-- | Smart constructor for `Cond`.
+cond : Inequality t x a -> Claim t x a -> Claim t x a -> Claim t x a
+cond = Cond
+
+-- | Smart constructor for `Scale`
+scale : Observation t x a -> Claim t x a -> Claim t x a
+scale = Scale
+
+-- | Smart constructor for `When`.
+when : Inequality t x a -> Claim t x a -> Claim t x a
+when = When
+
+-- | Smart constructor for `Anytime`.
+anytime : Inequality t x a -> Claim t x a -> Claim t x a
+anytime = Anytime
+
+-- | Smart constructor for `Until`.
+until : Inequality t x a -> Claim t x a -> Claim t x a
+until = Until
 
 -- | Replace parameters in an `Claim` with actual values.
 mapParams :  (t -> i)
@@ -109,14 +157,11 @@ instance Corecursive (Claim t x a) (ClaimF t x a) where
   embed (AnytimeF p c) = Anytime p c
   embed (UntilF p c) = Until p c
 
+-- | `Claim` semigroup under `And`.
 instance Semigroup (Claim t x a) where
-  And a b cs <> And d e fs = And a b (cs ++ d :: e :: fs)
-  x <> Zero = x
-  And a b cs <> claim = And a b (cs ++ [claim])
-  Zero <> x = x
-  claim <> And a b cs = And claim a (b :: cs)
-  claim <> claim' = And claim claim' []
+  (<>) = and
 
+-- | `Claim` monoid under `And`.
 instance Monoid (Claim t x a) where
   mempty = Zero
 

@@ -61,9 +61,9 @@ template ProposeSettlement
     instrument: Instrument
     tradeDate : Date
   where
-    signatory Set.fromList [payer, receiver]
+    signatory payer, receiver
 
-    controller receiver can
-      Confirm : () do
-        debug $ "Settled: " <> show this
-        return ()
+    choice Confirm : ()
+      controller receiver
+        do debug $ "Settled: " <> show this
+           return ()
