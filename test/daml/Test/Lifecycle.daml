@@ -128,7 +128,7 @@ testSettle = script do
 
 -- | Replace any `or/anytime` nodes with the elections that have been made.
 testExercise = script do
-  let f election = apo (Lifecycle.exercise' election) . (True, )
+  let f election = apo (Lifecycle.exercise' @Date election) . (True, )
 
   let rem = f (True, one a) (one a `or`  one b)
   rem === one a
