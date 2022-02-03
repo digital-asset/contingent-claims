@@ -25,8 +25,8 @@ import Daml.Control.Monad.MonadWriter (MonadWriter(..))
 import Daml.Control.Monad.Trans
 import Daml.Control.Arrow (Kleisli(..))
 import DA.Traversable (sequence)
-import DA.Foldable (sequence_)
-import Prelude hiding (sequence, mapA, exercise, compare)
+import DA.Foldable (sequence_, elem)
+import Prelude hiding (sequence, mapA, exercise, compare, elem)
 
 type C t a = Claim t Decimal a
 type F t a = ClaimF t Decimal a
@@ -105,7 +105,7 @@ lifecycle' _ (qty, Give c) =
 lifecycle' spot (qty, Scale obs c) = do
   k <- lift $ Observation.eval spot obs
   pure . ScaleF obs $ Right (k * qty, c)
-lifecycle' _ (_, c@(Or _)) = pure $ Left <$> project c
+lifecycle' _ (_, c@Or{}) = pure $ Left <$> project c
 lifecycle' _ (_, c@(Anytime _ _)) = pure $ Left <$> project c
 lifecycle' _ (qty, other) = pure $ Right . (qty, ) <$> project other
 
@@ -134,11 +134,9 @@ exercise spot election = runKleisli . apoCataM pruneZeros' acquireThenExercise .
 -- and this is compared against available branches of the choice.
 exercise' : (Eq t, Eq a) => (Bool, C t a) -> (Bool, C t a) -> (F t a (Either (C t a) (Bool, C t a)))
 exercise' _ (isBearer, Give c) = GiveF . Right $ (not isBearer, c)
-exercise' (elector, election) (isBearer, Or cs) =
-  if elector /= isBearer then OrF $ fmap Left cs
-  else case find (election ==) cs of
-         None -> OrF $ fmap Left cs
-         Some c -> Right . (isBearer, ) <$> project c
+exercise' (elector, election) (isBearer, ors@Or {}) | elector /= isBearer = Left <$> project ors 
+                                                    | election `elem` project ors = Right . (isBearer,) <$> project election 
+                                                    | otherwise = Left <$> project ors 
 exercise' (elector, election) (isBearer, f@(Anytime _ c)) =
   if elector == isBearer && election == c then Right . (isBearer, ) <$> project c
                                           else Left <$> project f

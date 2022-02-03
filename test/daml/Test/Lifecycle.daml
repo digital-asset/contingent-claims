@@ -177,14 +177,14 @@ testBond = script do
 
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 (bond [today, tomorrow, afterTomorrow]) t
   remaining === bond [tomorrow, afterTomorrow]
-  pending === [(15.0, a)]
+  pending === [(coupon, a)]
 
   setDate tomorrow
   t <- getDate
 
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 remaining t
   remaining === bond [afterTomorrow]
-  pending === [(15.0, a)]
+  pending === [(coupon, a)]
 
   -- Check bond coupon doesn't get processed twice
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 remaining t
@@ -196,7 +196,7 @@ testBond = script do
 
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 remaining t
   remaining === zero
-  pending === [(15.0, a), (1_000.0, a)]
+  pending === [(coupon, a), (principal, a)]
 
 
 testEuropeanCall = script do

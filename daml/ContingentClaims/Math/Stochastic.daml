@@ -139,7 +139,7 @@ fapf ccy disc exch today = flip evalState 0 . futuM coalg . Left . (, today) whe
   ϵ (Give c, t) = pure . NegF . claim $ (c, t)
   ϵ (Scale k c, t) = pure $ obs (k, t) `MulF` claim (c, t)
   ϵ (And c c' cs, t) = pure . SumF $ fmap (claim . (, t)) (c :: c' :: cs)
-  ϵ (Or [c, c'], t) = pure $ SumF [
+  ϵ (Or c c' [], t) = pure $ SumF [ -- FIXME: handle nested ors; consider writing in nCr form.
       (ind (claim (c , t)) (claim (c', t)) * claim (c , t)),
       (ind (claim (c', t)) (claim (c , t)) * claim (c', t))
     ]

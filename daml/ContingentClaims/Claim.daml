@@ -16,8 +16,6 @@ import DA.Traversable (Traversable(..))
 type T = Claim
 type F = ClaimF
 
--- TODO: f should depend on t ?
-
 -- | Used to model cashflows of instruments.
 -- See [quickstart](../QUICKSTART.md) for detailed explanation.
 -- In Petyon-Jones' paper, this is called 'Contract'.
@@ -33,7 +31,7 @@ data Claim t x a
       -- ^ The obligations of the bearer and issuer are revesed.
   | And with fst: Claim t x a, snd: Claim t x a, tail: [Claim t x a]
       -- ^ Used to combine multiple rights together.
-  | Or with claims: [Claim t x a]
+  | Or with fst: Claim t x a, snd: Claim t x a, tail: [Claim t x a]
       -- ^ Gives the bearer the right to choose between several claims.
   | Cond with predicate: Inequality t x a, success: Claim t x a, failure: Claim t x a
       -- ^ Gives the bearer the right to the first claim if `predicate` is true, else the second claim.
@@ -60,9 +58,10 @@ give : Claim t x a -> Claim t x a
 give = Give
 
 -- | Smart constructor for `And`. Because of the explicit representation of the
--- first two arguments of an `And`, it can be inconvenient to write `And c c' []`.
+-- first two arguments of an `And`, it can be cumbresome to write `And c c' []`.
 -- With this constructor, you can write `c \`and\` c'` instead. Flattens nested 
--- `And`s and Applies monoid identity eagerly.
+-- `And`s and applies additive monoid identity eagerly. Note this is an `O(n)` 
+-- operation. For a more efficient alternative, consider `mconcat`.
 and : Claim t x a -> Claim t x a -> Claim t x a
 and (And a b cs) (And d e fs) = And a b (cs ++ d :: e :: fs)
 and x Zero = x
@@ -71,9 +70,16 @@ and Zero x = x
 and claim (And a b cs) = And claim a (b :: cs)
 and claim claim' = And claim claim' []
 
--- | Smart constructor for `Or`.
+-- | Smart constructor for `Or`. Because of the explicit representation of the
+-- first two arguments of an `Or`, it can be cumbresome to write `Or c c' []`.
+-- With this constructor, you can write `c \`or\` c'` instead. Flattens nested 
+-- `Or`s. Unlike `and`, this does not apply a monoid identity. Note this is an 
+-- `O(n)` operation.
 or : Claim t x a -> Claim t x a -> Claim t x a
-or a b = Or [a, b]
+or (Or a b cs) (Or d e fs) = Or a b (cs ++ d :: e :: fs)
+or (Or a b cs) claim = Or a b (cs ++ [claim])
+or claim (Or a b cs) = Or claim a (b :: cs)
+or claim claim' = Or claim claim' []
 
 -- | Smart constructor for `Cond`.
 cond : Inequality t x a -> Claim t x a -> Claim t x a -> Claim t x a
@@ -108,7 +114,7 @@ mapParams ft' ft fk fv =
     OneF a -> One $ fk a
     GiveF c -> Give c
     AndF c c' cs -> And c c' cs
-    OrF cs -> Or cs
+    OrF c c' cs -> Or c c' cs
     CondF (Lte (x, x')) c c' -> Cond (Lte(f x, f x')) c c'
     CondF (TimeGte t) c c' -> Cond (TimeGte (ft t)) c c'
     ScaleF k c -> Scale (f k) c
@@ -125,7 +131,7 @@ data ClaimF t x a b
   | OneF a
   | GiveF b
   | AndF with fst: b, snd: b, tail : [b]
-  | OrF with claims: [b]
+  | OrF with fst: b, snd: b, tail : [b]
   | CondF with predicate: Inequality t x a, success: b, failure: b
   | ScaleF with k: Observation t x a, claim: b
   | WhenF with predicate: Inequality t x a, claim: b
@@ -138,7 +144,7 @@ instance Recursive (Claim t x a) (ClaimF t x a) where
   project (One a) = OneF a
   project (Give c) = GiveF c
   project (And c1 c2 cs) = AndF c1 c2 cs
-  project (Or cs) = (OrF cs)
+  project (Or c1 c2 cs) = (OrF c1 c2 cs)
   project (Cond p c c') = CondF p c c'
   project (Scale k c) = ScaleF k c
   project (When p c) = WhenF p c
@@ -150,7 +156,7 @@ instance Corecursive (Claim t x a) (ClaimF t x a) where
   embed (OneF x) = One x
   embed (GiveF a) = Give a
   embed (AndF c c' cs) = And c c' cs
-  embed (OrF cs) = (Or cs)
+  embed (OrF c c' cs) = (Or c c' cs)
   embed (CondF p c c') = Cond p c c'
   embed (ScaleF k c) = Scale k c
   embed (WhenF p c) = When p c
@@ -164,6 +170,10 @@ instance Semigroup (Claim t x a) where
 -- | `Claim` monoid under `And`.
 instance Monoid (Claim t x a) where
   mempty = Zero
+  mconcat [] = mempty
+  mconcat [c] = c
+  mconcat (c :: c' :: cs) = And c c' cs 
+  -- ^ A more efficient `O(1)` version of (<>) for lists.
 
 instance Foldable (ClaimF t x a) where
   foldr _ seed ZeroF = seed
@@ -172,7 +182,7 @@ instance Foldable (ClaimF t x a) where
   foldr f seed (WhenF _ c) = f c seed
   foldr f seed (ScaleF _ c) = f c seed
   foldr f seed (AndF c c' cs) = Prelude.foldr f seed $ c :: c' :: cs
-  foldr f seed (OrF cs) = Prelude.foldr f seed cs
+  foldr f seed (OrF c c' cs) = Prelude.foldr f seed $ c :: c' :: cs
   foldr f seed (CondF _ c c') = f c $ f c' seed
   foldr f seed (AnytimeF _ c) = f c seed
   foldr f seed (UntilF _ c) = f c seed
@@ -184,10 +194,7 @@ instance Traversable (ClaimF t x b) where
   sequence (WhenF p fa) = WhenF p <$> fa
   sequence (ScaleF p fa) = ScaleF p <$> fa
   sequence (AndF fa fa' fas) = AndF <$> fa <*> fa' <*> Prelude.sequence fas
-  sequence (OrF [fa]) = (\a -> OrF [a]) <$> fa
-  sequence (OrF (fa :: fas)) = or <$> fa <*> Prelude.sequence fas
-    where or a as = OrF (a :: as)
-  sequence (OrF []) = error "Traversable ClaimF : sequence empty OrF"
+  sequence (OrF fa fa' fas) = OrF <$> fa <*> fa' <*> Prelude.sequence fas
   sequence (CondF p fa fa') = CondF p <$> fa <*> fa'
   sequence (AnytimeF p fa) = AnytimeF p <$> fa
   sequence (UntilF p fa) = UntilF p <$> fa

@@ -12,6 +12,7 @@ import ContingentClaims.Observation (Observation)
 import DA.Date (date, Month)
 import DA.Foldable (foldMap)
 import DA.List.Total (last)
+import DA.List qualified as Unsafe
 
 -- | Helper function to generate a series of fixing dates, e.g. for coupon payments in `fixed`.
 -- This assumes `fixingMonths` and `fixingDates` are ordered.
@@ -34,7 +35,7 @@ zcb maturity principal ccy = forward maturity (O.pure principal) (One ccy)
 
 -- | A floating rate bond.
 floating : forall t x ccy . Observation t x ccy -> Observation t x ccy -> ccy -> [t] -> Claim t x ccy
-floating principal coupon asset fixings = foldMap mkCoupon fixings <> mkPrincipal (last fixings : Optional t) -- TODO: not very efficient, but easy to understand
+floating principal coupon asset fixings = (mconcat (mkCoupon <$> fixings)) <> mkPrincipal (last fixings : Optional t) -- TODO: not very efficient, but easy to understand
   where mkCoupon t = forward t coupon (One asset)
         mkPrincipal = foldMap \t -> forward t principal (One asset)
 
@@ -44,18 +45,20 @@ fixed principal coupon = floating (O.pure principal) (O.pure coupon)
 
 -- | European option on the passed claim. e.g. call option on S&P 500:
 -- ```
--- european (at $ date 2021 05 14) (Zero `Or` observe "SPX" - pure 4200)
+-- european (at $ date 2021 05 14) (zero `or` observe "SPX" - pure 4200)
 -- ```
-european : t -> Claim t x a -> Claim t x a -- TODO : consider swapping ordre of parameters for consistency with bermudan?
-european maturity payoff = When (at maturity) (Or [payoff, Zero])
+european : t -> Claim t x a -> Claim t x a
+european maturity payoff = When (at maturity) (payoff `or` zero)
 
 -- | Bermudan option on the passed claim.
 bermudan : Claim t x a -> [t] -> Claim t x a
-bermudan u = Or . fmap (`european` u)
+bermudan _ [] = zero
+bermudan c [t] = european t c
+bermudan c (t :: t' :: ts) = Or (european t c) (european t' c) (fmap (`european` c) ts) -- This is written like this for efficiency
 
 -- | American option (knock-in). The lead parameter is the first possible acquisition date.
 american : t -> t -> Claim t x a -> Claim t x a
-american t maturity payoff = Anytime ((>=) t) $ Until (at maturity) (Or [payoff, Zero])
+american t maturity payoff = Anytime ((>=) t) $ Until (at maturity) (payoff `or` zero)
   where (>=) = at
 
 -- | Asset swap on specific fixing dates `[t]`. For example:
