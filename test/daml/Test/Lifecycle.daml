@@ -3,8 +3,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 --
 
--- TODO: this should all be moved into the "Contingent claims" library. There is nothing specific to the marketplace here.
-
 {-# LANGUAGE UndecidableInstances #-} --needed to derive Show,Eq
 
 module Test.Lifecycle where
@@ -19,7 +17,7 @@ import DA.Assert ((===))
 import DA.Date (date, Month(..), toDateUTC)
 import DA.Time (time)
 import Daml.Control.Arrow (runKleisli)
-import Daml.Control.Monad.Writer (runWriterT)
+import Daml.Control.Monad.Trans.Writer (runWriterT)
 import Daml.Control.Recursion
 import Daml.Script
 import Prelude hiding (enumerate, length, or, and)

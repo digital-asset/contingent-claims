@@ -12,7 +12,6 @@ import ContingentClaims.Observation (Observation)
 import DA.Date (date, Month)
 import DA.Foldable (foldMap)
 import DA.List.Total (last)
-import DA.List qualified as Unsafe
 
 -- | Helper function to generate a series of fixing dates, e.g. for coupon payments in `fixed`.
 -- This assumes `fixingMonths` and `fixingDates` are ordered.
