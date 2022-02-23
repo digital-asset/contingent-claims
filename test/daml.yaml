@@ -13,3 +13,5 @@ dependencies:
 - daml-prim
 - daml-stdlib
 - daml-script
+data-dependencies:
+- ../lib/daml-ctl-2.0.0.dar
