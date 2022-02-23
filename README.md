@@ -24,6 +24,10 @@ You can then build a release version (no tests in the `*.dar`) by running `daml 
 
 Source-code documentation can be generated through `make doc`.
 
+# Releases
+
+We aim to adhere to the 'semantic versioning' scheme. [Upgrading.md](./UPGRADING.md) documents breaking changes across versions.
+
 # Contribution Policy
 
 If you wish to contribute to this project, please contact us first via Github. In future, we do plan to accept external contributions, contingent on the Digital Asset CLA.
