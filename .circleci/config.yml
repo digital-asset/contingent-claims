@@ -66,7 +66,7 @@ jobs:
           path: target/daml-test-reports
       - store_artifacts:
           path: target/daml-test-reports
-      - slack_notification
+#      - slack_notification # this was commented out because it relied on the 'refapps' context, which had a token for the CX slack channel.
 
   blackduck_check:
     parameters:
@@ -99,7 +99,6 @@ workflows:
     jobs:
       - daml_test:
           daml_sdk_version: "1.13.1"
-          context: refapps
   scheduled_test:
     triggers:
       - schedule:
@@ -113,9 +112,7 @@ workflows:
     jobs:
       - daml_test:
           daml_sdk_version: "1.13.1"
-          context: refapps
       - blackduck_check:
           daml_sdk_version: "1.13.1"
           context:
             - blackduck
-            - refapps
