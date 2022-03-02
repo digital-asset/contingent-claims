@@ -312,3 +312,19 @@ testAmericanPut = script do
 
   remaining <- Lifecycle.expire observe25 remaining t
   remaining === zero
+
+testFloatingRateNote = script do
+  let 
+    innerFrn = Scale (O.Observe a) $ When (TimeGte $ date 2022 Mar 10) $ One b
+    frn = When (TimeGte $ date 2022 Mar 01) innerFrn
+
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 frn $ date 2022 Feb 28
+  remaining === frn
+
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 frn $ date 2022 Mar 01
+  remaining === innerFrn -- this should apparently not be the case, but rather remaining === frn
+
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 frn $ date 2022 Mar 10
+  remaining === Zero
+  pending === [(25.0,b)]
+
