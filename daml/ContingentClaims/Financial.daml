@@ -53,7 +53,7 @@ european maturity payoff = When (at maturity) (payoff `or` zero)
 bermudan : [t] -> Claim t x a -> Claim t x a
 bermudan [] _ = zero
 bermudan [t] c = european t c
-bermudan (t :: ts) c = When (at t) $ Or c (bermudan ts c) []
+bermudan (t :: ts) c = when (at t) (c `or` bermudan ts c)
 
 -- | American option (knock-in). The lead parameter is the first possible acquisition date.
 american : t -> t -> Claim t x a -> Claim t x a
