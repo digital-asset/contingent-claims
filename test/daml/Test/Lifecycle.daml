@@ -328,3 +328,21 @@ testFloatingRateNote = script do
   remaining === Zero
   pending === [(25.0,b)]
 
+testUntilNodes = script do
+  let 
+    payment = When (TimeGte (date 2022 Apr 10)) (One "EUR")
+    claim = 
+        Until (TimeGte (date 2022 Apr 07)) $ payment
+
+  -- I would expect the below operation to expire the contract (because the until condition evaluates to True). However, it does not seem to be the case.
+  Lifecycle.Result{pending,remaining} <- Lifecycle.lifecycle observe25 claim (date 2022 Apr 08)
+  pending === []
+  remaining === claim -- expecting Zero
+
+  -- Wrong payment is made on Apr 10
+  Lifecycle.Result{pending,remaining} <- Lifecycle.lifecycle observe25 remaining (date 2022 Apr 10)
+  pending === [(1.0, "EUR")] -- expecting []
+  remaining === Zero
+
+  pure ()
+
