@@ -12,6 +12,7 @@ import ContingentClaims.Observation (Observation)
 import ContingentClaims.Observation qualified as Observation
 import DA.Foldable (Foldable(..))
 import DA.Traversable (Traversable(..))
+import DA.Text (unwords)
 
 type T = Claim
 type F = ClaimF
@@ -43,7 +44,22 @@ data Claim t x a
       -- ^ Like `When`, but valid any time the predicate is true (not just infinium).
   | Until with predicate: Inequality t x a, claim: Claim t x a
       -- ^ Expires said claim on the *first instant* that `predicate` is true.
-  deriving (Show, Eq)
+  deriving (Eq)
+
+instance (Show t, Show x, Show a) => Show (Claim t x a) where
+  show = cata \case
+    ZeroF -> "Zero"
+    OneF a -> "One " <> show a
+    GiveF s -> print "Give" [s]
+    AndF s s' ss -> print "And" $ s :: s' :: ss
+    OrF s s' ss -> print "Or" $ s :: s' :: ss
+    CondF b s s' -> print "Cond" [show b, s, s']
+    ScaleF x s -> print "Scale" [show x, s]
+    WhenF b s -> print "When" [show b, s]
+    AnytimeF b s -> print "Anytime" [show b, s]
+    UntilF b s -> print "Until" [show b, s]
+    where print c ss = unwords $ c :: fmap bracket ss
+          bracket s = "(" <> s <> ")"
 
 -- | Smart constructor for `Zero`.
 zero : forall t x a . Claim t x a
