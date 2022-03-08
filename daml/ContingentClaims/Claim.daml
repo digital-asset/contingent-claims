@@ -6,6 +6,7 @@
 module ContingentClaims.Claim where
 
 import Prelude hiding (or, and, fst, snd)
+import Prelude qualified as Prelude (fst, snd)
 import Daml.Control.Arrow (Kleisli(..), arr)
 import Daml.Control.Recursion
 import ContingentClaims.Observation (Observation)
@@ -47,21 +48,21 @@ data Claim t x a
   deriving (Eq)
 
 instance (Show t, Show x, Show a) => Show (Claim t x a) where
-  show claim = f claim False
-    where f Zero = const "Zero"
-          f (One a) = print $ "One " <> show a
-          f (Give c) = print $ unwords ["Give", print c True]
-          f (And c c' cs) = print $ unwords ["And", print c True, print c' True, print cs False]
-          f (Or c c' cs) =  print $ unwords ["Or", print c True, print c' True, print cs False]
-          f (Cond p c c') = print $ unwords ["Cond", print p True, print c True, print c' True]
-          f (Scale o c) = print $ unwords ["Scale", print c True]
-          f (When p c) = print $ unwords ["When", print p True, print c True]
-          f (Anytime p c) = print $ unwords ["When", print p True, print c True]
-          f (Until p c) = print $ unwords ["Until", print p True, print c True]
-          print x brackets = if brackets then bracket x else show x
-          bracket s = "(" <> show s <> ")" 
-
--- print : Show x => x -> Bool -> Text
+  show = para \case
+    ZeroF -> "Zero"
+    OneF a -> unwords ["One", show a]
+    GiveF (_, s) -> unwords ["Give", bracket s]
+    AndF (_, s) (_, s') cs -> print3 "And" s s' (Prelude.fst <$> cs)
+    OrF (_, s) (_, s') cs -> print3 "Or" s s' (Prelude.fst <$> cs)
+    CondF b (_, s) (_, s') -> unwords ["Cond", bracket (show b), bracket s, bracket  s']
+    ScaleF x (_, s) -> print2 "Scale" x s
+    WhenF b (_, s) -> print2 "When" b s
+    AnytimeF b (_, s) -> print2 "Anytime" b s
+    UntilF b (_, s) -> print2 "Until" b s
+    where print3 c s s' cs = unwords [c, bracket s, bracket s', show cs]
+          print2 c x s = unwords [c, bracket (show x), bracket s]
+          bracket "Zero" = "Zero"
+          bracket s = "(" <> s <> ")"
 
 -- | Smart constructor for `Zero`.
 zero : forall t x a . Claim t x a
