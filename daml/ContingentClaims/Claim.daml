@@ -47,23 +47,6 @@ data Claim t x a
       -- ^ Expires said claim on the *first instant* that `predicate` is true.
   deriving (Eq)
 
-instance (Show t, Show x, Show a) => Show (Claim t x a) where
-  show = para \case
-    ZeroF -> "Zero"
-    OneF a -> unwords ["One", show a]
-    GiveF (_, s) -> unwords ["Give", bracket s]
-    AndF (_, s) (_, s') cs -> print3 "And" s s' (Prelude.fst <$> cs)
-    OrF (_, s) (_, s') cs -> print3 "Or" s s' (Prelude.fst <$> cs)
-    CondF b (_, s) (_, s') -> unwords ["Cond", bracket (show b), bracket s, bracket  s']
-    ScaleF x (_, s) -> print2 "Scale" x s
-    WhenF b (_, s) -> print2 "When" b s
-    AnytimeF b (_, s) -> print2 "Anytime" b s
-    UntilF b (_, s) -> print2 "Until" b s
-    where print3 c s s' cs = unwords [c, bracket s, bracket s', show cs]
-          print2 c x s = unwords [c, bracket (show x), bracket s]
-          bracket "Zero" = "Zero"
-          bracket s = "(" <> s <> ")"
-
 -- | Smart constructor for `Zero`.
 zero : forall t x a . Claim t x a
 zero = Zero
@@ -217,6 +200,23 @@ instance Traversable (ClaimF t x b) where
   sequence (CondF p fa fa') = CondF p <$> fa <*> fa'
   sequence (AnytimeF p fa) = AnytimeF p <$> fa
   sequence (UntilF p fa) = UntilF p <$> fa
+
+instance (Show t, Show x, Show a) => Show (Claim t x a) where
+  show = para \case
+    ZeroF -> "Zero"
+    OneF a -> unwords ["One", show a]
+    GiveF (_, s) -> unwords ["Give", bracket s]
+    AndF (_, s) (_, s') cs -> print3 "And" s s' (Prelude.fst <$> cs)
+    OrF (_, s) (_, s') cs -> print3 "Or" s s' (Prelude.fst <$> cs)
+    CondF b (_, s) (_, s') -> unwords ["Cond", bracket (show b), bracket s, bracket  s']
+    ScaleF x (_, s) -> print2 "Scale" x s
+    WhenF b (_, s) -> print2 "When" b s
+    AnytimeF b (_, s) -> print2 "Anytime" b s
+    UntilF b (_, s) -> print2 "Until" b s
+    where print3 c s s' cs = unwords [c, bracket s, bracket s', show cs]
+          print2 c x s = unwords [c, bracket (show x), bracket s]
+          bracket "Zero" = "Zero"
+          bracket s = "(" <> s <> ")"
 
 -- Inequality --
 
