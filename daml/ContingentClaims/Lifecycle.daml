@@ -73,17 +73,18 @@ lifecycle spot
     foldE (Right x) = x
 
 -- | Evaluate observables and skip branches for which predicates don't hold.
--- Consumes `When` and `Cond` when appropriate, leaving their subtrees.
 -- This is useless on its own. Composed with other functions, it adds laziness.
 acquire' : (Ord t, Eq a, Monad m)
   => (a -> t -> m Decimal)
   -> C t a -> Kleisli m t (F t a (Either (C t a) (C t a)))
 acquire' spot (When obs c) = do
   predicate <- compare spot obs
-  if predicate then acquire' spot c else pure $ WhenF obs (Left c)
+  pure $ WhenF obs if predicate then Right c else Left c
 acquire' spot (Cond obs c c') = do
   predicate <- compare spot obs
-  if predicate then acquire' spot c else acquire' spot c'
+  pure if predicate 
+    then CondF obs (Right c) (Left c') 
+    else CondF obs (Left c) (Right c')
 acquire' spot (Anytime obs c) = do
   predicate <- compare spot obs
   pure $ AnytimeF obs if predicate then Right c else Left c

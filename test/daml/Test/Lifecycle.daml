@@ -54,13 +54,13 @@ testAcquire = script do
   res === when (at tomorrow) (scale two (one a))
 
   res <- f (when (at tomorrow) $ scale two (one a)) tomorrow
-  res === scale two (acquired a)
+  res === when (at tomorrow) (scale two (acquired a))
 
   res <- f (cond (at tomorrow) (one a) (one b)) today
-  res === acquired b
+  res === cond (at tomorrow) (one a) (acquired b)
 
   res <- f (cond (at tomorrow) (one a) (one b)) tomorrow
-  res === acquired a
+  res === cond (at tomorrow) (acquired a) (one b)
 
 {- FIXME: confirm if this test makes sense; it broke when we changed observable with inequality
   res <- f (when (O.TimeGte today) (when (O.TimeGte tomorrow) (one a)) ) tomorrow
@@ -68,7 +68,7 @@ testAcquire = script do
 -}
 
   res <- f (when (TimeGte today) (when (TimeGte tomorrow) (one a)) ) tomorrow
-  res === acquired a
+  res === when (TimeGte today) (when (TimeGte tomorrow) (acquired a))
 
   res <- f (one a `or` one b) today
   res === acquired a `or` acquired b
@@ -219,13 +219,14 @@ testEuropeanCall = script do
   t <- getDate
 
   remaining <- Lifecycle.exercise observe25 (bearer, payoff) option t
-  remaining === payoff
+  remaining === when (at tomorrow) payoff
 
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 remaining t
   remaining === zero
   pending === pure (2.0, a)
 
 -- Knock-in tomorrow
+testAmericanPut : Script ()
 testAmericanPut = script do
   let strike = 30.0
       payoff = scale (O.pure strike - O.observe "spot") (one a)
@@ -320,7 +321,7 @@ testFloatingRateNote = script do
   remaining === frn
 
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 frn $ date 2022 Mar 01
-  remaining === innerFrn -- this should apparently not be the case, but rather remaining === frn
+  remaining === frn
 
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 frn $ date 2022 Mar 10
   remaining === Zero
