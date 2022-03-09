@@ -13,14 +13,11 @@ executors:
 commands:
   install_sdk:
     description: "Install Daml SDK"
-    parameters:
-      version:
-        type: string
     steps:
       - run:
           name: Install Daml SDK
           command: |
-            curl -sSL https://get.daml.com/ | sh /dev/stdin << parameters.version >>
+            curl -sSL https://get.daml.com/ | sh /dev/stdin ${SDK_VERSION}
             # idea from https://circleci.com/docs/2.0/env-vars/
             >> $BASH_ENV echo 'export PATH="$HOME/.daml/bin:$PATH"'
   install_yq:
@@ -101,12 +98,11 @@ jobs:
     steps:
       - checkout
       - install_yq
-      - set_sdk_version
       - restore_cache:
           keys:
             - contingent-claims-{{ checksum "daml.yaml" }}
-      - install_sdk:
-          version: ${VERSION}
+      - set_sdk_version
+      - install_sdk
       - get_dependencies
       - run:
           name: Build Daml
