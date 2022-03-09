@@ -93,7 +93,7 @@ commands:
           command: gh release create v${VERSION} .daml/dist/contingent-claims-${VERSION}.dar --generate-notes
       - store_artifacts:
           path: .daml/dist/contingent-claims-${VERSION}.dar
-          destination: daml-ctl-dar-${VERSION}
+          destination: contingent-claims-dar-${VERSION}
 
 jobs:
   build:
