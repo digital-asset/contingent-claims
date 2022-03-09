@@ -17,7 +17,7 @@ module ContingentClaims.Lifecycle (
 
 import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..), compare)
 import ContingentClaims.Observation qualified as Observation
-import ContingentClaims.Util.Recursion (apoCataM)
+import ContingentClaims.Util.Recursion (apoCataM, hyloM)
 import ContingentClaims.Util (pruneZeros')
 import Daml.Control.Recursion (project, embed, distApo)
 import Daml.Control.Monad.Trans.Writer (WriterT, runWriterT)
@@ -90,6 +90,9 @@ acquire' spot (Cond obs c c') = do
 acquire' spot (Anytime obs c) = do
   predicate <- compare spot obs
   pure $ AnytimeF obs if predicate then Right c else Left c
+acquire' spot (Until obs c) = do
+  predicate <- compare spot obs
+  pure $ UntilF obs if predicate then Left c else Right c
 acquire' _ other = pure $ Right <$> project other
 
 -- | Evaluate any observables in `Scale` nodes, accumulating scale factors
@@ -145,24 +148,11 @@ exercise' _ (isBearer, other) = Right . (isBearer, ) <$> project other
 
 -- | Replace any subtrees that have expired with `Zero`s.
 expire : (Ord t, Eq a, Monad m) => (a -> t -> m Decimal) -> C t a -> t -> m (C t a)
-expire spot = runKleisli . apoCataM pruneZeros' acquireThenExpire where
-  acquireThenExpire = fmap (fmap distE)
-                      . fmap join
-                      . fmap (fmap sequence)
-                      . fmap (fmap (fmap (expire' spot)))
-                      . fmap (fmap (fmap embed))
-                      . fmap (fmap tsidE)
-                      $ acquire' spot
-  distE = distApo
-  tsidE f = case sequence_ f of
-    Left _ -> Left (embed (fmap foldE f))
-    Right _ -> Right (fmap foldE f)
-  foldE (Left x) = x
-  foldE (Right x) = x
+expire spot = runKleisli . hyloM pruneZeros' (expire' spot)
 
 -- | Coalgebra for `expire`.
 expire' : (Ord t, Monad m) => (a -> t -> m Decimal) -> C t a -> Kleisli m t (F t a (C t a))
 expire' spot (Until obs c) = do
   predicate <- compare spot obs
-  if predicate then pure ZeroF else pure $ UntilF obs c
+  pure if predicate then ZeroF else UntilF obs c
 expire' _ other = pure . project $ other

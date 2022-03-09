@@ -85,7 +85,7 @@ testAcquire = script do
   res === until false (acquired a)
 
   res <- f (until true (one a)) today
-  res === until true (acquired a)
+  res === until true (one a)
 
 -- | This test replaces all leaves with zeros, logging their qty/asset pair into a `Writer`.
 -- It ignores `when/cond` nodes altogether.
@@ -261,7 +261,7 @@ testAmericanPut = script do
 
   -- Exercise `anytime`
   remaining <- Lifecycle.exercise observe25 (bearer, remaining.claim) remaining t
-  remaining === until (TimeGte $ afterTomorrow) (payoff `or`  zero)
+  remaining === until (TimeGte afterTomorrow) (payoff `or`  zero)
 
   -- Exercise `or`
   remaining <- Lifecycle.exercise observe25 (bearer, payoff) remaining t
@@ -290,11 +290,11 @@ testAmericanPut = script do
 
   -- You must first exercise the 'outer' `anytime`, and then ...
   remaining <- Lifecycle.exercise observe25 (bearer, remaining.claim) remaining t
-  remaining === until (TimeGte $ afterTomorrow) (payoff `or` zero)
+  remaining === until (TimeGte afterTomorrow) (payoff `or` zero)
 
   -- ... the inner `or`.
   remaining <- Lifecycle.exercise observe25 (bearer, payoff) remaining t
-  remaining === until (TimeGte $ afterTomorrow) payoff
+  remaining === until (TimeGte afterTomorrow) payoff
 
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 remaining t
   remaining === zero
