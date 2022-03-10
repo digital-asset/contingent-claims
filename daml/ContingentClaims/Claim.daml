@@ -5,13 +5,14 @@
 
 module ContingentClaims.Claim where
 
-import Prelude hiding (or, and, fst, snd)
-import Daml.Control.Arrow (Kleisli(..), arr)
-import Daml.Control.Recursion
-import ContingentClaims.Observation (Observation)
 import ContingentClaims.Observation qualified as Observation
+import ContingentClaims.Observation (Observation)
 import DA.Foldable (Foldable(..))
+import DA.Text (unwords, intercalate)
 import DA.Traversable (Traversable(..))
+import Daml.Control.Recursion
+import Daml.Control.Arrow (Kleisli(..), arr)
+import Prelude hiding (or, and, fst, snd)
 
 type T = Claim
 type F = ClaimF
@@ -43,7 +44,7 @@ data Claim t x a
       -- ^ Like `When`, but valid any time the predicate is true (not just infinium).
   | Until with predicate: Inequality t x a, claim: Claim t x a
       -- ^ Expires said claim on the *first instant* that `predicate` is true.
-  deriving (Show, Eq)
+  deriving (Eq)
 
 -- | Smart constructor for `Zero`.
 zero : forall t x a . Claim t x a
@@ -198,6 +199,23 @@ instance Traversable (ClaimF t x b) where
   sequence (CondF p fa fa') = CondF p <$> fa <*> fa'
   sequence (AnytimeF p fa) = AnytimeF p <$> fa
   sequence (UntilF p fa) = UntilF p <$> fa
+
+instance (Show t, Show x, Show a) => Show (Claim t x a) where
+  show = cata \case
+    ZeroF -> "Zero"
+    OneF a -> unwords ["One", show a]
+    GiveF s -> unwords ["Give", bracket s]
+    AndF s s' cs -> print3 "And" s s' cs
+    OrF s s' cs -> print3 "Or" s s' cs
+    CondF b s s' -> unwords ["Cond", bracket (show b), bracket s, bracket  s']
+    ScaleF x s -> print2 "Scale" x s
+    WhenF b s -> print2 "When" b s
+    AnytimeF b s -> print2 "Anytime" b s
+    UntilF b s -> print2 "Until" b s
+    where print3 c s s' cs = unwords [c, bracket s, bracket s', "[" <> intercalate ", " cs <> "]"]
+          print2 c x s = unwords [c, bracket (show x), bracket s]
+          bracket "Zero" = "Zero"
+          bracket s = "(" <> s <> ")"
 
 -- Inequality --
 

@@ -9,10 +9,10 @@
 module ContingentClaims.Observation where
 
 import ContingentClaims.Util.Recursion (cataM)
+import DA.Foldable (Foldable(..))
+import DA.Traversable (Traversable(..))
 import Daml.Control.Arrow (Kleisli(..))
 import Daml.Control.Recursion (Recursive(..), Corecursive(..), project, embed)
-import DA.Traversable (Traversable(..))
-import DA.Foldable (Foldable(..))
 import Prelude hiding (key, (.), pure)
 import qualified Prelude (pure)
 
@@ -29,7 +29,7 @@ data Observation t x a
   | Neg (Observation t x a)
   | Mul (Observation t x a, Observation t x a)
   | Div (Observation t x a, Observation t x a)
-  deriving (Eq, Show, Functor)
+  deriving (Eq, Functor)
 
 data ObservationF t x a b
   = ConstF with value: x
@@ -126,3 +126,13 @@ instance Traversable (ObservationF t x a) where
   sequence (AddF (m, m')) = curry AddF <$> m <*> m'
   sequence (MulF (m, m')) = curry MulF <$> m <*> m'
   sequence (DivF (m, m')) = curry DivF <$> m <*> m'
+
+instance (Show t, Show x, Show a) => Show (Observation t x a) where
+  show = cata \case
+    ConstF x -> "Const " <> show x
+    ObserveF a -> "Observe " <> show a
+    AddF ss -> pair "Add" ss
+    NegF s -> "Neg (" <> s <> ")"
+    MulF ss -> pair "Mul" ss
+    DivF ss -> pair "Div" ss
+    where pair o (s, s') = o <> " (" <> s <> ", " <> s' <> ")"
