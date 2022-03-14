@@ -2,6 +2,10 @@
 build: install
 	daml build
 
+.PHONY: build-dev
+build-dev: install
+	cd test && daml build
+
 .PHONY: install
 install:
 	./scripts/get-dependencies.sh daml.yaml
@@ -12,7 +16,7 @@ clean:
 	./scripts/remove-dependencies.sh daml.yaml
 
 .PHONY: test
-test: build
+test: install
 	cd test && daml test
 
 DAML_SRC:=$(shell find daml/ContingentClaims -name '*.daml')

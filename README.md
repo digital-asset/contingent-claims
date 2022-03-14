@@ -12,15 +12,21 @@ To get started, go to the [quickstart](./QUICKSTART.md), or look in the [test di
 
 Distributed under the Apache 2.0 License.
 
+# Requirements
+
+To build this library locally, the following requirements necessary are :
+
+1. Daml Connect (2.0)
+2. `make` (3.x)
+3. `yq` (4.x)
+
 # Dependencies
 
 There is a dependency on [daml-ctl](https://github.com/digital-asset/daml-ctl).
 
 # Building
 
-First off, you need to fetch [daml-ctl](https://github.com/digital-asset/daml-ctl/releases) and drop  in `lib/`.
-
-You can then build a release version (no tests in the `*.dar`) by running `daml build` in the root directory, or a dev version that includes test from `test`.
+To build a release version (no tests in the `*.dar`) by running `make build` in the root directory. To build a dev version that includes test from `test`, run `make build-dev`.
 
 Source-code documentation can be generated through `make doc`.
 
