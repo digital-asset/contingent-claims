@@ -1,5 +1,5 @@
 .PHONY: build
-build: install
+build: clean install
 	daml build
 
 .PHONY: build-dev
