@@ -11,6 +11,7 @@ module ContingentClaims.Util.Recursion (
   , anaM
   , apoM
   , apoCataM
+  , apoCataM2
   , futuM
   , hyloM
   , ghyloM
@@ -53,6 +54,10 @@ futuM' f (Free as) = fmap embed . mapA (futuM' f) $ as
 -- | Specialised lazy re-fold, used by `lifecycle`.
 apoCataM : (Monad m, Traversable f) => (f b -> b) -> (a -> m (f (Either b a))) -> a -> m b
 apoCataM g f a = (fmap g <<< (>>= (mapA (pure ||| apoCataM g f))) <<< f) a
+
+-- | Version of `apoCataM` with a monadic algebra 
+apoCataM2 : (Monad m, Traversable f) => (f b -> m b) -> (a -> m (f (Either b a))) -> a -> m b
+apoCataM2 g f a = ((>>= g) <<< (>>= (mapA (pure ||| apoCataM2 g f))) <<< f) a
 
 -- A modified `hylo` (refold), whith an interleaved monad effect (typically `Update`).
 hyloM : (Monad m, Traversable f) => (f b -> b) -> (a -> m (f a)) -> a -> m b
