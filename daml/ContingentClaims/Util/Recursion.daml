@@ -28,9 +28,8 @@ import Daml.Control.Arrow ((&&&), (|||), (>>>), (<<<), Kleisli(..))
 -- The morphisms ending in 'M' are monadic variants, allowing to interleave e.g. `Update` or `Script`.
 -- `cataM` After Tim Williams' talk, https://www.youtube.com/watch?v=Zw9KeP3OzpU.
 
--- TODO: the two folds can probably be simplified with Traverse.mapA too.
 cataM : (Monad m, Traversable f, Recursive b f) => (f a -> m a) -> b -> m a
-cataM f b = (project >>> fmap (cataM f) >>> ((>>= f) . sequence)) b
+cataM f b = ((>>= f) <<< mapA (cataM f) <<< project) b
 
 paraM : (Monad m, Traversable f, Recursive b f) => (f (b, a) -> m a) -> b -> m a
 paraM f b = (project >>> fmap (runKleisli $ Kleisli pure &&& Kleisli (paraM f)) >>> ((>>= f) . sequence)) b
@@ -50,11 +49,11 @@ futuM' f (Pure a) = futuM f a
 futuM' f (Free as) = fmap embed . mapA (futuM' f) $ as
 
 -- | Specialised lazy re-fold, used by `lifecycle`.
-apoCataM : (Monad m, Traversable f, Corecursive b f) => (f b -> b) -> (a -> m (f (Either b a))) -> a -> m b
+apoCataM : (Monad m, Traversable f) => (f b -> b) -> (a -> m (f (Either b a))) -> a -> m b
 apoCataM g f a = (fmap g <<< (>>= (mapA (pure ||| apoCataM g f))) <<< f) a
 
 -- A modified `hylo` (refold), whith an interleaved monad effect (typically `Update`).
-hyloM : (Traversable f, Monad n) => (f b -> b) -> (a -> n (f a)) -> a -> n b
+hyloM : (Monad m, Traversable f) => (f b -> b) -> (a -> m (f a)) -> a -> m b
 hyloM f g a = (fmap f <<< (>>= mapA (hyloM f g)) <<< g) a
 
 ghyloM : (Comonad w, Traversable f, Monad m, Traversable m, Monad n)
