@@ -58,8 +58,11 @@ bermudan [t] c = european t c
 bermudan (t :: ts) c = when (at t) (c `or` bermudan ts c)
 
 -- | American option (knock-in). The lead parameter is the first possible acquisition date.
-american : t -> t -> Claim t x a -> Claim t x a
-american t maturity payoff = Anytime ((>=) t) $ Until (at maturity) (payoff `or` zero)
+-- [ML] This is not correct from a valuation perspective, if we want to use an until block then
+-- it should be Until ( t > maturity). The best approximation at the moment for the case of Dates
+-- is to use ( t >= maturity + 1 day)
+american : Date -> Date -> Claim Date x a -> Claim Date x a
+american start maturity payoff = Anytime ((>=) start) $ Until (at $ succ maturity) (payoff `or` zero)
   where (>=) = at
 
 -- | Asset swap on specific fixing dates `[t]`. For example:

@@ -85,7 +85,7 @@ testAcquire = script do
   res === until false (acquired a)
 
   res <- f (until true (one a)) today
-  res === until true (acquired a)
+  res === until true (one a)
 
 -- | This test replaces all leaves with zeros, logging their qty/asset pair into a `Writer`.
 -- It ignores `when/cond` nodes altogether.
@@ -260,11 +260,11 @@ testAmericanPut = script do
 
   -- Exercise `anytime`
   remaining <- Lifecycle.exercise observe25 (bearer, remaining.claim) remaining t
-  remaining === until (TimeGte $ afterTomorrow) (payoff `or`  zero)
+  remaining === until (TimeGte $ succ afterTomorrow) (payoff `or`  zero)
 
   -- Exercise `or`
   remaining <- Lifecycle.exercise observe25 (bearer, payoff) remaining t
-  remaining === until (TimeGte afterTomorrow) payoff
+  remaining === until (TimeGte $ succ afterTomorrow) payoff
 
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 remaining t
   remaining === zero
@@ -274,9 +274,9 @@ testAmericanPut = script do
   setDate afterTomorrow
   t <- getDate
 
-  -- Expiration at maturity n.b. this means you must *first* exercise & settle *before* expiring.
+  -- Expiration at maturity is a no-op
   remaining <- Lifecycle.expire observe25 option t
-  remaining === zero
+  remaining === option
 
   -- Settlement before exercise has been done is a no-op
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 option t
@@ -289,11 +289,11 @@ testAmericanPut = script do
 
   -- You must first exercise the 'outer' `anytime`, and then ...
   remaining <- Lifecycle.exercise observe25 (bearer, remaining.claim) remaining t
-  remaining === until (TimeGte $ afterTomorrow) (payoff `or` zero)
+  remaining === until (TimeGte $ succ afterTomorrow) (payoff `or` zero)
 
   -- ... the inner `or`.
   remaining <- Lifecycle.exercise observe25 (bearer, payoff) remaining t
-  remaining === until (TimeGte $ afterTomorrow) payoff
+  remaining === until (TimeGte $ succ afterTomorrow) payoff
 
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 remaining t
   remaining === zero
@@ -306,9 +306,9 @@ testAmericanPut = script do
   remaining <- Lifecycle.exercise observe25 (bearer, payoff) option t
   remaining === option -- past maturity; no exercise possible
 
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 remaining t
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 option t
   remaining === option
   pending === []
 
-  remaining <- Lifecycle.expire observe25 remaining t
-  remaining === zero
+  remaining <- Lifecycle.expire observe25 option t
+  remaining === zero -- the Until block is correctly pruned
