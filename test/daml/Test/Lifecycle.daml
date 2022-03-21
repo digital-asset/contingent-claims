@@ -12,8 +12,9 @@ import ContingentClaims.Observation qualified as O
 import ContingentClaims.Util.Recursion
 import DA.Action ((>=>))
 import DA.Assert ((===))
-import DA.Date (date, Month(..), toDateUTC)
+import DA.Date (date, Month(..), toDateUTC, toGregorian)
 import DA.Time (time)
+import DA.Tuple (thd3)
 import Daml.Control.Arrow (runKleisli)
 import Daml.Control.Monad.Trans.Writer (runWriterT)
 import Daml.Control.Recursion
@@ -317,13 +318,20 @@ testFloatingRateNote = script do
     innerFrn = Scale (O.Observe a) $ When (TimeGte $ date 2022 Mar 10) $ One b
     frn = When (TimeGte $ date 2022 Mar 01) innerFrn
 
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 frn $ date 2022 Feb 28
+    observe: Text -> Date -> Script Decimal = \_ d -> pure . intToDecimal . thd3 . toGregorian $ d
+    -- ^ given a date, it always returns the day of the month
+
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe frn $ date 2022 Feb 28
   remaining === frn
 
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 frn $ date 2022 Mar 01
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe frn $ date 2022 Mar 01
   remaining === frn
 
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 frn $ date 2022 Mar 10
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe frn $ date 2022 Mar 10
   remaining === Zero
-  pending === [(25.0,b)]
+  pending === [(1.0,b)] 
+  
+  -- during lifecycle, when we meet a When (TimeGte s) scale o --> we need to evaluate the observable as of time t = max (s, acquisition time of the outer contract) --> we basically need to propagate down the acquisition time but make sure it never goes below the actual acquisition time
+
+  pure ()  
 
