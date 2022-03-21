@@ -20,7 +20,7 @@ import ContingentClaims.Util (pruneZeros')
 import Daml.Control.Recursion (project, embed, distApo)
 import Daml.Control.Monad.Trans.Writer (WriterT, runWriterT)
 import Daml.Control.Monad.Writer.Class (MonadWriter(..))
-import Daml.Control.Monad.Trans.Class
+import Daml.Control.Monad.Trans.Class (lift)
 import Daml.Control.Arrow (Kleisli(..))
 import DA.Traversable (sequence)
 import DA.Foldable (sequence_, elem)
