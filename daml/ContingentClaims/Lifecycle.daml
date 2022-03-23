@@ -79,6 +79,7 @@ lifecycle spot startDate
     foldE (Right x) = x
 
 -- | Evaluate observables and skip branches for which predicates don't hold.
+-- Consume `Cond` nodes, leaving the relevant sub-tree.
 -- This is useless on its own. Composed with other functions, it adds laziness.
 acquire' : (Ord t, Eq a, Monad m)
   => (a -> t -> m Decimal)
@@ -88,9 +89,7 @@ acquire' spot (When obs c) = do
   pure $ WhenF obs if predicate then Right c else Left c
 acquire' spot (Cond obs c c') = do
   predicate <- compare spot obs
-  pure if predicate 
-    then CondF obs (Right c) (Left c') 
-    else CondF obs (Left c) (Right c')
+  if predicate then acquire' spot c else acquire' spot c'
 acquire' spot (Anytime obs c) = do
   predicate <- compare spot obs
   pure $ AnytimeF obs if predicate then Right c else Left c

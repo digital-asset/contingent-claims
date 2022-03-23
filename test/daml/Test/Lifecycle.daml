@@ -37,7 +37,7 @@ two : O.Observation Date Decimal Text = O.pure 2.0
 
 -- | Functions performing observations
 observe25: Text -> Date -> Script Decimal = const . const . pure $ 25.0
-observe _ d = pure . intToDecimal . thd3 . toGregorian $ d
+observeDayOfMonth _ d = pure . intToDecimal . thd3 . toGregorian $ d
 
 -- | Inequalities
 false = TimeGte $ date 3000 Jan 1
@@ -70,10 +70,10 @@ testAcquire = script do
   res === when (at tomorrow) (scale two (acquired a))
 
   res <- f (cond (at tomorrow) (one a) (one b)) today
-  res === cond (at tomorrow) (one a) (acquired b)
+  res === acquired b
 
   res <- f (cond (at tomorrow) (one a) (one b)) tomorrow
-  res === cond (at tomorrow) (acquired a) (one b)
+  res === acquired a
 
 {- FIXME: confirm if this test makes sense; it broke when we changed observable with inequality
   res <- f (when (O.TimeGte today) (when (O.TimeGte tomorrow) (one a)) ) tomorrow
@@ -134,6 +134,10 @@ testSettle = script do
   Lifecycle.Result{pending, remaining} <- f (anytime false (one a)) today
   remaining === anytime false (one a)
   pending === []
+
+  -- There is no need to test what happens with `Cond` nodes, because lifecycle' is always used in combination with acquire' (which consume `Cond` nodes)
+
+  pure ()
 
 -- | Replace any `or/anytime` nodes with the elections that have been made.
 testExercise = script do
@@ -332,13 +336,13 @@ testFloatingRateNote = script do
     frn = When (TimeGte $ date 2022 Mar 05) innerFrn
     startDate = date 2022 Jan 03
 
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe startDate frn $ date 2022 Feb 28
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observeDayOfMonth startDate frn $ date 2022 Feb 28
   remaining === frn
 
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe startDate frn $ date 2022 Mar 01
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observeDayOfMonth startDate frn $ date 2022 Mar 01
   remaining === frn
 
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe startDate frn $ date 2022 Mar 10
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observeDayOfMonth startDate frn $ date 2022 Mar 10
   remaining === Zero
   pending === [(5.0,b)]
 
@@ -353,15 +357,15 @@ testFloatingRateNote2 = script do
 
     startDate = date 2022 Jan 03
 
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe startDate frn $ date 2022 Mar 01
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observeDayOfMonth startDate frn $ date 2022 Mar 01
   remaining === frn
 
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe startDate frn $ date 2022 Mar 25
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observeDayOfMonth startDate frn $ date 2022 Mar 25
   remaining === Zero
   pending === [(25.0,b)]
 
   -- if we miss to lifecycle at the correct date, we (expectedly) get a wrong result
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe startDate frn $ date 2022 Mar 28
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observeDayOfMonth startDate frn $ date 2022 Mar 28
   remaining === Zero
   pending === [(28.0,b)]
 
@@ -371,9 +375,9 @@ testFloatingRateNote2 = script do
 testCondLifecycle = script do
   let c = Cond true (One a) (One b)
 
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe today c $ today
-  remaining === c -- expecting zero
-  pending === [] -- expecting [(1.0, a)]
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observeDayOfMonth today c $ today
+  remaining === zero
+  pending === [(1.0, a)]
 
   pure ()
 
