@@ -13,7 +13,7 @@ module ContingentClaims.Lifecycle (
   , Result(..)
 ) where
 
-import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..), compare)
+import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..), compare, Inequality(..))
 import ContingentClaims.Observation qualified as Observation
 import ContingentClaims.Util.Recursion (apoCataM)
 import ContingentClaims.Util (pruneZeros')
@@ -43,14 +43,20 @@ data Result t a = Result with
 -- Results in a function taking today's date, and returning the pruned tree + pending settlements.
 lifecycle : (Ord t, Eq a, CanAbort m)
   => (a -> t -> m Decimal)
+  -- ^ function to evaluate observables 
+  -> t
+  -- ^ start date of the input claim
   -> C t a
-  -> t -> m (Result t a)
-lifecycle spot
+  -- ^ the input claim
+  -> t
+  -- ^ the today's date
+  -> m (Result t a)
+lifecycle spot startDate
   = runKleisli
   . fmap (uncurry $ flip Result)
   . runWriterT
   . apoCataM pruneZeros' acquireThenSettle
-  . (1.0, )
+  . ((startDate, 1.0), )
   where
     acquireThenSettle =
       fmap (fmap (fmap join))
@@ -91,23 +97,34 @@ acquire' spot (Anytime obs c) = do
   pure $ AnytimeF obs if predicate then Right c else Left c
 acquire' _ other = pure $ Right <$> project other
 
--- | Evaluate any observables in `Scale` nodes, accumulating scale factors
--- top-down, and log these with their corresponding leaf values. Skip `Or` and
--- `Anytime` branches, guaranteeing liveness.
-lifecycle' : CanAbort m
+-- | Evaluate any observables in `Scale` nodes, accumulating scale factors and 
+-- propagating the claim's acquisition times top-down.
+-- Log the scale factors with their corresponding leaf values. 
+-- Skip `Or` and `Anytime` branches, guaranteeing liveness. 
+-- Replace any Ones that can be reached with Zeros.
+lifecycle' : (Ord t, CanAbort m)
         => (a -> t -> m Decimal)
-        -> (Decimal, C t a) -> WriterT [(Decimal, a)] (Kleisli m t) (F t a (Either (C t a) (Decimal, C t a)))
-lifecycle' _ (qty, One asset) = do
+        -> ((t, Decimal), C t a) -> WriterT [(Decimal, a)] (Kleisli m t) (F t a (Either (C t a) ((t, Decimal), C t a)))
+lifecycle' _ ((_, qty), One asset) = do
   tell [(qty, asset)]
   pure $ Right <$> ZeroF
-lifecycle' _ (qty, Give c) =
-  pure . GiveF $ Right (-qty, c)
-lifecycle' spot (qty, Scale obs c) = do
-  k <- lift $ Observation.eval spot obs
-  pure . ScaleF obs $ Right (k * qty, c)
+lifecycle' _ ((s, qty), Give c) =
+  pure . GiveF $ Right ((s, -qty), c)
+lifecycle' spot ((s, qty), Scale obs c) = do
+  k <- lift $ Kleisli \ _ -> runKleisli (Observation.eval spot obs) s
+  -- ^ evaluates the observable at the contract's acquisition time
+  pure . ScaleF obs $ Right ((s, k * qty), c)
 lifecycle' _ (_, c@Or{}) = pure $ Left <$> project c
 lifecycle' _ (_, c@(Anytime _ _)) = pure $ Left <$> project c
-lifecycle' _ (qty, other) = pure $ Right . (qty, ) <$> project other
+lifecycle' _ ((s, qty), When cond c) = do
+  let acquisitionTime t = case cond of
+        (TimeGte tau) -> max tau s
+        -- TimeGte tau becomes True exactly at time t = tau
+        other -> t
+        -- in all other cases, we assume that we are lifecycling at a time `t` corresponding to the first instant the condition becomes True
+  lift $ Kleisli \t -> pure $ WhenF cond $ Right ((acquisitionTime t, qty), c)
+lifecycle' _ ((s, qty), other) = pure $ Right . ((s, qty), ) <$> project other
+
 
 --  | Acquire `Anytime` and `Or` nodes, by making an election.
 -- `import` this `qualified`, to avoid clashes with `Prelude.exercise`.

@@ -19,7 +19,7 @@ import Daml.Control.Arrow (runKleisli)
 import Daml.Control.Monad.Trans.Writer (runWriterT)
 import Daml.Control.Recursion
 import Daml.Script
-import Prelude hiding (enumerate, length, or, and)
+import Prelude hiding (enumerate, length, or, and, (<=))
 
 type C = Claim Date Decimal Text
 type F = ClaimF Date Decimal Text
@@ -93,7 +93,7 @@ testSettle = script do
           . fmap (uncurry $ flip Lifecycle.Result)
           . runWriterT
           . apoM (Lifecycle.lifecycle' observe25)
-          . (1.0, )
+          . ((today, 1.0), )
 
   Lifecycle.Result{pending, remaining} <- f (scale two zero : C) today
   remaining === scale two zero
@@ -172,26 +172,26 @@ testBond = script do
   setDate today
   t <- getDate
 
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 (bond [today, tomorrow, afterTomorrow]) t
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 today (bond [today, tomorrow, afterTomorrow]) t
   remaining === bond [tomorrow, afterTomorrow]
   pending === [(coupon, a)]
 
   setDate tomorrow
   t <- getDate
 
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 remaining t
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 today remaining t
   remaining === bond [afterTomorrow]
   pending === [(coupon, a)]
 
   -- Check bond coupon doesn't get processed twice
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 remaining t
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 today remaining t
   remaining === bond [afterTomorrow]
   pending === []
 
   setDate afterTomorrow
   t <- getDate
 
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 remaining t
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 today remaining t
   remaining === zero
   pending === [(coupon, a), (principal, a)]
 
@@ -211,7 +211,7 @@ testEuropeanCall = script do
   remaining === option
 
   -- and so is settlement
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 option t
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 today option t
   remaining === option
   pending === []
 
@@ -222,7 +222,7 @@ testEuropeanCall = script do
   remaining <- Lifecycle.exercise observe25 (bearer, payoff) option t
   remaining === when (at tomorrow) payoff
 
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 remaining t
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 today remaining t
   remaining === zero
   pending === pure (2.0, a)
 
@@ -238,7 +238,7 @@ testAmericanPut = script do
   setDate today
   t <- getDate
 
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 option t
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 today option t
   remaining === option
   pending === []
 
@@ -250,7 +250,7 @@ testAmericanPut = script do
   t <- getDate
 
   -- Settlement before exercise is a no-op
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 option t
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 today option t
   remaining === option
   pending === []
 
@@ -266,7 +266,7 @@ testAmericanPut = script do
   remaining <- Lifecycle.exercise observe25 (bearer, payoff) remaining t
   remaining === until (TimeGte afterTomorrow) payoff
 
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 remaining t
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 today remaining t
   remaining === zero
   pending === pure (5.0, a)
 
@@ -279,7 +279,7 @@ testAmericanPut = script do
   remaining === zero
 
   -- Settlement before exercise has been done is a no-op
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 option t
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 today option t
   remaining === option
   pending === []
 
@@ -295,7 +295,7 @@ testAmericanPut = script do
   remaining <- Lifecycle.exercise observe25 (bearer, payoff) remaining t
   remaining === until (TimeGte $ afterTomorrow) payoff
 
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 remaining t
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 today remaining t
   remaining === zero
   pending === pure (5.0, a)
 
@@ -306,7 +306,7 @@ testAmericanPut = script do
   remaining <- Lifecycle.exercise observe25 (bearer, payoff) option t
   remaining === option -- past maturity; no exercise possible
 
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 remaining t
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 today remaining t
   remaining === option
   pending === []
 
@@ -316,22 +316,47 @@ testAmericanPut = script do
 testFloatingRateNote = script do
   let 
     innerFrn = Scale (O.Observe a) $ When (TimeGte $ date 2022 Mar 10) $ One b
-    frn = When (TimeGte $ date 2022 Mar 01) innerFrn
+    frn = When (TimeGte $ date 2022 Mar 05) innerFrn
 
     observe: Text -> Date -> Script Decimal = \_ d -> pure . intToDecimal . thd3 . toGregorian $ d
     -- ^ given a date, it always returns the day of the month
 
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe frn $ date 2022 Feb 28
+    startDate = date 2022 Jan 03
+
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe startDate frn $ date 2022 Feb 28
   remaining === frn
 
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe frn $ date 2022 Mar 01
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe startDate frn $ date 2022 Mar 01
   remaining === frn
 
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe frn $ date 2022 Mar 10
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe startDate frn $ date 2022 Mar 10
   remaining === Zero
-  pending === [(1.0,b)] 
-  
-  -- during lifecycle, when we meet a When (TimeGte s) scale o --> we need to evaluate the observable as of time t = max (s, acquisition time of the outer contract) --> we basically need to propagate down the acquisition time but make sure it never goes below the actual acquisition time
+  pending === [(5.0,b)]
+
+  pure ()  
+
+testFloatingRateNote2 = script do
+  let 
+    inequality = O.Const 25.0 <= O.Observe a
+    innerFrn = Scale (O.Observe a) $ When (TimeGte $ date 2022 Mar 10) $ One b
+    frn = When inequality innerFrn
+
+    observe: Text -> Date -> Script Decimal = \_ d -> pure . intToDecimal . thd3 . toGregorian $ d
+    -- ^ given a date, it always returns the day of the month
+
+    startDate = date 2022 Jan 03
+
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe startDate frn $ date 2022 Mar 01
+  remaining === frn
+
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe startDate frn $ date 2022 Mar 25
+  remaining === Zero
+  pending === [(25.0,b)]
+
+  -- if we miss to lifecycle at the correct date, we (expectedly) get a wrong result
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe startDate frn $ date 2022 Mar 28
+  remaining === Zero
+  pending === [(28.0,b)]
 
   pure ()  
 
