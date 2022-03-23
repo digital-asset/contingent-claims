@@ -73,17 +73,15 @@ lifecycle spot claim today
       . fmap (fmap sequence)
       . fmap sequence
       . fmap
-      . fmap (fmap (fmap embed))
-      . fmap (fmap (tsidE : F t a (Either (C t a) (C t a)) -> Either (C t a) (F t a (C t a)) ))
+      . fmap (fmap (wrapE : F t a (Either (C t a) (C t a)) -> Either (C t a) (C t a)))
       . fmap lift
       $ acquire' spot today
     distE = distApo
      -- This is degenerate if you have e.g. `And Left Right`, but that should never happen in practice.
-    tsidE f = case sequence_ f of
-      Left _ -> Left (embed (fmap foldE f))
-      Right _ -> Right (fmap foldE f)
-    foldE (Left x) = x
-    foldE (Right x) = x
+    wrapE f = case sequence_ f of
+      Left _ -> Left (wrap f)
+      Right _ -> Right (wrap f)
+    wrap f = embed . fmap (either identity identity) $ f
 
 -- | Evaluate observables and skip branches for which predicates don't hold.
 -- Consume `Cond` nodes, leaving the relevant sub-tree.
@@ -153,15 +151,13 @@ exercise spot election claim today = apoCataM pruneZeros' acquireThenExercise . 
                         . fmap (fmap (fmap (exercise' election today)))
                         . fmap (fmap sequence)
                         . fmap sequence . fmap
-                        . fmap (fmap (fmap embed))
-                        . fmap (fmap tsidE)
+                        . fmap (fmap wrapE)
                         $ acquire' spot today
   distE = distApo
-  tsidE f = case sequence_ f of
-    Left _ -> Left (embed (fmap foldE f))
-    Right _ -> Right (fmap foldE f)
-  foldE (Left x) = x
-  foldE (Right x) = x
+  wrapE f = case sequence_ f of
+    Left _ -> Left (wrap f)
+    Right _ -> Right (wrap f)
+  wrap f = embed . fmap (either identity identity) $ f
 
 -- | Coalgebra for `exercise`.
 -- Resolves `Or` nodes by removing them (keeping elected subtrees).
