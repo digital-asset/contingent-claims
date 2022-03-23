@@ -24,14 +24,26 @@ import Prelude hiding (enumerate, length, or, and, (<=))
 type C = Claim Date Decimal Text
 type F = ClaimF Date Decimal Text
 
+-- | Assets
 [a,b,c] = ["a","b","c"]
+
+-- | Dates
 today = date 1970 Jan 1
 tomorrow = succ today
 afterTomorrow = succ tomorrow
+
+-- | Observations 
 two : O.Observation Date Decimal Text = O.pure 2.0
+
+-- | Functions performing observations
 observe25: Text -> Date -> Script Decimal = const . const . pure $ 25.0
+observe _ d = pure . intToDecimal . thd3 . toGregorian $ d
+
+-- | Inequalities
 false = TimeGte $ date 3000 Jan 1
 true = TimeGte $ date 1970 Jan 1
+
+-- | Helper functions
 getDate = toDateUTC <$> getTime
 setDate = setTime . noon where noon d = time d 12 0 0
 
@@ -313,14 +325,11 @@ testAmericanPut = script do
   remaining <- Lifecycle.expire observe25 remaining t
   remaining === zero
 
+-- | Ensure that acquisition time is propagated correctly (deterministic time)
 testFloatingRateNote = script do
   let 
     innerFrn = Scale (O.Observe a) $ When (TimeGte $ date 2022 Mar 10) $ One b
     frn = When (TimeGte $ date 2022 Mar 05) innerFrn
-
-    observe: Text -> Date -> Script Decimal = \_ d -> pure . intToDecimal . thd3 . toGregorian $ d
-    -- ^ given a date, it always returns the day of the month
-
     startDate = date 2022 Jan 03
 
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe startDate frn $ date 2022 Feb 28
@@ -335,14 +344,12 @@ testFloatingRateNote = script do
 
   pure ()  
 
+-- | Ensure that acquisition time is propagated correctly (stochastic time)
 testFloatingRateNote2 = script do
   let 
     inequality = O.Const 25.0 <= O.Observe a
     innerFrn = Scale (O.Observe a) $ When (TimeGte $ date 2022 Mar 10) $ One b
     frn = When inequality innerFrn
-
-    observe: Text -> Date -> Script Decimal = \_ d -> pure . intToDecimal . thd3 . toGregorian $ d
-    -- ^ given a date, it always returns the day of the month
 
     startDate = date 2022 Jan 03
 
@@ -358,5 +365,15 @@ testFloatingRateNote2 = script do
   remaining === Zero
   pending === [(28.0,b)]
 
-  pure ()  
+  pure ()
+
+-- | Ensure that `Cond` nodes are lifecycled appropriately 
+testCondLifecycle = script do
+  let c = Cond true (One a) (One b)
+
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe today c $ today
+  remaining === c -- expecting zero
+  pending === [] -- expecting [(1.0, a)]
+
+  pure ()
 
