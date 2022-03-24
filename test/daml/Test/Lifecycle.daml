@@ -349,25 +349,27 @@ testFloatingRateNote = script do
   pure ()  
 
 -- | Ensure that acquisition time is propagated correctly (stochastic time)
-testFloatingRateNote2 = script do
+testKnockOutBarrier = script do
   let 
     inequality = O.Const 25.0 <= O.Observe a
-    innerFrn = Scale (O.Observe a) $ When (TimeGte $ date 2022 Mar 10) $ One b
+    innerFrn = Scale (O.Observe a) $ When (TimeGte $ date 2022 Mar 27) $ One b
     frn = When inequality innerFrn
 
-    startDate = date 2022 Jan 03
+    startDate = date 2022 Mar 01
 
+  -- Condition is False, contract should be unchanged
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observeDayOfMonth startDate frn $ date 2022 Mar 01
   remaining === frn
 
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observeDayOfMonth startDate frn $ date 2022 Mar 25
+  -- Condition becomes True and `When cond` should be replaced by `When (TimeGte τ)`
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observeDayOfMonth startDate remaining $ date 2022 Mar 25
+  remaining === When (TimeGte $ date 2022 Mar 25) innerFrn
+  pending === []
+
+  -- Payment of the correct amount is made on payment date
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observeDayOfMonth startDate remaining $ date 2022 Mar 27
   remaining === Zero
   pending === [(25.0,b)]
-
-  -- if we miss to lifecycle at the correct date, we (expectedly) get a wrong result
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observeDayOfMonth startDate frn $ date 2022 Mar 28
-  remaining === Zero
-  pending === [(28.0,b)]
 
   pure ()
 

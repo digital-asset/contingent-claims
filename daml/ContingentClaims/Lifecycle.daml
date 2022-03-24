@@ -80,13 +80,20 @@ lifecycle spot startDate
 
 -- | Evaluate observables and skip branches for which predicates don't hold.
 -- Consume `Cond` nodes, leaving the relevant sub-tree.
+-- Replace `When cond c` nodes with `When (TimeGte t) c` if the condition is non-deterministic and evaluates to True.
 -- This is useless on its own. Composed with other functions, it adds laziness.
 acquire' : (Ord t, Eq a, Monad m)
   => (a -> t -> m Decimal)
   -> C t a -> Kleisli m t (F t a (Either (C t a) (C t a)))
 acquire' spot (When obs c) = do
   predicate <- compare spot obs
-  pure $ WhenF obs if predicate then Right c else Left c
+  if predicate then
+    case obs of
+      TimeGte _ -> pure $ WhenF obs (Right c)
+      other -> Kleisli \t -> pure $ WhenF (TimeGte t) (Right c)
+      -- if the condition `cond` is non-deterministic, we assume that we are lifecycling at a time `t` corresponding to the first instant the condition becomes True
+    else
+      pure $ Left <$> WhenF obs c
 acquire' spot (Cond obs c c') = do
   predicate <- compare spot obs
   if predicate then acquire' spot c else acquire' spot c'
@@ -116,10 +123,10 @@ lifecycle' _ (_, c@Or{}) = pure $ Left <$> project c
 lifecycle' _ (_, c@(Anytime _ _)) = pure $ Left <$> project c
 lifecycle' _ ((s, qty), When cond c) = do
   let acquisitionTime t = case cond of
-        (TimeGte tau) -> max tau s
-        -- TimeGte tau becomes True exactly at time t = tau
+        TimeGte tau -> max tau s
+        -- ^ (TimeGte tau) becomes True exactly at time t = tau
         other -> t
-        -- in all other cases, we assume that we are lifecycling at a time `t` corresponding to the first instant the condition becomes True
+        -- ^ we should never land on this case as it is prevented by the acquire' function
   lift $ Kleisli \t -> pure $ WhenF cond $ Right ((acquisitionTime t, qty), c)
 lifecycle' _ ((s, qty), other) = pure $ Right . ((s, qty), ) <$> project other
 
