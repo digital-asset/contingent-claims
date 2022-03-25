@@ -1,3 +1,4 @@
 [submodule "daml-ctl"]
 	path = daml-ctl
 	url = git@github.com:digital-asset/daml-ctl.git
+	branch = syndication
