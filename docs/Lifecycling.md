@@ -18,7 +18,7 @@ When (t ≥ t_1) (Scale (Observe "S" - K) (When (t ≥ t_2) (One “USD”)))
 
 which we acquired at a time `t_0` with `t_0` ≤ `t_1` ≤ `t_2`.
 
-Economically, this contract observes a certain value `S(t)` at time `t_1` and pays the contract holder an amount `S(t_1) - K` in dollars at time `t_2`. Many will recognize in this expression the payoff of an equity forward contract, where `S` is the stock's spot price.
+Economically, this contract observes a certain value `S(t)` at time `t_1` and pays the contract holder an amount `S(t_1) - K` in dollars at time `t_2`. Many will recognize in this expression the payoff of an equity forward contract, where `S` is the stock's spot price and `K` is the strike price.
 
 In order to understand how the contract evolves over time, we need to recall that `When cond c` acquires the underlying contract on the first instant the condition `cond` becomes `True`.
 
@@ -62,11 +62,34 @@ In order to replicate this contract evolution process for a generic contract, we
 
 The lifecycling functionality of the library addresses the latter problem.
 
+### Transient vs Stable nodes
+
+As we can see from the example above, there are some nodes that, once acquired, are immediately consumed and trigger the acquisition of another contract.
+
+A transient contract is a contract whose outer node is transient.
+
+Transient nodes:
+
+- `Scale`, `One`, `Or`, `And`, `Cond`, `Give`
+- `Anytime cond c` when `cond` is `False` at the time of acquisition
+- `Until cond c` when `cond` is `True` at the time of acquisition
+- `Until cond c` when `c` is transient contract
+- `When cond c` when `cond` is `True` at the time of acquisition
+
+Stable nodes:
+
+- `Zero`
+- `Anytime cond c` when `cond` is `True` at the time of acquisition
+- `Until cond c` when `cond` is `False` at the time of acquisition and `c` is not transient
+- `When cond c` when `cond` is `False` at the time of acquisition
+
+As a rule of thumb, the lifecycling function shall not return a transient contract.
+
 ### Types of event dates
 
-Assuming that once we acquire a `One a`, this is immediately paid to the contract holder, We can classify event dates (or time instants) as
+Assuming that, once we acquire a `One a`, this is immediately paid to the contract holder, we can classify event dates (or time instants) as
 
-- expiry date: when the contract evolves to `Zero` or is equivalent (in the valuation semantics sense) to the `Zero` contract
+- expiry date: the date after which the contract evolves to `Zero` or is equivalent (in the valuation semantics sense) to the `Zero` contract
 
 - payment date: when a `One a` is acquired (usually multiplied by some constant amount)
 
@@ -87,10 +110,6 @@ Once we have acquired a contract `c` at a time `t_0`, the next event date is due
 - the contract becoming equivalent to the `Zero` contract (e.g. if the probability of the condition within a `When` node becoming `True` is zero)
 
 Event dates related to `When` and `Until` conditions are modelled as stopping times of stochastic processes: these processes need to be continuously observed in order to determine when the event occurs. An exception to this are cases where the next event date is a deterministic time, for instance when using the condition `t ≥ t_1`: in this case, even before `t_1` we know that `t_1` will be an event date.
-
-### Upper bound for the expiry date
-
-TODO: describe cases when an upper bound to the expiry date of the contract is deterministically known.
 
 ### Desirable features of a lifecycle functionality
 
@@ -114,7 +133,7 @@ Some features for this function are desirable:
 
 2. to reduce the number of contracts that need to be created, event dates that are exclusively fixing dates should not mutate the contract.
 
-The second feature facilitates handling of contracts with many fixing dates but only few payment dates (e.g. barrier options, OIS swaps). However, it adds additional complexity: when we lifecycle at a payment or election date, we need to be able to collect the cumulated effects of all previous fixing events.
+The second feature facilitates handling of contracts with many fixing dates but only few payment dates (e.g. barrier options, OIS swaps). However, it adds additional complexity: when we lifecycle at a payment or election date, we need to be able to look back in time and collect the cumulated effects of all previous fixing events.
 
 ### Implementation assumptions
 
@@ -122,13 +141,13 @@ The features described above are difficult to implement in practice. The followi
 
 #### Boolean Conditions
 
-The boolean conditions within a `When` or `Until` node can be of the form
+The boolean conditions within a `When`, `Cond`, `Until` or `Anytime` node can be of the form
 
-- `t ≥ t_0`
+- `t ≥ t_0` for a time `t_0`
 
 - `o1(t) ≤ o2(t)` for two observables `o1`, `o2`
 
-The former allows for the deterministic determination of the first instant a condition is met. The latter might be of stochastic nature.
+The former allows for the deterministic determination of the first instant a condition is met. The latter generally is of stochastic nature.
 
 #### Contract acquisition date
 
