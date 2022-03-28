@@ -9,7 +9,6 @@ import DA.Foldable (Foldable(..))
 import DA.Text (unwords, intercalate)
 import DA.Traversable (Traversable(..))
 import Daml.Control.Recursion
-import Daml.Control.Arrow (Kleisli(..), arr)
 import Prelude hiding (or, and, fst, snd)
 
 type T = Claim
@@ -230,7 +229,7 @@ infix 4 <=
 (<=) : Observation t x a -> Observation t x a -> Inequality t x a
 (<=) = curry Lte
 
--- | Reify the `Observable.Inequality` into a Kleisli function.
-compare : (Ord t, Ord x, Number x, Divisible x, Action m) => (a -> t -> m x) -> Inequality t x a -> Kleisli m t Bool
-compare doObserve (Lte (f, f')) = liftA2 (Prelude.<=) (Observation.eval doObserve f) (Observation.eval doObserve f')
-compare _ (TimeGte t) = arr (>= t)
+-- | Reify the `Observable.Inequality` into an observation function.
+compare : (Ord t, Ord x, Number x, Divisible x, Action m) => (a -> t -> m x) -> Inequality t x a -> t -> m Bool
+compare doObserve (Lte (f, f')) t = liftA2 (Prelude.<=) (Observation.eval doObserve f t) (Observation.eval doObserve f' t)
+compare _ (TimeGte s) t = pure $ t >= s
