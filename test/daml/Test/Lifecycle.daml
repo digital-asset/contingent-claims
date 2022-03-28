@@ -100,37 +100,36 @@ testAcquire = script do
 -- | This test replaces all leaves with zeros, logging their qty/asset pair into a `Writer`.
 -- It ignores `when/cond` nodes altogether.
 testSettle = script do
-  let f c t = fmap (uncurry $ flip Lifecycle.Result)
+  let f = fmap (uncurry $ flip Lifecycle.Result)
           . runWriterT
-          . apoM (Lifecycle.lifecycle' observe25 t)
+          . apoM (Lifecycle.lifecycle' observe25)
           . ((today, 1.0), )
-          $ c
 
-  Lifecycle.Result{pending, remaining} <- f (scale two zero : C) today
+  Lifecycle.Result{pending, remaining} <- f (scale two zero : C)
   remaining === scale two zero
   pending === []
 
-  Lifecycle.Result{pending, remaining} <- f (scale two (one a)) today
+  Lifecycle.Result{pending, remaining} <- f (scale two (one a))
   remaining === scale two zero
   pending === [(2.0, a)]
 
-  Lifecycle.Result{pending, remaining} <- f (give (one a)) today
+  Lifecycle.Result{pending, remaining} <- f (give (one a))
   remaining === give zero
   pending === [(-1.0 , a)]
 
-  Lifecycle.Result{pending, remaining} <- f (scale two (one a `and` one b)) today
+  Lifecycle.Result{pending, remaining} <- f (scale two (one a `and` one b))
   remaining === scale two (zero `And` zero $ []) -- using the explicit constructor becuase the smart constructor reduces this to `Zero`
   pending === [(2.0, a), (2.0, b)]
 
-  Lifecycle.Result{pending, remaining} <- f (scale two (one a) `and` scale two (one b)) today
+  Lifecycle.Result{pending, remaining} <- f (scale two (one a) `and` scale two (one b))
   remaining === (scale two zero `and` scale two zero)
   pending === [(2.0, a), (2.0, b)]
 
-  Lifecycle.Result{pending, remaining} <- f (when false (one a)) today
+  Lifecycle.Result{pending, remaining} <- f (when false (one a))
   remaining === when false zero
   pending === pure (1.0, a)
 
-  Lifecycle.Result{pending, remaining} <- f (anytime false (one a)) today
+  Lifecycle.Result{pending, remaining} <- f (anytime false (one a))
   remaining === anytime false (one a)
   pending === []
 

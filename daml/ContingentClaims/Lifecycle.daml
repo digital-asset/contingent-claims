@@ -62,7 +62,7 @@ lifecycle spot startDate claim today
       . fmap (fmap distE)
       . fmap join
       . fmap (fmap sequence)
-      . fmap (fmap (fmap (lifecycle' spot today)))
+      . fmap (fmap (fmap (lifecycle' spot)))
       . fmap (fmap sequence)
       . fmap sequence
       . fmap
@@ -114,26 +114,25 @@ acquire' _ _ other = pure $ Right <$> project other
 -- Replace any Ones that can be reached with Zeros.
 lifecycle' : (Ord t, CanAbort m)
         => (a -> t -> m Decimal)
-        -> t
         -> ((t, Decimal), C t a) -> WriterT [(Decimal, a)] m (F t a (Either (C t a) ((t, Decimal), C t a)))
-lifecycle' _ _ ((_, qty), One asset) = do
+lifecycle' _ ((_, qty), One asset) = do
   tell [(qty, asset)]
   pure $ Right <$> ZeroF
-lifecycle' _ _ ((s, qty), Give c) =
+lifecycle' _ ((s, qty), Give c) =
   pure . GiveF $ Right ((s, -qty), c)
-lifecycle' spot _ ((s, qty), Scale obs c) = do
+lifecycle' spot ((s, qty), Scale obs c) = do
   k <- lift $ Observation.eval spot obs s
   pure . ScaleF obs $ Right ((s, k * qty), c)
-lifecycle' _ _ (_, c@Or{}) = pure $ Left <$> project c
-lifecycle' _ _ (_, c@(Anytime _ _)) = pure $ Left <$> project c
-lifecycle' _ t ((s, qty), When cond c) = do
-  let acquisitionTime t = case cond of
-        TimeGte tau -> max tau s
-        -- ^ (TimeGte tau) becomes True exactly at time t = tau
-        other -> t
-        -- ^ we should never land on this case as it is prevented by the acquire' function
-  lift $ pure $ WhenF cond $ Right ((acquisitionTime t, qty), c)
-lifecycle' _ _ ((s, qty), other) = pure $ Right . ((s, qty), ) <$> project other
+lifecycle' _ (_, c@Or{}) = pure $ Left <$> project c
+lifecycle' _ (_, c@(Anytime _ _)) = pure $ Left <$> project c
+lifecycle' _ ((s, qty), When cond c) = do
+  acquisitionTime <- case cond of
+    TimeGte tau -> pure $ max tau s
+    -- ^ (TimeGte tau) becomes True exactly at time t = tau
+    other -> abort "Not expecting to find non-deterministic predicate at this stage"
+    -- ^ we should never land on this case, as acquire' "fixes" the acquisition date for non-deterministic predicates
+  lift $ pure $ WhenF cond $ Right ((acquisitionTime, qty), c)
+lifecycle' _ ((s, qty), other) = pure $ Right . ((s, qty), ) <$> project other
 
 
 --  | Acquire `Anytime` and `Or` nodes, by making an election.
