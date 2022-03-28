@@ -13,42 +13,42 @@ We will be using dates in the examples below, but the same applies when the time
 In the model outlined in [[1]](#1), a financial contract evolves over time. As an example, let us consider the contract `c1`
 
 ```Haskell
-When (t ≥ t_1) (Scale (Observe "USD_LIBOR_3M") (When (t ≥ t_2) (One “USD”)))
+When (t ≥ t_1) (Scale (Observe "S" - K) (When (t ≥ t_2) (One “USD”)))
 ```
 
 which we acquired at a time `t_0` with `t_0` ≤ `t_1` ≤ `t_2`.
 
-Economically, this contract observes a certain rate at time `t_1` and pays its amount in dollars at time `t_2`.
+Economically, this contract observes a certain value `S(t)` at time `t_1` and pays the contract holder an amount `S(t_1) - K` in dollars at time `t_2`. Many will recognize in this expression the payoff of an equity forward contract, where `S` is the stock's spot price.
 
-In order to understand how the contract evolves over time, we need to recall that `when cond c` acquires the underlying contract on the first instant the condition becomes `True`.
+In order to understand how the contract evolves over time, we need to recall that `When cond c` acquires the underlying contract on the first instant the condition `cond` becomes `True`.
 
-Thus, exactly at time `t_1`, the condition on the outer `when` is met and we acquire `c2`
+Thus, exactly at time `t_1`, the condition on the outer `When` is met and we acquire `c2`
 
 ```Haskell
-Scale (Observe "USD_LIBOR_3M") (When (t ≥ t_2) (One “USD”))
+Scale (Observe "S" - K) (When (t ≥ t_2) (One “USD”))
 ```
 
 as replacement for the initial contract.
 
-As soon as we acquire `c2`, because of the `scale` node, we acquire `c3`
+As soon as we acquire `c2`, because of the `Scale` node, we acquire `c3`
 
 ```Haskell
-USD_LIBOR_3M(t_1) * (When (t ≥ t_2) (One “USD”)
+(S(t_1) - K) * (When (t ≥ t_2) (One “USD”)
 ```
 
 as a replacement for `c2`.
 
-Finally, once `t_2` has arrived, the condition on the remaining `when` is met and we acquire `c4`
+Finally, once `t_2` has arrived, the condition on the remaining `When` is met and we acquire `c4`
 
 ```Haskell
-USD_LIBOR_3M(t_1)) * (One “USD”)
+(S(t_1) - K) * (One “USD”)
 ```
 
 as a replacement for `c3`.
 
 This contract does not include additional dynamics and will not evolve further. In a financial setting, this is when a payment is made to the contract owner for the amount due:
 
-- USD_LIBOR_3M(t_1) USD is paid to the contract holder
+- S(t_1) - K USD is paid to the contract holder
 
 - `c4` is replaced with `Zero`, the contract indicating the absence of a claim.
 
