@@ -15,7 +15,6 @@ import DA.Assert ((===))
 import DA.Date (date, Month(..), toDateUTC, toGregorian)
 import DA.Time (time)
 import DA.Tuple (thd3)
-import Daml.Control.Arrow (runKleisli)
 import Daml.Control.Monad.Trans.Writer (runWriterT)
 import Daml.Control.Recursion
 import Daml.Script
@@ -52,7 +51,7 @@ setDate = setTime . noon where noon d = time d 12 0 0
 testAcquire = script do
   let acquiredF asset = OneF $ "acquired " <> asset
       acquired asset : C = embed $ acquiredF asset
-      f = runKleisli . apoM (Lifecycle.acquire' observe25 >=> process)
+      f c t = apoM (Lifecycle.acquire' observe25 t >=> process) c
           where process (OneF asset) = pure $ pure <$> acquiredF asset
                 process ZeroF = pure $ pure <$> acquiredF "0"
                 process otherF = pure otherF
@@ -101,11 +100,11 @@ testAcquire = script do
 -- | This test replaces all leaves with zeros, logging their qty/asset pair into a `Writer`.
 -- It ignores `when/cond` nodes altogether.
 testSettle = script do
-  let f = runKleisli
-          . fmap (uncurry $ flip Lifecycle.Result)
+  let f c t = fmap (uncurry $ flip Lifecycle.Result)
           . runWriterT
-          . apoM (Lifecycle.lifecycle' observe25)
+          . apoM (Lifecycle.lifecycle' observe25 t)
           . ((today, 1.0), )
+          $ c
 
   Lifecycle.Result{pending, remaining} <- f (scale two zero : C) today
   remaining === scale two zero

@@ -21,7 +21,6 @@ import Daml.Control.Recursion (project, embed, distApo)
 import Daml.Control.Monad.Trans.Writer (WriterT, runWriterT)
 import Daml.Control.Monad.Writer.Class (MonadWriter(..))
 import Daml.Control.Monad.Trans.Class (lift)
-import Daml.Control.Arrow (Kleisli(..))
 import DA.Traversable (sequence)
 import DA.Foldable (sequence_, elem)
 import Prelude hiding (sequence, mapA, exercise, compare, elem)
@@ -51,26 +50,26 @@ lifecycle : (Ord t, Eq a, CanAbort m)
   -> t
   -- ^ the today's date
   -> m (Result t a)
-lifecycle spot startDate
-  = runKleisli
-  . fmap (uncurry $ flip Result)
+lifecycle spot startDate claim today
+  = fmap (uncurry $ flip Result)
   . runWriterT
   . apoCataM pruneZeros' acquireThenSettle
-  . ((startDate, 1.0), )
+  . ((startDate, 1.0), ) 
+  $ claim
   where
     acquireThenSettle =
       fmap (fmap (fmap join))
       . fmap (fmap distE)
       . fmap join
       . fmap (fmap sequence)
-      . fmap (fmap (fmap (lifecycle' spot)))
+      . fmap (fmap (fmap (lifecycle' spot today)))
       . fmap (fmap sequence)
       . fmap sequence
       . fmap
       . fmap (fmap (fmap embed))
       . fmap (fmap (tsidE : F t a (Either (C t a) (C t a)) -> Either (C t a) (F t a (C t a)) ))
       . fmap lift
-      $ acquire' spot
+      $ acquire' spot today
     distE = distApo
      -- This is degenerate if you have e.g. `And Left Right`, but that should never happen in practice.
     tsidE f = case sequence_ f of
@@ -85,23 +84,28 @@ lifecycle spot startDate
 -- This is useless on its own. Composed with other functions, it adds laziness.
 acquire' : (Ord t, Eq a, Monad m)
   => (a -> t -> m Decimal)
-  -> C t a -> Kleisli m t (F t a (Either (C t a) (C t a)))
-acquire' spot (When obs c) = do
-  predicate <- compare spot obs
+  -- ^ function to evaluate observables 
+  -> t
+  -- ^ the today date
+  -> C t a
+  -- ^ the input claim 
+  -> m (F t a (Either (C t a) (C t a)))
+acquire' spot t (When obs c) = do
+  predicate <- compare spot obs t
   if predicate then
     case obs of
       TimeGte _ -> pure $ WhenF obs (Right c)
-      other -> Kleisli \t -> pure $ WhenF (TimeGte t) (Right c)
-      -- if the condition `cond` is non-deterministic, we assume that we are lifecycling at a time `t` corresponding to the first instant the condition becomes True
+      other -> pure $ WhenF (TimeGte t) (Right c)
+      -- ^ if the condition `cond` is non-deterministic, we assume that we are lifecycling at a time `t` corresponding to the first instant the condition becomes True
     else
       pure $ Left <$> WhenF obs c
-acquire' spot (Cond obs c c') = do
-  predicate <- compare spot obs
-  if predicate then acquire' spot c else acquire' spot c'
-acquire' spot (Anytime obs c) = do
-  predicate <- compare spot obs
+acquire' spot today (Cond obs c c') = do
+  predicate <- compare spot obs today
+  if predicate then acquire' spot today c else acquire' spot today c'
+acquire' spot today (Anytime obs c) = do
+  predicate <- compare spot obs today
   pure $ AnytimeF obs if predicate then Right c else Left c
-acquire' _ other = pure $ Right <$> project other
+acquire' _ _ other = pure $ Right <$> project other
 
 -- | Evaluate any observables in `Scale` nodes, accumulating scale factors and 
 -- propagating the claim's acquisition times top-down.
@@ -110,32 +114,32 @@ acquire' _ other = pure $ Right <$> project other
 -- Replace any Ones that can be reached with Zeros.
 lifecycle' : (Ord t, CanAbort m)
         => (a -> t -> m Decimal)
-        -> ((t, Decimal), C t a) -> WriterT [(Decimal, a)] (Kleisli m t) (F t a (Either (C t a) ((t, Decimal), C t a)))
-lifecycle' _ ((_, qty), One asset) = do
+        -> t
+        -> ((t, Decimal), C t a) -> WriterT [(Decimal, a)] m (F t a (Either (C t a) ((t, Decimal), C t a)))
+lifecycle' _ _ ((_, qty), One asset) = do
   tell [(qty, asset)]
   pure $ Right <$> ZeroF
-lifecycle' _ ((s, qty), Give c) =
+lifecycle' _ _ ((s, qty), Give c) =
   pure . GiveF $ Right ((s, -qty), c)
-lifecycle' spot ((s, qty), Scale obs c) = do
-  k <- lift $ Kleisli \ _ -> runKleisli (Observation.eval spot obs) s
-  -- ^ evaluates the observable at the contract's acquisition time
+lifecycle' spot _ ((s, qty), Scale obs c) = do
+  k <- lift $ Observation.eval spot obs s
   pure . ScaleF obs $ Right ((s, k * qty), c)
-lifecycle' _ (_, c@Or{}) = pure $ Left <$> project c
-lifecycle' _ (_, c@(Anytime _ _)) = pure $ Left <$> project c
-lifecycle' _ ((s, qty), When cond c) = do
+lifecycle' _ _ (_, c@Or{}) = pure $ Left <$> project c
+lifecycle' _ _ (_, c@(Anytime _ _)) = pure $ Left <$> project c
+lifecycle' _ t ((s, qty), When cond c) = do
   let acquisitionTime t = case cond of
         TimeGte tau -> max tau s
         -- ^ (TimeGte tau) becomes True exactly at time t = tau
         other -> t
         -- ^ we should never land on this case as it is prevented by the acquire' function
-  lift $ Kleisli \t -> pure $ WhenF cond $ Right ((acquisitionTime t, qty), c)
-lifecycle' _ ((s, qty), other) = pure $ Right . ((s, qty), ) <$> project other
+  lift $ pure $ WhenF cond $ Right ((acquisitionTime t, qty), c)
+lifecycle' _ _ ((s, qty), other) = pure $ Right . ((s, qty), ) <$> project other
 
 
 --  | Acquire `Anytime` and `Or` nodes, by making an election.
 -- `import` this `qualified`, to avoid clashes with `Prelude.exercise`.
 exercise : (Ord t, Eq a, Monad m) => (a -> t -> m Decimal) -> (Bool, C t a) -> C t a -> t -> m (C t a)
-exercise spot election = runKleisli . apoCataM pruneZeros' acquireThenExercise . (True, ) where
+exercise spot election claim today = apoCataM pruneZeros' acquireThenExercise . (True, ) $ claim where
   acquireThenExercise = fmap (fmap (fmap join))
                         . fmap (fmap distE)
                         . fmap (fmap (fmap (exercise' election)))
@@ -143,7 +147,7 @@ exercise spot election = runKleisli . apoCataM pruneZeros' acquireThenExercise .
                         . fmap sequence . fmap
                         . fmap (fmap (fmap embed))
                         . fmap (fmap tsidE)
-                        $ acquire' spot
+                        $ acquire' spot today
   distE = distApo
   tsidE f = case sequence_ f of
     Left _ -> Left (embed (fmap foldE f))
@@ -167,14 +171,14 @@ exercise' _ (isBearer, other) = Right . (isBearer, ) <$> project other
 
 -- | Replace any subtrees that have expired with `Zero`s.
 expire : (Ord t, Eq a, Monad m) => (a -> t -> m Decimal) -> C t a -> t -> m (C t a)
-expire spot = runKleisli . apoCataM pruneZeros' acquireThenExpire where
+expire spot claim today = apoCataM pruneZeros' acquireThenExpire claim where
   acquireThenExpire = fmap (fmap distE)
                       . fmap join
                       . fmap (fmap sequence)
-                      . fmap (fmap (fmap (expire' spot)))
+                      . fmap (fmap (fmap (expire' spot today)))
                       . fmap (fmap (fmap embed))
                       . fmap (fmap tsidE)
-                      $ acquire' spot
+                      $ acquire' spot today
   distE = distApo
   tsidE f = case sequence_ f of
     Left _ -> Left (embed (fmap foldE f))
@@ -183,8 +187,8 @@ expire spot = runKleisli . apoCataM pruneZeros' acquireThenExpire where
   foldE (Right x) = x
 
 -- | Coalgebra for `expire`.
-expire' : (Ord t, Monad m) => (a -> t -> m Decimal) -> C t a -> Kleisli m t (F t a (C t a))
-expire' spot (Until obs c) = do
-  predicate <- compare spot obs
+expire' : (Ord t, Monad m) => (a -> t -> m Decimal) -> t -> C t a -> m (F t a (C t a))
+expire' spot t (Until obs c) = do
+  predicate <- compare spot obs t
   if predicate then pure ZeroF else pure $ UntilF obs c
-expire' _ other = pure . project $ other
+expire' _ _ other = pure . project $ other
