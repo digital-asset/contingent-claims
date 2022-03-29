@@ -11,6 +11,7 @@ module ContingentClaims.Lifecycle (
   , exercise'
   , expire
   , Result(..)
+  , AcquisitionTime(..)
 ) where
 
 import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..), compare, Inequality(..))
@@ -35,6 +36,15 @@ data Result t a = Result with
   remaining : C t a
     -- ^ the tree after lifecycled branches have been pruned.
 
+-- | Acquisition time of a (sub)contract. 
+-- It becomes known after we cross the first `When` node. Before that, we consider it is "minus infinity". 
+data AcquisitionTime t = MinusInfinity | Time t deriving (Eq, Show)
+
+instance (Ord t) => Ord (AcquisitionTime t) where 
+  (Time s) <= (Time t) = s <= t
+  MinusInfinity <= _ = True
+  _ <= MinusInfinity = False
+
 -- | Collect claims falling due into a list, and return the tree with those nodes pruned.
 -- `m` will typically be `Update`. It is parametrised so it can be run in a `Script`.
 -- The first argument is used to lookup the value of any `Observables`.
@@ -42,18 +52,16 @@ data Result t a = Result with
 lifecycle : (Ord t, Eq a, CanAbort m)
   => (a -> t -> m Decimal)
   -- ^ function to evaluate observables 
-  -> t
-  -- ^ start date of the input claim
   -> C t a
   -- ^ the input claim
   -> t
   -- ^ the today's date
   -> m (Result t a)
-lifecycle spot startDate claim today
+lifecycle spot claim today
   = fmap (uncurry $ flip Result)
   . runWriterT
   . apoCataM pruneZeros' acquireThenSettle
-  . ((startDate, 1.0), ) 
+  . ((MinusInfinity, 1.0), ) 
   $ claim
   where
     acquireThenSettle =
@@ -113,20 +121,22 @@ acquire' _ _ other = pure $ Right <$> project other
 -- Replace any Ones that can be reached with Zeros.
 lifecycle' : (Ord t, CanAbort m)
         => (a -> t -> m Decimal)
-        -> ((t, Decimal), C t a) -> WriterT [(Decimal, a)] m (F t a (Either (C t a) ((t, Decimal), C t a)))
+        -> ((AcquisitionTime t, Decimal), C t a) -> WriterT [(Decimal, a)] m (F t a (Either (C t a) ((AcquisitionTime t, Decimal), C t a)))
 lifecycle' _ ((_, qty), One asset) = do
   tell [(qty, asset)]
   pure $ Right <$> ZeroF
 lifecycle' _ ((s, qty), Give c) =
   pure . GiveF $ Right ((s, -qty), c)
 lifecycle' spot ((s, qty), Scale obs c) = do
-  k <- lift $ Observation.eval spot obs s
+  k <- lift $ case s of 
+    (Time s) -> Observation.eval spot obs s
+    MinusInfinity -> abort "Found Scale node with undefined acquisition time"
   pure . ScaleF obs $ Right ((s, k * qty), c)
 lifecycle' _ (_, c@Or{}) = pure $ Left <$> project c
 lifecycle' _ (_, c@(Anytime _ _)) = pure $ Left <$> project c
 lifecycle' _ ((s, qty), When cond c) = do
   acquisitionTime <- case cond of
-    TimeGte tau -> pure $ max tau s
+    TimeGte tau -> pure $ max (Time tau) s
     -- ^ (TimeGte tau) becomes True exactly at time t = tau
     other -> abort "Not expecting to find non-deterministic predicate at this stage"
     -- ^ we should never land on this case, as acquire' "fixes" the acquisition date for non-deterministic predicates
