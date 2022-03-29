@@ -140,7 +140,7 @@ exercise : (Ord t, Eq a, Monad m) => (a -> t -> m Decimal) -> (Bool, C t a) -> C
 exercise spot election claim today = apoCataM pruneZeros' acquireThenExercise . (True, ) $ claim where
   acquireThenExercise = fmap (fmap (fmap join))
                         . fmap (fmap distE)
-                        . fmap (fmap (fmap (exercise' election)))
+                        . fmap (fmap (fmap (exercise' election today)))
                         . fmap (fmap sequence)
                         . fmap sequence . fmap
                         . fmap (fmap (fmap embed))
@@ -154,18 +154,27 @@ exercise spot election claim today = apoCataM pruneZeros' acquireThenExercise . 
   foldE (Right x) = x
 
 -- | Coalgebra for `exercise`.
--- Resolves `Or` and `Anytime` nodes by removing them (keeping elected subtrees).
+-- Resolves `Or` nodes by removing them (keeping elected subtrees).
+-- Fixes acquisition time of exercised `Anytime` nodes by replacing them with `When (TimeGte t)`.
 -- The election consists of a boolean representing the authorizer (`True = bearer`),
 -- and this is compared against available branches of the choice.
-exercise' : (Eq t, Eq a) => (Bool, C t a) -> (Bool, C t a) -> (F t a (Either (C t a) (Bool, C t a)))
-exercise' _ (isBearer, Give c) = GiveF . Right $ (not isBearer, c)
-exercise' (elector, election) (isBearer, ors@Or {}) | elector /= isBearer = Left <$> project ors 
-                                                    | election `elem` project ors = Right . (isBearer,) <$> project election 
-                                                    | otherwise = Left <$> project ors 
-exercise' (elector, election) (isBearer, f@(Anytime _ c)) =
-  if elector == isBearer && election == c then Right . (isBearer, ) <$> project c
+exercise' : (Eq t, Eq a)
+  => (Bool, C t a)
+  -- ^ the election being made
+  -> t
+  -- ^ the election date
+  -> (Bool, C t a)
+  -- ^ the input claim and a flag keeping track of who is the entitled to the election (`True = bearer`)
+  -> (F t a (Either (C t a) (Bool, C t a)))
+exercise' _ _ (isBearer, Give c) = GiveF . Right $ (not isBearer, c)
+exercise' (elector, election) _ (isBearer, ors@Or {})
+  | elector /= isBearer = Left <$> project ors
+  | election `elem` project ors = Right . (isBearer,) <$> project election
+  | otherwise = Left <$> project ors
+exercise' (elector, election) t (isBearer, f@(Anytime _ c)) =
+  if elector == isBearer && election == c then Right . (isBearer, ) <$> WhenF (TimeGte t) c
                                           else Left <$> project f
-exercise' _ (isBearer, other) = Right . (isBearer, ) <$> project other
+exercise' _ _ (isBearer, other) = Right . (isBearer, ) <$> project other
 
 -- | Replace any subtrees that have expired with `Zero`s.
 expire : (Ord t, Eq a, Monad m) => (a -> t -> m Decimal) -> C t a -> t -> m (C t a)

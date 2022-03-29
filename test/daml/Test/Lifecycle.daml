@@ -139,23 +139,23 @@ testSettle = script do
 
 -- | Replace any `or/anytime` nodes with the elections that have been made.
 testExercise = script do
-  let f election = apo (Lifecycle.exercise' @Date election) . (True, )
+  let f election = apo (Lifecycle.exercise' @Date election today) . (True, )
 
-  let rem = f (True, one a) (one a `or`  one b)
+  let rem = f (True, one a) (one a `or` one b)
   rem === one a
 
-  let rem = f (True, one b) (one a `or`   one b)
+  let rem = f (True, one b) (one a `or` one b)
   rem === one b
 
-  let rem = f (True, one c) (one a  `or` one b)
+  let rem = f (True, one c) (one a `or` one b)
   rem === one a `or`  one b
 
   let rem = f (True, one a) (anytime true (one a))
-  rem === one a
+  rem === When (TimeGte today) (one a)
 
-  -- n.b. conditions are handled by the `Lifecyle.acuiqre'` function.
+  -- n.b. conditions are handled by the `Lifecyle.acquire'` function, so in practice we should never hit this case
   let rem = f (True, one a) (anytime false (one a))
-  rem === one a
+  rem === When (TimeGte today) (one a)
 
   let rem = f (True, one c) (anytime true (one a))
   rem === anytime true (one a)
@@ -166,16 +166,16 @@ testExercise = script do
 
 
 testgiveExercise = script do
-  let f election = apo (Lifecycle.exercise' election) . (True, )
+  let f election = apo (Lifecycle.exercise' election today) . (True, )
 
   let rem = f (False, one a) (anytime true (one a))
   rem === (anytime true (one a))
 
   let rem = f (False, one a) (give (anytime true (one a)))
-  rem === give (one a)
+  rem === give (When (TimeGte today) (one a))
 
   let rem = f (True, one a) (give . give . anytime true $ one a)
-  rem === give (give (one a))
+  rem === give (give (When (TimeGte today) (one a)))
 
 -- | Lifecycle a bond with three fixing dates. Uses ledger time effects.
 testBond = script do
@@ -274,11 +274,11 @@ testAmericanPut = script do
 
   -- Exercise `anytime`
   remaining <- Lifecycle.exercise observe25 (bearer, remaining.claim) remaining t
-  remaining === until (TimeGte $ afterTomorrow) (payoff `or`  zero)
+  remaining === when (TimeGte t) (until (TimeGte $ afterTomorrow) (payoff `or`  zero))
 
   -- Exercise `or`
   remaining <- Lifecycle.exercise observe25 (bearer, payoff) remaining t
-  remaining === until (TimeGte afterTomorrow) payoff
+  remaining === when (TimeGte t) (until (TimeGte afterTomorrow) payoff)
 
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 today remaining t
   remaining === zero
@@ -303,11 +303,11 @@ testAmericanPut = script do
 
   -- You must first exercise the 'outer' `anytime`, and then ...
   remaining <- Lifecycle.exercise observe25 (bearer, remaining.claim) remaining t
-  remaining === until (TimeGte $ afterTomorrow) (payoff `or` zero)
+  remaining === when (TimeGte t) (until (TimeGte $ afterTomorrow) (payoff `or` zero))
 
   -- ... the inner `or`.
   remaining <- Lifecycle.exercise observe25 (bearer, payoff) remaining t
-  remaining === until (TimeGte $ afterTomorrow) payoff
+  remaining === when (TimeGte t) (until (TimeGte $ afterTomorrow) payoff)
 
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 today remaining t
   remaining === zero
