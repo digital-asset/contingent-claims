@@ -18,12 +18,12 @@ import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..), compare, Inequality
 import ContingentClaims.Observation qualified as Observation
 import ContingentClaims.Util.Recursion (apoCataM)
 import ContingentClaims.Util (pruneZeros')
-import Daml.Control.Recursion (project, embed, distApo)
+import Daml.Control.Recursion (Corecursive, project, embed, distApo)
 import Daml.Control.Monad.Trans.Writer (WriterT, runWriterT)
 import Daml.Control.Monad.Writer.Class (MonadWriter(..))
 import Daml.Control.Monad.Trans.Class (lift)
 import DA.Traversable (sequence)
-import DA.Foldable (sequence_, elem)
+import DA.Foldable (Foldable, sequence_, elem)
 import Prelude hiding (sequence, mapA, exercise, compare, elem)
 
 type C t a = Claim t Decimal a
@@ -66,22 +66,17 @@ lifecycle spot claim today
   where
     acquireThenSettle =
       fmap (fmap (fmap join))
-      . fmap (fmap distE)
+      . fmap (fmap distE) 
       . fmap join
       . fmap (fmap sequence)
       . fmap (fmap (fmap (lifecycle' spot)))
       . fmap (fmap sequence)
       . fmap sequence
       . fmap
-      . fmap (fmap (wrapE : F t a (Either (C t a) (C t a)) -> Either (C t a) (C t a)))
+      . fmap (fmap factorE)
       . fmap lift
       $ acquire' spot today
     distE = distApo
-     -- This is degenerate if you have e.g. `And Left Right`, but that should never happen in practice.
-    wrapE f = case sequence_ f of
-      Left _ -> Left (wrap f)
-      Right _ -> Right (wrap f)
-    wrap f = embed . fmap (either identity identity) $ f
 
 -- | Evaluate observables and skip branches for which predicates don't hold.
 -- Consume `Cond` nodes, leaving the relevant sub-tree.
@@ -151,14 +146,10 @@ exercise spot election claim today = apoCataM pruneZeros' acquireThenExercise . 
                         . fmap (fmap (fmap (exercise' election today)))
                         . fmap (fmap sequence)
                         . fmap sequence . fmap
-                        . fmap (fmap wrapE)
+                        . fmap (fmap factorE)
                         $ acquire' spot today
   distE = distApo
-  wrapE f = case sequence_ f of
-    Left _ -> Left (wrap f)
-    Right _ -> Right (wrap f)
-  wrap f = embed . fmap (either identity identity) $ f
-
+  
 -- | Coalgebra for `exercise`.
 -- Resolves `Or` nodes by removing them (keeping elected subtrees).
 -- Fixes acquisition time of exercised `Anytime` nodes by replacing them with `When (TimeGte t)`.
@@ -189,15 +180,9 @@ expire spot claim today = apoCataM pruneZeros' acquireThenExpire claim where
                       . fmap join
                       . fmap (fmap sequence)
                       . fmap (fmap (fmap (expire' spot today)))
-                      . fmap (fmap (fmap embed))
-                      . fmap (fmap tsidE)
+                      . fmap (fmap factorE)
                       $ acquire' spot today
   distE = distApo
-  tsidE f = case sequence_ f of
-    Left _ -> Left (embed (fmap foldE f))
-    Right _ -> Right (fmap foldE f)
-  foldE (Left x) = x
-  foldE (Right x) = x
 
 -- | Coalgebra for `expire`.
 expire' : (Ord t, Monad m) => (a -> t -> m Decimal) -> t -> C t a -> m (F t a (C t a))
@@ -205,3 +190,15 @@ expire' spot t (Until obs c) = do
   predicate <- compare spot obs t
   if predicate then pure ZeroF else pure $ UntilF obs c
 expire' _ _ other = pure . project $ other
+
+-- | HIDE
+-- | Factors the Either out of the functor and wraps the functor into the recursive type
+-- This is degenerate if you have e.g. `And Left Right`, but that should never happen in practice.
+factorE : (Foldable f, Corecursive b f) => f (Either b b) -> Either b b
+factorE f = case sequence_ f of
+  Left _ -> Left $ wrap f
+  Right _ -> Right $ wrap f
+  where
+    wrap = embed . (fmap foldE)
+    foldE (Left x) = x
+    foldE (Right x) = x
