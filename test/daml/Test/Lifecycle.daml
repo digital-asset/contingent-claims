@@ -396,3 +396,20 @@ testCondLifecycle = script do
 
   pure ()
 
+-- | Ensure that `Until` nodes are lifecycled appropriately 
+testUntilNodes = script do
+  let 
+    payment = When (TimeGte tomorrow) (One "EUR")
+    claim = 
+        Until (TimeGte tomorrow) $ payment
+
+  Lifecycle.Result{pending,remaining} <- Lifecycle.lifecycle observe25 claim today
+  pending === []
+  remaining === claim
+
+  Lifecycle.Result{pending,remaining} <- Lifecycle.lifecycle observe25 claim tomorrow
+  pending === []
+  remaining === zero
+
+  pure ()  
+
