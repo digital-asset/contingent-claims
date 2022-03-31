@@ -51,10 +51,14 @@ setDate = setTime . noon where noon d = time d 12 0 0
 testAcquire = script do
   let acquiredF asset = OneF $ "acquired " <> asset
       acquired asset : C = embed $ acquiredF asset
-      f c t = apoM (Lifecycle.acquire' observe25 t >=> process) c
-          where process (OneF asset) = pure $ pure <$> acquiredF asset
-                process ZeroF = pure $ pure <$> acquiredF "0"
-                process otherF = pure otherF
+      f c t =
+        apoM (Lifecycle.acquire' observe25 t >=> process)
+        . (Lifecycle.MinusInfinity, ) -- initial acquisition date
+        $ c
+        where process (Left c) = pure $ Left <$> project c
+              process (Right (_, One asset)) = pure $ acquiredF asset
+              process (Right (_, Zero)) = pure $ acquiredF "0"
+              process (Right (s, c)) = pure $ pure . (s, ) <$> project c
 
   res <- f (one a) today
   res === acquired a
@@ -103,39 +107,38 @@ testSettle = script do
   let f = fmap (uncurry $ flip Lifecycle.Result)
           . runWriterT
           . apoM (Lifecycle.lifecycle' observe25)
-          . ((Lifecycle.MinusInfinity, 1.0), )
+          . (1.0, )
 
-  Lifecycle.Result{pending, remaining} <- f (when true $ scale two zero : C)
-  remaining === when true (scale two zero)
+  Lifecycle.Result{pending, remaining} <- f (Lifecycle.Time today, scale two zero)
+  remaining === scale two zero
   pending === []
 
-  Lifecycle.Result{pending, remaining} <- f (when true $ scale two (one a))
-  remaining === when true (scale two zero)
+  Lifecycle.Result{pending, remaining} <- f (Lifecycle.Time today, scale two (one a))
+  remaining === scale two zero
   pending === [(2.0, a)]
 
-  Lifecycle.Result{pending, remaining} <- f (give (one a))
+  Lifecycle.Result{pending, remaining} <- f (Lifecycle.Time today, give (one a))
   remaining === give zero
   pending === [(-1.0 , a)]
 
-  Lifecycle.Result{pending, remaining} <- f (when true $ scale two (one a `and` one b))
-  remaining === when true (scale two (zero `And` zero $ [])) -- using the explicit constructor becuase the smart constructor reduces this to `Zero`
+  Lifecycle.Result{pending, remaining} <- f (Lifecycle.Time today, scale two (one a `and` one b))
+  remaining === scale two (zero `And` zero $ []) -- using the explicit constructor because the smart constructor reduces this to `Zero`
   pending === [(2.0, a), (2.0, b)]
 
-  Lifecycle.Result{pending, remaining} <- f (when true $ scale two (one a) `and` scale two (one b))
-  remaining === when true (scale two zero `and` scale two zero)
+  Lifecycle.Result{pending, remaining} <- f (Lifecycle.Time today, scale two (one a) `and` scale two (one b))
+  remaining === scale two zero `and` scale two zero
   pending === [(2.0, a), (2.0, b)]
 
-  Lifecycle.Result{pending, remaining} <- f (when false (one a))
+  -- This is a case we don't hit in practice, as it is prevented from acquire'
+  Lifecycle.Result{pending, remaining} <- f (Lifecycle.Time today, when false (one a))
   remaining === when false zero
   pending === pure (1.0, a)
 
-  Lifecycle.Result{pending, remaining} <- f (anytime false (one a))
-  remaining === anytime false (one a)
+  Lifecycle.Result{pending, remaining} <- f (Lifecycle.Time today, anytime true (one a))
+  remaining === anytime true (one a)
   pending === []
 
   -- There is no need to test what happens with `Cond` nodes, because lifecycle' is always used in combination with acquire' (which consume `Cond` nodes)
-
-  -- We cannot test Scale nodes in isolation as their acquisition is currently undefined
 
   pure ()
 
@@ -143,40 +146,49 @@ testSettle = script do
 testExercise = script do
   let f election = apo (Lifecycle.exercise' @Date election today) . (True, )
 
-  let rem = f (True, one a) (one a `or` one b)
+  let rem = f (True, one a) (Lifecycle.Time today, one a `or` one b)
   rem === one a
 
-  let rem = f (True, one b) (one a `or` one b)
+  let rem = f (True, one b) (Lifecycle.Time today, one a `or` one b)
   rem === one b
 
-  let rem = f (True, one c) (one a `or` one b)
-  rem === one a `or`  one b
+  let rem = f (True, one c) (Lifecycle.Time today, one a `or` one b)
+  rem === one a `or` one b
 
-  let rem = f (True, one a) (anytime true (one a))
+  let rem = f (True, one a) (Lifecycle.Time today, anytime true (one a))
   rem === When (TimeGte today) (one a)
 
   -- n.b. conditions are handled by the `Lifecyle.acquire'` function, so in practice we should never hit this case
-  let rem = f (True, one a) (anytime false (one a))
+  let rem = f (True, one a) (Lifecycle.Time today, anytime false (one a))
   rem === When (TimeGte today) (one a)
 
-  let rem = f (True, one c) (anytime true (one a))
+  let rem = f (True, one c) (Lifecycle.Time today, anytime true (one a))
   rem === anytime true (one a)
 
   -- nested choice: the outer one must be exercised before the inner!
-  let rem = f (True, one a) (anytime true (anytime true (one a)))
+  let rem = f (True, one a) (Lifecycle.Time today, anytime true (anytime true (one a)))
   rem === (anytime true (anytime true (one a)))
+
+  -- wrong `Or` election date
+  let rem = apo (Lifecycle.exercise' (True, one a) tomorrow) . (True, ) . (Lifecycle.Time today, ) $ one a `or` one b
+  rem === one a `or` one b
+
+  -- wrong `Anytime` election date
+  -- This case should never happen in practice as it is prevented by acquire'
+  let rem = apo (Lifecycle.exercise' (True, one a) tomorrow) . (True, ) . (Lifecycle.Time today, ) $ anytime true (one a)
+  rem === anytime true (one a)
 
 
 testgiveExercise = script do
   let f election = apo (Lifecycle.exercise' election today) . (True, )
 
-  let rem = f (False, one a) (anytime true (one a))
+  let rem = f (False, one a) (Lifecycle.Time today, anytime true (one a))
   rem === (anytime true (one a))
 
-  let rem = f (False, one a) (give (anytime true (one a)))
+  let rem = f (False, one a) (Lifecycle.Time today, give (anytime true (one a)))
   rem === give (When (TimeGte today) (one a))
 
-  let rem = f (True, one a) (give . give . anytime true $ one a)
+  let rem = f (True, one a) (Lifecycle.Time today, give . give . anytime true $ one a)
   rem === give (give (When (TimeGte today) (one a)))
 
 -- | Lifecycle a bond with three fixing dates. Uses ledger time effects.
