@@ -83,7 +83,7 @@ lifecycle spot claim today
 -- Consume `Cond` nodes, leaving the relevant sub-tree.
 -- Replace `When cond c` nodes with `When (TimeGte t) c` if the condition is non-deterministic and evaluates to True.
 -- This is useless on its own. Composed with other functions, it adds laziness.
-acquire' : (Ord t, Eq a, Monad m)
+acquire' : (Ord t, Eq a, CanAbort m)
   => (a -> t -> m Decimal)
   -- ^ function to evaluate observables 
   -> t
@@ -101,8 +101,12 @@ acquire' spot t (at, (When obs c)) = do
     else
       pure . Left $ When obs c
 acquire' spot today (at,(Cond obs c c')) = do
-  predicate <- compare spot obs today
-  if predicate then acquire' spot today (at,c) else acquire' spot today (at,c')
+  predicate <- case at of
+    Time s -> compare spot obs s
+    MinusInfinity -> abort "Found Cond node with undefined acquisition time"
+  if predicate 
+    then acquire' spot today (at,c) 
+    else acquire' spot today (at,c')
 acquire' spot today (_,c@(Anytime obs _)) = do
   predicate <- compare spot obs today
   pure $ if predicate then Right (Time today,c) else Left c
@@ -134,7 +138,7 @@ lifecycle' _ (qty, (s, other)) = pure $ Right . (qty, ) . (s, ) <$> project othe
 
 --  | Acquire `Anytime` and `Or` nodes, by making an election.
 -- `import` this `qualified`, to avoid clashes with `Prelude.exercise`.
-exercise : (Ord t, Eq a, Monad m)
+exercise : (Ord t, Eq a, CanAbort m)
   => (a -> t -> m Decimal)
   -- ^ function to evaluate observables 
   -> (Bool, C t a)
@@ -185,7 +189,7 @@ exercise' (elector, election) t (isBearer, (s, f@(Anytime _ c)))
 exercise' _ _ (isBearer, (s, other)) = Right . (isBearer, ) . (s, ) <$> project other
 
 -- | Replace any subtrees that have expired with `Zero`s.
-expire : (Ord t, Eq a, Monad m) => (a -> t -> m Decimal) -> C t a -> t -> m (C t a)
+expire : (Ord t, Eq a, CanAbort m) => (a -> t -> m Decimal) -> C t a -> t -> m (C t a)
 expire spot claim today =
   apoCataM pruneZeros' acquireThenExpire
   . (MinusInfinity, )  -- initial acquisition time

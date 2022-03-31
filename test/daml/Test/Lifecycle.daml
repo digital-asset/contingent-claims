@@ -51,14 +51,16 @@ setDate = setTime . noon where noon d = time d 12 0 0
 testAcquire = script do
   let acquiredF asset = OneF $ "acquired " <> asset
       acquired asset : C = embed $ acquiredF asset
-      f c t =
+      g at c t =
         apoM (Lifecycle.acquire' observe25 t >=> process)
-        . (Lifecycle.MinusInfinity, ) -- initial acquisition date
+        . (at, ) -- current acquisition time
         $ c
         where process (Left c) = pure $ Left <$> project c
               process (Right (_, One asset)) = pure $ acquiredF asset
               process (Right (_, Zero)) = pure $ acquiredF "0"
               process (Right (s, c)) = pure $ pure . (s, ) <$> project c
+
+      f = g Lifecycle.MinusInfinity
 
   res <- f (one a) today
   res === acquired a
@@ -72,10 +74,10 @@ testAcquire = script do
   res <- f (when (at tomorrow) $ scale two (one a)) tomorrow
   res === when (at tomorrow) (scale two (acquired a))
 
-  res <- f (cond (at tomorrow) (one a) (one b)) today
+  res <- g (Lifecycle.Time today) (cond (at tomorrow) (one a) (one b)) today
   res === acquired b
 
-  res <- f (cond (at tomorrow) (one a) (one b)) tomorrow
+  res <- g (Lifecycle.Time tomorrow) (cond (at tomorrow) (one a) (one b)) tomorrow
   res === acquired a
 
 {- FIXME: confirm if this test makes sense; it broke when we changed observable with inequality
@@ -386,7 +388,7 @@ testKnockOutBarrier = script do
 
 -- | Ensure that `Cond` nodes are lifecycled appropriately 
 testCondLifecycle = script do
-  let c = Cond true (One a) (One b)
+  let c = When true $ Cond true (One a) (One b)
 
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observeDayOfMonth c today
   remaining === zero
