@@ -81,7 +81,7 @@ lifecycle spot claim today
 
 -- | Evaluate observables and skip branches for which predicates don't hold, calculate the acquisition time of the claim's sub-trees.
 -- Consume `Cond` nodes, leaving the relevant sub-tree.
--- Replace `When cond c` nodes with `When (TimeGte t) c` if the condition is non-deterministic and evaluates to True.
+-- Replace `When pred c` nodes with `When (TimeGte t) c` if the predicate is non-deterministic and evaluates to True.
 -- This is useless on its own. Composed with other functions, it adds laziness.
 acquire' : (Ord t, Eq a, CanAbort m)
   => (a -> t -> m Decimal)
@@ -97,7 +97,7 @@ acquire' spot t (at, (When obs c)) = do
     case obs of
       TimeGte s -> pure $ Right . (max at (Time s), ) $ When obs c
       other -> pure $ Right . (Time t, ) $ When (TimeGte t) c
-      -- ^ if the condition `cond` is non-deterministic, we assume that we are lifecycling at a time `t` corresponding to the first instant the condition becomes True
+      -- ^ if the predicate is non-deterministic, we assume that we are lifecycling at a time `t` corresponding to the first instant the predicate becomes True
     else
       pure . Left $ When obs c
 acquire' spot today (at,(Cond obs c c')) = do

@@ -370,11 +370,11 @@ testKnockOutBarrier = script do
 
     startDate = date 2022 Mar 01
 
-  -- Condition is False, contract should be unchanged
+  -- Predicate is False, contract should be unchanged
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observeDayOfMonth frn $ date 2022 Mar 01
   remaining === frn
 
-  -- Condition becomes True and `When cond` should be replaced by `When (TimeGte τ)`
+  -- Predicate becomes True and `When pred` should be replaced by `When (TimeGte τ)`
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observeDayOfMonth remaining $ date 2022 Mar 25
   remaining === When (TimeGte $ date 2022 Mar 25) innerFrn
   pending === []

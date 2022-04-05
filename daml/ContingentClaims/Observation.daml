@@ -74,7 +74,7 @@ eval doObserve obs t = cataM alg obs
       MulF (x, x') -> Prelude.pure $ x * x'
       DivF (x, x') -> Prelude.pure $ x / x'
 
--- | The functor map operation _and_ also map any parametrs to keys.
+-- | The functor map operation _and_ also map any parameters to keys.
 -- For example, could map the param "spot" to an ISIN code "GB123456789".
 -- Also contra-maps time parameter, i.e. from relative time values to absolute ones.
 --
