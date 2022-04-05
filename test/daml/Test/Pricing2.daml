@@ -1,0 +1,135 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Test.Pricing2 where
+
+import ContingentClaims.Claim
+import ContingentClaims.Observation qualified as O
+import ContingentClaims.Math.AcquisitionTime
+import ContingentClaims.Math.Expression
+import ContingentClaims.Math.Stochastic2
+
+import Daml.Script
+import DA.Assert
+import DA.Date
+import DA.Tuple (thd3)
+import Prelude hiding (max)
+
+type C = Claim Date Decimal Text
+
+-- | Assets
+[a,b,c] = ["a","b","c"]
+ccy = "USD"
+
+-- | Dates
+today = date 1970 Jan 1
+tomorrow = succ today
+afterTomorrow = succ tomorrow
+
+-- | Observations 
+two : O.Observation Date Decimal Text = O.pure 2.0
+
+-- | Functions performing observations
+observe25: Text -> Date -> Script Decimal = const . const . pure $ 25.0
+observeDayOfMonth _ d = pure . intToDecimal . thd3 . toGregorian $ d
+
+-- | Inequalities
+false = TimeGte $ date 3000 Jan 1
+true = TimeGte $ date 1970 Jan 1
+atTomorrow = TimeGte tomorrow
+
+-- Helper expressions
+disc = Proc $ Disc ccy
+exch = Proc $ Exch a ccy
+
+-- max x y = I (x, y) * x + I (y, x) * y
+
+-- This is needed because scale x (one USD) = x * 1.0. It would make writing
+-- the expressions by hand tedious
+-- multIdentity = cata unitIdentity
+
+testValuationBasic : Script()
+testValuationBasic = do
+
+  value <- fapf observe25 ccy today (one a)
+  value === Proc (Exch a ccy)
+
+  value <- fapf observe25 ccy today (one ccy)
+  value === Const 1.0
+
+  value <- fapf observe25 ccy today (one ccy)
+  value === Const 1.0
+
+  value <- fapf observe25 ccy today zero
+  value === Const 0.0
+
+  pure ()
+  
+testValuationWhen : Script()
+testValuationWhen = do
+
+  -- `today` the stopping rule defined by `When` is not verified, so we take expectation of discounted payoff
+  let f = Time today 
+      -- ^ filtration (i.e. available information)
+      τ = Time tomorrow
+      -- ^ stopping time defined by the `When` node
+
+  value <- fapf observe25 ccy today (when atTomorrow $ one a)
+  value === E (disc * exch) τ f / disc
+
+  -- `tomorrow` the stopping rule is verified
+  value <- fapf observe25 ccy tomorrow (when atTomorrow $ one a)
+  value === exch
+
+testValuationScale : Script()
+testValuationScale = do
+
+  -- we define a stochastic observable, as well as the corresponding process
+  let observable  = O.Const 5.0 + O.observe "spot" 
+      obsProcess = Const 5.0 + Proc (Observable "spot")
+
+      claim : C = when atTomorrow $ scale observable $ one a
+
+      f = Time today -- filtration
+      τ = Time tomorrow -- stopping rule
+
+  -- `today` the stopping rule is not verified
+  value <- fapf observe25 ccy today claim
+  value === E (disc * (obsProcess * exch) ) τ f / disc
+
+  -- `tomorrow` the stopping rule is verified
+  value <- fapf observe25 ccy tomorrow claim
+  value === (Const 5.0 + Const 25.0) * exch
+
+  -- TODO write test with stochastic stopping time
+
+  pure ()
+
+-- | Claim with stochastic stopping rule
+testValuationKnockOut : Script()
+testValuationKnockOut = do
+
+  -- we define a stochastic observable
+  let spotGreaterThan100 = Lte (O.Const 100.0, O.observe "spot")
+
+      claim : C = when spotGreaterThan100 $ one a
+
+      f = Time today -- filtration
+      τ = AtInequality [spotGreaterThan100] -- stopping rule
+
+  value <- fapf observe25 ccy today claim
+  value === E (disc * exch) τ f / disc
+
+  -- we do not consider the case when the stopping rule is verified before or at t,
+  -- given that the valuation focuses on claims that are "up-to-date" with respect to lifecycle
+  -- and the lifecycle function replaces verified stochastic stopping rule with deterministic ones
+
+  -- TODO : we should define a mapping from inequality to the corresponding stochastic process (same as for observables) as these need to be simulated
+
+  -- TODO : write helper function to collect observables (catamorphism)
+
+  -- TODO : write helper function to collect relevant fixing dates (for the purpose of MC simulation)
+
+  -- TODO : check if we can call pure Haskell functions from Java bindings (because if we can't, there is no point writing helper functions that are used outside of the Daml layer)
+
+  pure ()

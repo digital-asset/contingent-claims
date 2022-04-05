@@ -1,0 +1,122 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- Mathematical expression, derived from `Claim`, used for pricing
+
+-- | Can I add some module description?
+module ContingentClaims.Math.Stochastic2 (
+  fapf,
+  ElementaryProcess(..),
+) where
+
+import ContingentClaims.Claim hiding (compare,(<=))
+import ContingentClaims.Math.AcquisitionTime(AcquisitionTime(..), beforeOrAtToday, extend)
+import ContingentClaims.Math.Expression
+import ContingentClaims.Observation qualified as O
+import ContingentClaims.Util (intrinsicAcquisitionTime)
+import ContingentClaims.Util.Recursion (futuM)
+import DA.Optional (fromSomeNote)
+import Daml.Control.Arrow ((|||))
+import Daml.Control.Recursion
+
+-- | Elementary processes as described in the Peyton-Jones paper.
+-- Once a model assumption is made, these can be replaced by the specific model (e.g. geometric brownian motion for stock spot prices)
+data ElementaryProcess a
+  = Observable a
+    -- ^ process corresponding to observable a
+  | Exch with { asset : a, currency : a }
+    -- ^ value of `asset` expressed in units of `currency`
+  | Disc a
+    -- ^ discount factor expressed in currency `a`
+  deriving (Eq, Show)
+
+-- | Maps a claim to the corresponding value process in currency `ccy`, taking into account known information up to time `t`.
+fapf : (Ord t, Eq a, Additive x, Multiplicative x, CanAbort m)
+  => (a -> t -> m x)
+     -- ^ function to evaluate observables
+  -> a
+     -- ^ currency
+  -> t
+     -- ^ valuation date
+  -> Claim t x a
+     -- ^ the input claim
+  -> m (Expr t x a (ElementaryProcess a))
+fapf spot ccy t claim =
+  futuM coalg
+  $ Left (claim, acquisitionTime) -- `Left` is used for claims, `Right` for observables
+  where
+    acquisitionTime = Time . fromSomeNote "Claim does not have an intrinsic acquisition time" $ intrinsicAcquisitionTime claim
+
+    -- coalg : (Additive x) => (Carrier t x a) -> (ExprF t x a (ElementaryProcess a) (Free (ExprF t x a (ElementaryProcess a)) (Carrier t x a)))
+    coalg = ϵ t ccy ||| υ
+
+    -- υ : (O.Observation t x a, AcquisitionTime t x a) -> (ExprF t x a (ElementaryProcess a) (Free (ExprF t x a (ElementaryProcess a)) (Carrier t x a)))
+    υ (O.Const {value=k}, _) = pure $ ConstF k
+    υ (O.Observe {key=observable}, Time s) | s <= t = ConstF <$> spot observable s
+    υ (O.Observe {key=observable}, s) = pure . ProcF $ Observable observable
+    υ (O.Add (x, x'), s) = pure $ SumF [obs (x, s), obs (x', s)]
+    υ (O.Neg x, s) =  pure . NegF $ obs (x, s)
+    υ (O.Mul (x, x'), s) = pure $ obs (x, s) `MulF` obs (x', s)
+    -- υ (O.Div (x, x'), t) = obs (x, t) `MulF` inv (obs (x', t))
+    -- ^ check if we prefer using Divisible instead of power
+    υ other = abort ""
+
+    obs = pure . Right
+
+  -- check when we should evaluate an observable
+
+ϵ : (Eq a, Ord t, Additive x, Multiplicative x, CanAbort m) => t -> a -> (Claim t x a, AcquisitionTime t x a) -> m (ExprF t x a (ElementaryProcess a) (Free (ExprF t x a (ElementaryProcess a)) (Carrier t x a)))
+
+ϵ _ _ (Zero, _) = pure $ ConstF aunit
+
+ϵ _ ccy (One asset, _) = pure $ exch asset ccy
+  where
+    exch asset ccy = if asset == ccy then ConstF munit else ProcF $ Exch asset ccy
+
+ϵ _ _ (Give c, s) = pure . NegF $ Pure $ Left (c,s)
+
+ϵ _ _ (Scale k c, s) = pure $ obs (k,s) `MulF` claim (c,s)
+  where obs = pure . Right
+        claim = pure . Left
+
+ϵ _ _ (And c c' cs, s) = pure . SumF $ fmap (claim . (, s)) (c :: c' :: cs)
+  where claim = pure . Left
+
+ϵ t ccy (When pred c, s) | beforeOrAtToday t τ == Some True = ϵ t ccy (c, τ)
+  where τ = extend pred s
+-- ^ the acquisition time of the inner contract is known and not in the future
+
+ϵ t ccy (When pred c, s) = pure $ DivF (ex ( disc * claim (c,τ) ) τ filtration) disc 
+  where τ = extend pred s
+        filtration = case s of
+          AtInequality _ -> s -- acquisition time of the outer contract is unknown
+          other -> extend (TimeGte t) s -- acquisition time of the outer contract is known
+        claim = pure . Left
+        disc = Free . ProcF $ Disc ccy
+        x * y = Free $ MulF x y
+        ex e τ f = Free $ E_F e τ f
+-- ^ the acquisition time of the inner contract is either unknown or known but in the future
+
+-- DONE: 
+-- zero
+-- one
+-- give
+-- scale
+-- when
+-- and
+
+-- MISSING :
+-- or
+-- anytime
+-- until
+-- cond
+ϵ _ _ _ = abort "Unsupported primitive"
+
+-- | HIDE
+-- Carrier of the CV-coalgebra ϵ ||| υ
+type Carrier t x a = Either (Claim t x a, AcquisitionTime t x a) (O.Observation t x a, AcquisitionTime t x a)
+
+
+
+
+

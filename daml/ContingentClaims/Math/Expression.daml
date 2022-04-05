@@ -1,0 +1,128 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module ContingentClaims.Math.Expression (
+  Expr(..),
+  ExprF(..),
+) where
+
+import ContingentClaims.Math.AcquisitionTime(AcquisitionTime(..))
+import DA.Foldable
+import DA.Traversable
+import Daml.Control.Recursion
+import Prelude hiding (Time, sequence, mapA, const)
+
+-- | Represents an algebraic expression of a t-adapted stochastic process
+-- t : time parameter
+-- x : state parameter, typically Decimal
+-- a : reference used to identify observables
+-- b : type describing elementary processes
+data Expr t x a b
+  = Const x
+    -- ^ a constant process
+  | Ident t
+    -- ^ a process that takes the value of the time parameter
+  | Proc { name : b }
+    -- ^ an elementary process which we cannot decompose further
+  -- | Sup { lowerBound: t, tau: t, rv : Expr t }
+    -- ^ sup, needs to be reworked using feasible exercise strategies
+  | Sum [Expr t x a b]
+    -- ^ sum
+  | Neg (Expr t x a b)
+    -- ^ negation
+  | Mul (Expr t x a b, Expr t x a b)
+    -- ^ multiplication
+  | Div (Expr t x a b, Expr t x a b)
+    -- ^ division
+  -- | I (Expr t x a b , Expr t x a b)
+    -- ^ indicator function, rework using inequalities
+  | E { process : Expr t x a b, time : AcquisitionTime t x a, filtration : AcquisitionTime t x a }
+    -- ^ conditional expectation of `process(time)` conditioned on the filtration F_`t`
+  deriving (Eq,Show)
+
+-- | Base functor for `Expr`.
+data ExprF t x a b c
+  = ConstF x
+  | IdentF t
+  | ProcF { name : b }
+  -- | Sup { lowerBound: t, tau: t, rv : Expr t }
+  | SumF [c]
+  | NegF c
+  | MulF { lhs : c, rhs : c}
+  | DivF { num : c, den : c}
+  -- | I (Expr t x a b , Expr t x a b)
+  | E_F { process : c, time : AcquisitionTime t x a, filtration : AcquisitionTime t x a }
+  deriving (Functor)
+
+instance Recursive (Expr t x a b) (ExprF t x a b) where
+  project (Const d) = ConstF d
+  project (Ident s) = IdentF s
+  project Proc{..} = ProcF with ..
+  -- project Sup{..} = SupF with ..
+  project (Sum xs) = SumF xs
+  project (Neg x) = NegF x
+  project (Mul (x,x')) = MulF x x'
+  project (Div (x, x')) = DivF x x'
+  -- project (I (x, x')) = I_F x x'
+  project E{..} = E_F with ..
+
+instance Corecursive (Expr t x a b) (ExprF t x a b) where
+  embed (ConstF d) = Const d
+  embed (IdentF s) = Ident s
+  embed ProcF{..} = Proc with ..
+  -- embed SupF{..} = Sup with ..
+  embed (SumF xs) = Sum xs
+  embed (NegF x) = Neg x
+  embed (MulF x x') = Mul (x, x')
+  embed (DivF x x') = Div (x, x')
+  -- embed (I_F x x') = I (x, x')
+  embed E_F{..} = E with ..
+
+instance Foldable (ExprF t x a b) where
+  foldMap f (ConstF _) = mempty
+  foldMap f (IdentF _) = mempty
+  foldMap f (ProcF _) = mempty
+  -- foldMap f (SupF _ _ x) = f x
+  foldMap f (SumF xs) = foldMap f xs
+  foldMap f (NegF x) = f x
+  foldMap f (MulF x x') = f x <> f x'
+  foldMap f (DivF x x') = f x <> f x'
+  -- foldMap f (I_F x x') = f x <> f x'
+  foldMap f (E_F x _ _) = f x
+
+instance Traversable (ExprF t x a b) where
+  sequence (ConstF d) = pure $ ConstF d
+  sequence (IdentF t) = pure $ IdentF t
+  sequence (ProcF x) = pure $ ProcF x
+--   sequence (SupF t τ fa) = SupF t τ <$> fa
+  sequence (SumF [fa]) = (\a -> SumF [a]) <$> fa
+  sequence (SumF (fa :: fas)) = s <$> fa <*> sequence fas
+    where s a as = SumF (a :: as)
+  sequence (SumF []) = error "Traversable ExprF: sequence empty SumF"
+  sequence (NegF fa) = NegF <$> fa
+  sequence (MulF fa fa') = MulF <$> fa <*> fa'
+  sequence (DivF fa fa') = DivF <$> fa <*> fa'
+--   sequence (I_F fa fa') = I_F <$> fa <*> fa'
+  sequence (E_F fa t f) = (\a -> E_F a t f) <$> fa
+
+instance (Additive x) => Additive (Expr t x a b) where
+  x + y = Sum [x, y]
+  negate = Neg
+  aunit = Const aunit
+
+instance (Multiplicative x) => Multiplicative (Expr t x a b) where
+  (*) = curry Mul
+  munit = Const munit
+  x ^ y | y > 0 = x * (x ^ pred y)
+  x ^ 0 = munit
+  x ^ y = curry Div munit $ x ^ (-y)
+
+-- [ML] we don't give as definition of Inv but use it to define power with negative integers
+
+instance (Multiplicative x) => Divisible (Expr t x a b) where
+  x / y = Div (x,y)
+
+-- [ML] we could define this as x * y ^ -1, but we are using the 
+-- fact that x * Div (munit,y) == Div (x,y)
+
+-- alternatively, instead of using Div Expr Expr we can just use Inv Expr (1 / Expr)
