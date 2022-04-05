@@ -91,27 +91,27 @@ acquire' : (Ord t, Eq a, CanAbort m)
   -> (AcquisitionTime t, C t a)
   -- ^ input claim and its acquisition time
   -> m (Either (C t a) (AcquisitionTime t, C t a))
-acquire' spot t (at, (When obs c)) = do
+acquire' spot t (s, (When obs c)) = do
   predicate <- compare spot obs t
   if predicate then
     case obs of
-      TimeGte s -> pure $ Right . (max at (Time s), ) $ When obs c
+      TimeGte sNew -> pure $ Right . (max s (Time sNew), ) $ When obs c
       other -> pure $ Right . (Time t, ) $ When (TimeGte t) c
       -- ^ if the predicate is non-deterministic, we assume that we are lifecycling at a time `t` corresponding to the first instant the predicate becomes True
     else
       pure . Left $ When obs c
-acquire' spot today (at,(Cond obs c c')) = do
-  predicate <- case at of
-    Time s -> compare spot obs s
-    MinusInfinity -> abort "Found Cond node with undefined acquisition time"
+acquire' spot today (Time s,(Cond obs c c')) = do
+  predicate <- compare spot obs s
   if predicate 
-    then acquire' spot today (at,c) 
-    else acquire' spot today (at,c')
+    then acquire' spot today (Time s,c) 
+    else acquire' spot today (Time s,c')
+acquire' spot today (MinusInfinity,(Cond obs c c')) = do
+  abort "Found Cond node with undefined acquisition time"
 acquire' spot today (_,c@(Anytime obs _)) = do
   predicate <- compare spot obs today
   pure $ if predicate then Right (Time today,c) else Left c
   -- ^ the acquisition time of an Anytime node is assumed to be the time at which we lifecycle
-acquire' _ _ (at,other) = pure $ Right (at, other)
+acquire' _ _ (s,other) = pure $ Right (s, other)
 
 -- | Evaluate any observables in `Scale` nodes, accumulating scale factors top-down.
 -- Log the scale factors with their corresponding leaf values. 
@@ -127,11 +127,11 @@ lifecycle' _ (qty, (_, One asset)) = do
   pure $ Right <$> ZeroF
 lifecycle' _ (qty, (s, Give c)) =
   pure . GiveF $ Right (-qty, (s, c))
-lifecycle' spot (qty, (s, Scale obs c)) = do
-  k <- lift $ case s of 
-    (Time s) -> Observation.eval spot obs s
-    MinusInfinity -> abort "Found Scale node with undefined acquisition time"
-  pure . ScaleF obs $ Right (k * qty, (s, c))
+lifecycle' spot (qty, (Time s, Scale obs c)) = do
+  k <- lift $ Observation.eval spot obs s
+  pure . ScaleF obs $ Right (k * qty, (Time s, c))
+lifecycle' spot (qty, (MinusInfinity, Scale obs c)) = do
+  abort "Found Scale node with undefined acquisition time"
 lifecycle' _ (_, (_, c@Or{})) = pure $ Left <$> project c
 lifecycle' _ (_, (_, c@(Anytime _ _))) = pure $ Left <$> project c
 lifecycle' _ (qty, (s, other)) = pure $ Right . (qty, ) . (s, ) <$> project other

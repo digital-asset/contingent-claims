@@ -51,10 +51,8 @@ setDate = setTime . noon where noon d = time d 12 0 0
 testAcquire = script do
   let acquiredF asset = OneF $ "acquired " <> asset
       acquired asset : C = embed $ acquiredF asset
-      g at c t =
-        apoM (Lifecycle.acquire' observe25 t >=> process)
-        . (at, ) -- current acquisition time
-        $ c
+      g acqTime c t =
+        apoM (Lifecycle.acquire' observe25 t >=> process) (acqTime, c)
         where process (Left c) = pure $ Left <$> project c
               process (Right (_, One asset)) = pure $ acquiredF asset
               process (Right (_, Zero)) = pure $ acquiredF "0"
