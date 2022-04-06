@@ -20,15 +20,15 @@ which we acquired at a time `t_0` with `t_0` ≤ `t_1` ≤ `t_2`.
 
 Economically, this contract observes a certain value `S(t)` at time `t_1` and pays the contract holder an amount `S(t_1) - K` in dollars at time `t_2`. Many will recognize in this expression the payoff of an equity forward contract, where `S` is the stock's spot price and `K` is the strike price.
 
-In order to understand how the contract evolves over time, we need to recall that `When cond c` acquires the underlying contract on the first instant the condition `cond` becomes `True`.
+In order to understand how the contract evolves over time, we need to recall that `When pred c` acquires the underlying contract on the first instant the predicate `pred` becomes `True`.
 
-Thus, exactly at time `t_1`, the condition on the outer `When` is met and we acquire `c2`
+Thus, exactly at time `t_1`, the boolean condition on the outer `When` is met and we acquire `c2`
 
 ```Haskell
 Scale (Observe "S" - K) (When (t ≥ t_2) (One “USD”))
 ```
 
-as replacement for the initial contract.
+as a replacement for the initial contract.
 
 As soon as we acquire `c2`, because of the `Scale` node, we acquire `c3`
 
@@ -38,7 +38,7 @@ As soon as we acquire `c2`, because of the `Scale` node, we acquire `c3`
 
 as a replacement for `c2`.
 
-Finally, once `t_2` has arrived, the condition on the remaining `When` is met and we acquire `c4`
+Finally, once `t_2` has arrived, the predicate on the remaining `When` is met and we acquire `c4`
 
 ```Haskell
 (S(t_1) - K) * (One “USD”)
@@ -54,7 +54,7 @@ This contract does not include additional dynamics and will not evolve further. 
 
 ## Lifecycle functionality
 
-In order to replicate this contract evolution process for a generic contract, we need to address two problems:
+In order to replicate this evolution process for a generic contract, we need to address two problems:
 
 - given a contract, we need a way to figure out when a relevant event has happened (specifically, the next relevant event date)
 
@@ -71,17 +71,15 @@ A transient contract is a contract whose outer node is transient.
 Transient nodes:
 
 - `Scale`, `One`, `Or`, `And`, `Cond`, `Give`
-- `Anytime cond c` when `cond` is `False` at the time of acquisition
-- `Until cond c` when `cond` is `True` at the time of acquisition
-- `Until cond c` when `c` is transient contract
-- `When cond c` when `cond` is `True` at the time of acquisition
+- `When pred c` when `pred` is `True` at the time of acquisition
+- `Until pred c` when `pred` is `True` at the time of acquisition
+- `Until pred c` when `c` is transient contract
 
 Stable nodes:
 
-- `Zero`
-- `Anytime cond c` when `cond` is `True` at the time of acquisition
-- `Until cond c` when `cond` is `False` at the time of acquisition and `c` is not transient
-- `When cond c` when `cond` is `False` at the time of acquisition
+- `Zero`, `Anytime`
+- `When pred c` when `pred` is `False` at the time of acquisition
+- `Until pred c` when `pred` is `False` at the time of acquisition and `c` is not transient
 
 As a rule of thumb, the lifecycling function shall not return a transient contract.
 
@@ -91,7 +89,7 @@ Assuming that, once we acquire a `One a`, this is immediately paid to the contra
 
 - expiry date: the date after which the contract evolves to `Zero` or is equivalent (in the valuation semantics sense) to the `Zero` contract
 
-- payment date: when a `One a` is acquired (usually multiplied by some constant amount)
+- payment date: when a `One a` is acquired (usually multiplied by some known amount)
 
 - exercise date: when the contract holder makes an election (`Or` or `Anytime` nodes)
 
@@ -105,11 +103,11 @@ Once we have acquired a contract `c` at a time `t_0`, the next event date is due
 
 - an election being made on an `Anytime` node by the contract holder
 
-- a condition within a `When` or `Until` node becoming `True`
+- a boolean condition within a `When` or `Until` node becoming `True`
 
-- the contract becoming equivalent to the `Zero` contract (e.g. if the probability of the condition within a `When` node becoming `True` is zero)
+- the contract becoming equivalent to the `Zero` contract (e.g. if the probability of the boolean condition within a `When` node becoming `True` is zero)
 
-Event dates related to `When` and `Until` conditions are modelled as stopping times of stochastic processes: these processes need to be continuously observed in order to determine when the event occurs. An exception to this are cases where the next event date is a deterministic time, for instance when using the condition `t ≥ t_1`: in this case, even before `t_1` we know that `t_1` will be an event date.
+Event dates related to `When` and `Until` predicates are modelled as stopping times of stochastic processes: these processes need to be continuously observed in order to determine when the event occurs. An exception to this are cases where the next event date is a deterministic time, for instance when using the predicate `t ≥ t_1`: in this case, even before `t_1` we know that `t_1` will be an event date.
 
 ### Desirable features of a lifecycle functionality
 
@@ -133,15 +131,19 @@ Some features for this function are desirable:
 
 2. to reduce the number of contracts that need to be created, event dates that are exclusively fixing dates should not mutate the contract.
 
-The second feature facilitates handling of contracts with many fixing dates but only few payment dates (e.g. barrier options, OIS swaps). However, it adds additional complexity: when we lifecycle at a payment or election date, we need to be able to look back in time and collect the cumulated effects of all previous fixing events.
+3. the time parameter in the lifecycle function should be decoupled from ledger time
+
+The second feature facilitates handling of contracts with many fixing dates but only a few payment dates (e.g. barrier options, OIS swaps). However, it adds additional complexity: when we lifecycle at a payment or election date, we need to be able to look back in time and collect the cumulated effects of all previous fixing events.
+
+The third feature ensures a degree of robustness with respect to disruptions of the running ledger. It also allows lifecycling as of a past or future date. The task of ensuring that a transaction (e.g. the election of an `Or` or `Anytime` node at time `t`) falls within a pre-defined range of ledger times is delegated to a separate integration layer and not handled in the library.
 
 ### Implementation assumptions
 
-The features described above are difficult to implement in practice. The following assumptions are made to simplify the implementation.
+The second features described above is difficult to implement in practice. The following assumptions are made to simplify its implementation.
 
-#### Boolean Conditions
+#### Boolean Predicates
 
-The boolean conditions within a `When`, `Cond`, `Until` or `Anytime` node can be of the form
+The boolean predicates within a `When`, `Cond`, `Until` or `Anytime` node can be of the form
 
 - `t ≥ t_0` for a time `t_0`
 
@@ -149,7 +151,7 @@ The boolean conditions within a `When`, `Cond`, `Until` or `Anytime` node can be
 
 The former allows for the deterministic determination of the first instant a condition is met. The latter generally is of stochastic nature.
 
-#### Contract acquisition date
+#### Acquisition date of inner contracts
 
 Assume that we invoke the lifecycle function on a contract `c1` at a time `t`:
 
@@ -157,7 +159,49 @@ Assume that we invoke the lifecycle function on a contract `c1` at a time `t`:
 
 - if `c1` is a `When {o1 ≤ o2} c2` with `t_0` ≤ `t1` and the condition is `True` at time `t`, then `c2`is acquired at time `t`
 
-This means that, in the case of a stochastic condition, we assume `t` to be the first instant when the condition has become `True`.
+This means that, in the case of a stochastic condition, we assume `t` to be the first instant when the condition has become `True`. This assumption allows us to move the very complex step of monitoring stochastic predicates out of the lifecycle function and into a dedicated component.
+
+### List of lifecycle functions
+
+Three functions embody the lifecycle functionality of the library.
+
+- `lifecycle`: given a time `t` and an input claim `c`, it returns
+
+  - the payments that fall due at or before t
+  - the remaining claim
+
+- `expire`: given a time `t` and an input claim `c`, it checks for expired sub-trees and return the pruned claim. Sub-trees typically expire when predicates within an `Until` node evaluate to `True`.
+
+- `exercise`: given a time `t`, an input claim `c` and an election `e`, it applies the given election to `c` and returns the remaining claim
+
+An election is represented by
+
+- a boolean variable representing which party makes the election (contract holder or counterparty)
+- the sub-contract `c_elected` that is acquired as a result of the election
+
+### When do I need to lifecycle?
+
+Given a contract `c`, acquired at time `t_0`, lifecycling is required
+
+- on each potential payment date
+
+- on the first instant that a stochastic predicate becomes `True`
+
+TODO this is not exactly true, as we need to look only at those conditions that are "immediately" observable (aka anything outside the first Whens or Anytimes) --> this requires definition of "currently observed" predicate
+
+The lifecycle workflow would typically entail
+
+- calling the `lifecycle` function to collect payments
+
+- calling the `expire` function to prune sub-trees that are worthless
+
+- checking if an `election` is needed and, if so
+
+  - perform it (`Or` node) by calling `exercise` and re-run the workflow with the updated claim
+
+  - or, defer it to a later point in time (`Anytime` node)
+
+Lifecycling on a non-event date is only detrimental for performance but it does not affect the contract's dynamics, so in principle one could execute the workflow above on a daily basis.
 
 ## References
 
