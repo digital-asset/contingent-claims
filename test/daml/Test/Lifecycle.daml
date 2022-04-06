@@ -350,7 +350,7 @@ testFloatingRateNote = script do
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observeDayOfMonth frn $ date 2022 Feb 28
   remaining === frn
 
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observeDayOfMonth frn $ date 2022 Mar 01
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observeDayOfMonth frn $ date 2022 Mar 07
   remaining === frn
 
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observeDayOfMonth frn $ date 2022 Mar 10
@@ -366,14 +366,12 @@ testKnockOutBarrier = script do
     innerFrn = Scale (O.Observe a) $ When (TimeGte $ date 2022 Mar 27) $ One b
     frn = When inequality innerFrn
 
-    startDate = date 2022 Mar 01
-
   -- Predicate is False, contract should be unchanged
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observeDayOfMonth frn $ date 2022 Mar 01
   remaining === frn
 
   -- Predicate becomes True and `When pred` should be replaced by `When (TimeGte τ)`
-  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observeDayOfMonth remaining $ date 2022 Mar 25
+  Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observeDayOfMonth frn $ date 2022 Mar 25
   remaining === When (TimeGte $ date 2022 Mar 25) innerFrn
   pending === []
 
@@ -381,6 +379,10 @@ testKnockOutBarrier = script do
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observeDayOfMonth remaining $ date 2022 Mar 27
   remaining === Zero
   pending === [(25.0,b)]
+
+  -- With a stochastic predicate, if we lifecycle too late (e.g. on the 26th rather than on the 25th) we end up with an incorrect claim
+  wrongLifecycleResult <- Lifecycle.lifecycle observeDayOfMonth frn $ date 2022 Mar 26
+  wrongLifecycleResult.remaining === When (TimeGte $ date 2022 Mar 26) innerFrn
 
   pure ()
 
