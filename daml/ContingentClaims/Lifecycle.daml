@@ -82,6 +82,7 @@ lifecycle spot claim today
 -- | Evaluate observables and skip branches for which predicates don't hold, calculate the acquisition time of the claim's sub-trees.
 -- Consume `Cond` nodes, leaving the relevant sub-tree.
 -- Replace `When pred c` nodes with `When (TimeGte t) c` if the predicate is non-deterministic and evaluates to True.
+-- Replace `Until cond c` nodes with `Zero` if the predicate evaluates to True.
 -- This is useless on its own. Composed with other functions, it adds laziness.
 acquire' : (Ord t, Eq a, CanAbort m)
   => (a -> t -> m Decimal)
@@ -108,7 +109,12 @@ acquire' spot today (MinusInfinity,(Cond obs c c')) = do
   abort "Found Cond node with undefined acquisition time"
 acquire' spot today (_,c@(Anytime obs _)) = do
   predicate <- compare spot obs today
-  pure $ if predicate then Right (Time today,c) else Left c  -- the acquisition time of an Anytime node is assumed to be the time at which we lifecycle
+  pure $ if predicate then Right (Time today,c) else Left c
+  -- ^ the acquisition time of an Anytime node is assumed to be the time at which we lifecycle
+acquire' spot today (s,Until obs c) = do
+  predicate <- compare spot obs today
+  -- ^ we assume here that the predicate inside `Until` has not been met before `today`
+  pure . Right . (s, ) $ if predicate then Zero else Until obs c
 acquire' _ _ (s,other) = pure $ Right (s, other)
 
 -- | Evaluate any observables in `Scale` nodes, accumulating scale factors top-down.

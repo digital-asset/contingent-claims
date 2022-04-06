@@ -99,7 +99,7 @@ testAcquire = script do
   res === until false (acquired a)
 
   res <- f (until true (one a)) today
-  res === until true (acquired a)
+  res === acquired "0"
 
 -- | This test replaces all leaves with zeros, logging their qty/asset pair into a `Writer`.
 -- It ignores `when/cond` nodes altogether.
