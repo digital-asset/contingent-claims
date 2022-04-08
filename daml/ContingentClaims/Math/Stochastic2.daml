@@ -16,6 +16,7 @@ import Daml.Control.Arrow ((|||))
 import Daml.Control.Recursion
 
 -- | Elementary processes as described in the Peyton-Jones paper.
+-- Once a model assumption is made, these can be replaced by the specific model (e.g. geometric brownian motion for stock spot prices)
 data ElementaryProcess a
   = Observable a
     -- ^ process corresponding to observable a

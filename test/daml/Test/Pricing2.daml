@@ -103,3 +103,26 @@ testValuationScale = do
   -- TODO write test with stochastic stopping time
 
   pure ()
+
+-- | Claim with stochastic stopping rule
+testValuationKnockOut : Script()
+testValuationKnockOut = do
+
+  -- we define a stochastic observable
+  let spotGreaterThan100 = Lte (O.Const 100.0, O.observe "spot")
+
+      claim : C = when spotGreaterThan100 $ one a
+
+      f = Time today -- filtration
+      τ = AtInequality [spotGreaterThan100] -- stopping rule
+
+  value <- fapf observe25 ccy today claim
+  value === E (disc * exch) τ f / disc
+
+  -- we do not consider the case when the stopping rule is verified before or at t,
+  -- given that the valuation focuses on claims that are "up-to-date" with respect to lifecycle
+  -- and the lifecycle function replaces verified stochastic stopping rule with deterministic ones
+
+  -- TODO : we should define a mapping from inequality to the corresponding stochastic process (same as for observables) as these need to be simulated
+
+  pure ()
