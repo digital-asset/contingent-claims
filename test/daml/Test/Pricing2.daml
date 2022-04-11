@@ -125,4 +125,10 @@ testValuationKnockOut = do
 
   -- TODO : we should define a mapping from inequality to the corresponding stochastic process (same as for observables) as these need to be simulated
 
+  -- TODO : write helper function to collect observables (catamorphism)
+
+  -- TODO : write helper function to collect relevant fixing dates (for the purpose of MC simulation)
+
+  -- TODO : check if we can call pure Haskell functions from Java bindings (because if we can't, there is no point writing helper functions that are used outside of the Daml layer)
+
   pure ()
