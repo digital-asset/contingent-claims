@@ -3,7 +3,7 @@
 
 module ContingentClaims.Financial where
 
-import Prelude hiding (and, or, (<=))
+import Prelude hiding (and, or)
 import ContingentClaims.Claim
 import ContingentClaims.Observation qualified as O
 import ContingentClaims.Observation (Observation)
@@ -57,8 +57,7 @@ bermudan (t :: ts) c = when (at t) (c `or` bermudan ts c)
 
 -- | American option (knock-in). The lead parameter is the first possible acquisition date.
 american : t -> t -> Claim t x a -> Claim t x a
-american t maturity payoff = Anytime ((>=) t) $ Until (at maturity) (payoff `or` zero)
-  where (>=) = at
+american start maturity payoff = When (at start) $ Anytime (upTo maturity) payoff
 
 -- | Asset swap on specific fixing dates `[t]`. For example:
 -- ```

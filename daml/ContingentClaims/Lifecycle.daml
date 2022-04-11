@@ -92,7 +92,9 @@ acquire' : (Ord t, Eq a, CanAbort m)
   -> (AcquisitionTime t, C t a)
   -- ^ input claim and its acquisition time
   -> m (Either (C t a) (AcquisitionTime t, C t a))
-acquire' spot t (s, (When obs c)) = do
+acquire' _ _ (s, When (TimeLte t) _) | Time t < s = pure $ Left Zero
+acquire' _ _ (s, c@(When (TimeLte _) _))= pure $ Right (s,c) -- TODO consider replacing the useless When with c directly
+acquire' spot t (s, When obs c) = do
   predicate <- compare spot obs t
   if predicate then
     case obs of
@@ -100,26 +102,35 @@ acquire' spot t (s, (When obs c)) = do
       other -> pure $ Right . (Time t, ) $ When (TimeGte t) c  -- if the predicate is non-deterministic, we assume that we are lifecycling at a time `t` corresponding to the first instant the predicate becomes True
     else
       pure . Left $ When obs c
-acquire' spot today (Time s,(Cond obs c c')) = do
+acquire' spot today (Time s, Cond obs c c') = do
   predicate <- compare spot obs s
   if predicate 
     then acquire' spot today (Time s,c) 
     else acquire' spot today (Time s,c')
 acquire' spot today (MinusInfinity,(Cond obs c c')) = do
   abort "Found Cond node with undefined acquisition time"
+acquire' _ _ (s,(Anytime (TimeLte t) _)) | Time t < s = pure $ Left Zero -- contract is acquired after t, condition will never be met
+  -- TODO add test
+acquire' _ today (_,(Anytime (TimeLte t) _)) | t < today = pure $ Left Zero -- today date is after t, condition will never be met
+  -- TODO add test
 acquire' spot today (_,c@(Anytime obs _)) = do
   predicate <- compare spot obs today
   pure $ if predicate then Right (Time today,c) else Left c
   -- ^ the acquisition time of an Anytime node is assumed to be the time at which we lifecycle
+acquire' _ _ (s,Until (TimeLte t) c) | Time t < s = pure $ Right (s,c) -- contract is acquired after t, predicate will never be True
+  -- TODO add test
+acquire' _ _ (_,Until (TimeLte t) _) = pure $ Left Zero -- contract is acquired before t, predicate is immediately True
+  -- TODO add test
+  -- TODO consider writing more sophisticated logic for the TimeGte t case to make code more robust
 acquire' spot today (s,Until obs c) = do
   predicate <- compare spot obs today
   -- ^ we assume here that the predicate inside `Until` has not been met before `today`
-  pure . Right . (s, ) $ if predicate then Zero else Until obs c
+  pure $ if predicate then Left Zero else Right (s, Until obs c)
 acquire' _ _ (s,other) = pure $ Right (s, other)
 
 -- | Evaluate any observables in `Scale` nodes, accumulating scale factors top-down.
--- Log the scale factors with their corresponding leaf values. 
--- Skip `Or` and `Anytime` branches, guaranteeing liveness. 
+-- Log the scale factors with their corresponding leaf values.
+-- Skip `Or` and `Anytime` branches, guaranteeing liveness.
 -- Replace any Ones that can be reached with Zeros.
 lifecycle' : (Ord t, CanAbort m)
         => (a -> t -> m Decimal)
