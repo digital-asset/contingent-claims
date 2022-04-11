@@ -60,46 +60,77 @@ testAcquire = script do
 
       f = g Lifecycle.MinusInfinity
 
+  -- One
   res <- f (one a) today
   res === acquired a
 
+  -- Zero
   res <- f zero tomorrow
   res === acquired "0"
 
+  -- When
+  res <- f (when (TimeGte tomorrow) (one a)) today
+  res === when (TimeGte tomorrow) (one a)
+
+  res <- f (when (TimeGte today) (when (TimeGte tomorrow) (one a)) ) tomorrow
+  res === when (TimeGte today) (when (TimeGte tomorrow) (acquired a))
+
+  res <- f (when (TimeGte tomorrow) (when (TimeLte today) (one a)) ) tomorrow
+  res === when (TimeGte tomorrow) zero
+    -- ^ contract acquired too late is worthless
+
+  res <- f (when (TimeLte today) (one a)) tomorrow
+  res === when (TimeLte today) (acquired a)
+    -- ^ acquisition date is taken into account rather than lifecycle date
+
+  -- When + Scale
   res <- f (when (at tomorrow) $ scale two (one a)) today
   res === when (at tomorrow) (scale two (one a))
 
   res <- f (when (at tomorrow) $ scale two (one a)) tomorrow
   res === when (at tomorrow) (scale two (acquired a))
 
+  -- Cond
   res <- g (Lifecycle.Time today) (cond (at tomorrow) (one a) (one b)) today
   res === acquired b
 
   res <- g (Lifecycle.Time tomorrow) (cond (at tomorrow) (one a) (one b)) tomorrow
   res === acquired a
 
-{- FIXME: confirm if this test makes sense; it broke when we changed observable with inequality
-  res <- f (when (O.TimeGte today) (when (O.TimeGte tomorrow) (one a)) ) tomorrow
-  res === (when (O.TimeGte today) (when (at tomorrow) (one a)) )
--}
-
-  res <- f (when (TimeGte today) (when (TimeGte tomorrow) (one a)) ) tomorrow
-  res === when (TimeGte today) (when (TimeGte tomorrow) (acquired a))
-
+  -- Or
   res <- f (one a `or` one b) today
   res === acquired a `or` acquired b
 
+  -- Anytime
   res <- f (anytime true (one a)) today
   res === anytime true (acquired a)
 
   res <- f (anytime false (one a)) today
   res === anytime false (one a)
 
+  res <- g (Lifecycle.Time tomorrow) (anytime (TimeLte today) (one a)) tomorrow
+  res === zero
+    -- ^ contract acquired after exercise window has ended is worthless
+
+  res <- f (anytime (TimeLte today) (one a)) tomorrow
+  res === zero
+    -- ^ contract lifecycled after exercise window has ended is worthless
+
+  -- Until
   res <- f (until false (one a)) today
   res === until false (acquired a)
 
   res <- f (until true (one a)) today
   res === zero
+
+  res <- g (Lifecycle.Time tomorrow) (until (TimeLte today) (one a)) tomorrow
+  res === acquired a
+    -- ^ Predicate will never be True after acquisition time
+    -- [ML] I am not so sure this is the correct semantics (if we accept it as the correct semantics we need to be careful disributing until inside a When node!!!)
+
+  res <- g (Lifecycle.Time today) (until (TimeLte today) (one a)) tomorrow
+  res === zero
+    -- ^ acquisition date is taken into account rather than lifecycle date
 
 -- | This test replaces all leaves with zeros, logging their qty/asset pair into a `Writer`.
 -- It ignores `when/cond` nodes altogether.
