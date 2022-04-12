@@ -5,7 +5,7 @@ Copyright © 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All Ri
 
 # Contingent Claims
 
-This is a library for modelling contingent claims, i.e. derivatives, written in the smart contract language [Daml](https://www.digitalasset.com/developers). Briefly, a derivative is represented by a tree of `Claim`s, which describe future cashflows between two parties as well as the conditions under which these cashflows occur.
+This is a library for modeling contingent claims, i.e. derivatives, written in the smart contract language [Daml](https://www.digitalasset.com/developers). Briefly, a derivative is represented by a tree of `Claim`s, which describe future cashflows between two parties as well as the conditions under which these cashflows occur.
 
 The library offers life-cycling capabilities, as well as a valuation semantics that maps a claim to a mathematical expression that can be used for no-arbitrage pricing.
 
@@ -33,7 +33,7 @@ In order to build the code from source, follow these instructions.
 
 3. Fetch the `*.dar` file for the latest version of the [daml-ctl](https://github.com/digital-asset/daml-ctl/releases) library and copy it to the `lib/` folder in the repository's root
 
-4. You can then build a release version (no tests in the `*.dar`) by running `daml build` in the root directory, or a dev version that includes test from the `test` directory.
+4. You can then build a release version (no tests in the `*.dar`) by running `daml build` in the root directory, or a dev version that includes tests from the `test` directory.
 
 ### Running the tests
 
