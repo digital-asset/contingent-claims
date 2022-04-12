@@ -1,4 +1,4 @@
 .daml/
 *.log
-doc/
+doc/html
 lib/
