@@ -113,13 +113,11 @@ acquire' _ _ (s,(Anytime (TimeLte t) _)) | Time t < s = pure $ Left Zero -- cont
 acquire' _ today (_,(Anytime (TimeLte t) _)) | t < today = pure $ Left Zero -- today date is after t, condition will never be met
 acquire' spot today (_,c@(Anytime obs _)) = do
   predicate <- compare spot obs today
-  pure $ if predicate then Right (Time today,c) else Left c
-  -- ^ the acquisition time of an Anytime node is assumed to be the time at which we lifecycle
+  pure $ if predicate then Right (Time today,c) else Left c -- the acquisition time of an Anytime node is assumed to be the time at which we lifecycle
 acquire' _ _ (s,Until (TimeLte t) c) | Time t < s = pure $ Right (s,c) -- contract is acquired after t, predicate will never be True, we can remove the Until node
 acquire' _ _ (_,Until (TimeLte t) _) = pure $ Left Zero -- contract is acquired before t, predicate is immediately True
 acquire' spot today (s,Until obs c) = do
-  predicate <- compare spot obs today
-  -- ^ we assume here that the predicate inside `Until` has not been met before `today`
+  predicate <- compare spot obs today -- we assume here that the predicate inside `Until` has not been met before `today`
   pure $ if predicate then Left Zero else Right (s, Until obs c)
 acquire' _ _ (s,other) = pure $ Right (s, other)
 
