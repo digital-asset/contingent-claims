@@ -109,6 +109,20 @@ Once we have acquired a contract `c` at a time `t_0`, the next event date is due
 
 Event dates related to `When` and `Until` predicates are modelled as stopping times of stochastic processes: these processes need to be continuously observed in order to determine when the event occurs. An exception to this are cases where the next event date is a deterministic time, for instance when using the predicate `t ≥ t_1`: in this case, even before `t_1` we know that `t_1` will be an event date.
 
+#### The role of "visible predicates"
+
+In order to determine relevant dates, it is useful to introduce the concept of a visible predicate.
+
+Let us consider the contract `c = When ( S1(t) ≤ 50 ) (When (S2(t) ≥ 100) (One “USD”))` which we acquire at a time `t_0`. `S1` and `S2` are two quantities that we observe in the market, e.g. spot prices of some company's stock.
+
+This contract pays one `USD` when `S2` is greater than 100, but only if `S1` has previously fallen below a price of 50.
+
+In order to determine the next event date of `c` we initially need to observe only `S1`, as the value of `S2` is completely irrelevant as long as `S1` stays above a price of 50. We call `S1 ≤ 50` a visible predicate of `c`, whereas `S2 ≥ 100` is an invisible predicate.
+
+Once the price of `S1` drops at or below 50, the contract evolves to `c2 = When (S2(t) ≥ 100) (One “USD”)` and `S2 ≥ 100` becomes a visible predicate.
+
+More generally, the visible predicates of a claim are those boolean conditions that do not fall within a `When` or `Anytime` node.
+
 ### Desirable features of a lifecycle functionality
 
 The lifecycle function takes as an input
@@ -185,9 +199,7 @@ Given a contract `c`, acquired at time `t_0`, lifecycling is required
 
 - on each potential payment date
 
-- on the first instant that a stochastic predicate becomes `True`
-
-TODO this is not exactly true, as we need to look only at those conditions that are "immediately" observable (aka anything outside the first Whens or Anytimes) --> this requires definition of "currently observed" predicate
+- on the first instant that a stochastic visible predicate becomes `True`
 
 The lifecycle workflow would typically entail
 
@@ -201,7 +213,7 @@ The lifecycle workflow would typically entail
 
   - or, defer it to a later point in time (`Anytime` node)
 
-Lifecycling on a non-event date is only detrimental for performance but it does not affect the contract's dynamics, so in principle one could execute the workflow above on a daily basis.
+Lifecycling on a non-event date is only detrimental for performance but it does not affect the contract's dynamics, so in principle one could execute the above workflow on a daily basis.
 
 ## References
 
