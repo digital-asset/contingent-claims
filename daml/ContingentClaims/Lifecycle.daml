@@ -177,12 +177,12 @@ exercise' _ _ (isBearer, (s, Give c)) = GiveF . Right . (not isBearer, ) $ (s, c
 exercise' (elector, election) t (isBearer, (s, ors@Or {}))
   | elector /= isBearer = Left <$> project ors
   | Time t /= s = Left <$> project ors
-  | election `elem` project ors = Right . (isBearer,) . (s,) <$> project election
+  | election `elem` project ors = Left <$> project election
   | otherwise = Left <$> project ors
 exercise' (elector, election) t (isBearer, (s, f@(Anytime _ c)))
   | elector /= isBearer = Left <$> project f
   | Time t /= s = Left <$> project f
-  | election == c = Right . (isBearer, ) . (s,) <$> WhenF (TimeGte t) c
+  | election == c = Left <$> WhenF (TimeGte t) c
   | otherwise = Left <$> project f
 exercise' _ _ (isBearer, (s, other)) = Right . (isBearer, ) . (s, ) <$> project other
 
