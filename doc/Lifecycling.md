@@ -111,7 +111,7 @@ Event dates related to `When` and `Until` predicates are modelled as stopping ti
 
 #### The role of "visible predicates"
 
-In order to determine relevant dates, it is useful to introduce the concept of a visible predicate.
+In order to determine event dates, it is useful to introduce the concept of a visible predicate.
 
 Let us consider the contract `c = When ( S1(t) ≤ 50 ) (When (S2(t) ≥ 100) (One “USD”))` which we acquire at a time `t_0`. `S1` and `S2` are two quantities that we observe in the market, e.g. spot prices of some company's stock.
 
@@ -121,7 +121,7 @@ In order to determine the next event date of `c` we initially need to observe on
 
 Once the price of `S1` drops at or below 50, the contract evolves to `c2 = When (S2(t) ≥ 100) (One “USD”)` and `S2 ≥ 100` becomes a visible predicate.
 
-More generally, the visible predicates of a claim are those boolean conditions that do not fall within a `When` or `Anytime` node.
+More generally, the visible predicates of a claim are those boolean conditions that do not fall within a `When` or `Anytime` node. For the purpose of determining the next event date, predicates that are currently invisible can be ignored.
 
 ### Desirable features of a lifecycle functionality
 
