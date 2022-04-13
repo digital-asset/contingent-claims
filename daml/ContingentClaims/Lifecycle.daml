@@ -10,20 +10,24 @@ module ContingentClaims.Lifecycle (
   , exercise
   , exercise'
   , expire
+  , canExercise
   , Result(..)
   , AcquisitionTime(..)
+  , ElectionState(..)
 ) where
 
 import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..), compare, Inequality(..))
 import ContingentClaims.Observation qualified as Observation
-import ContingentClaims.Util.Recursion (apoCataM)
+import ContingentClaims.Util.Recursion (apoCataM, paraCataM)
 import ContingentClaims.Util (pruneZeros')
+import Daml.Control.Arrow ((|||))
 import Daml.Control.Recursion (project, distApo)
 import Daml.Control.Monad.Trans.Writer (WriterT, runWriterT)
 import Daml.Control.Monad.Writer.Class (MonadWriter(..))
 import Daml.Control.Monad.Trans.Class (lift)
+import DA.List (singleton)
 import DA.Traversable (sequence)
-import DA.Foldable (elem)
+import DA.Foldable (elem, fold, foldMap)
 import Prelude hiding (sequence, mapA, exercise, compare, elem)
 
 type C t a = Claim t Decimal a
@@ -206,3 +210,65 @@ expire' spot t (s, Until obs c) = do
   predicate <- compare spot obs t
   if predicate then pure ZeroF else pure $ UntilF obs (s, c)
 expire' _ _ (s, other) = pure $ (s, ) <$> project other
+
+data ElectionState = Available | Required deriving (Eq,Show)
+
+-- | Given a time t, check if an election can be made (aka we can reach an Anytime or an Or node)
+-- | We could also divide the elections into possible vs required --> possible aka Anytime, required aka Or, not possible
+-- availableElections : (Ord t, Eq a, CanAbort m)
+--   => (a -> t -> m Decimal)
+--   -- ^ function to evaluate observables 
+--   -> C t a
+--   -- ^ the input claim
+--   -> t
+--   -- ^ the today's date
+--   -> m [(ElectionState, Bool, [C t a])]
+-- availableElections spot today = 
+
+type Carrier t a = (Bool, (AcquisitionTime t, C t a))
+type Elections t a = [(ElectionState, Bool, [C t a])]
+
+-- we are throwing away the information on whether the Or was acquired or not
+canExerciseAlg : (Carrier t a, F t a (Elections t a)) -> Elections t a
+canExerciseAlg ((isBearer, (_, ors@Or {})),_) = [(Required, isBearer, foldMap singleton $ project ors)]
+canExerciseAlg (_, other) = fold other
+
+-- we probably need to pass in the today date!
+canExercise' : Carrier t a -> (F t a (Either (Elections t a) (Carrier t a)))
+canExercise' (isBearer, (_, Anytime pred c)) = AnytimeF pred $ Left [(Available, isBearer, [c])]
+canExercise' (isBearer, (_, ors@Or {})) = (\_ -> Left []) <$> project ors
+canExercise' (isBearer, (s, Give c)) = GiveF . Right . (not isBearer, ) $ (s, c)
+canExercise' (isBearer, (s,other)) = Right . (isBearer, ) . (s, ) <$> project other
+
+canExercise : (Ord t, Eq a, CanAbort m)
+  => (a -> t -> m Decimal)
+  -- ^ function to evaluate observables 
+  -> C t a
+  -- ^ the input claim
+  -> t
+  -- ^ the election date
+  -> m (Elections t a)
+canExercise spot claim today = 
+  paraCataM canExerciseAlg (acquireThenCanExercise spot today)
+  . (True, ) -- initial election authorizer (`True = bearer`)
+  . (MinusInfinity, ) -- initial acquisition time
+  $ claim
+
+acquireThenCanExercise : (Ord t, Eq a, CanAbort m)
+  => (a -> t -> m Decimal)
+  -- ^ function to evaluate observables 
+  -> t
+  -- ^ the today date
+  -> (Bool, (AcquisitionTime t, C t a))
+  -- ^ input claim and its acquisition time
+  -- -> m (F t a ( Either (C t a) (Either (Elections t a) (Carrier t a) ) ))
+  -> m (F t a ( Either (Elections t a) (Carrier t a) ) )
+acquireThenCanExercise spot today =
+  fmap (fmap (fmap g) ) .
+  fmap (fmap distApo)
+  . fmap (fmap (fmap canExercise'))
+  . fmap (fmap sequence)
+  . fmap sequence . fmap
+  $ acquire' spot today
+  where
+    g = (\_ -> Left []) ||| identity

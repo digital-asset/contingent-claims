@@ -24,7 +24,7 @@ type C = Claim Date Decimal Text
 type F = ClaimF Date Decimal Text
 
 -- | Assets
-[a,b,c] = ["a","b","c"]
+[a,b,c,d] = ["a","b","c","d"]
 
 -- | Dates
 today = date 1970 Jan 1
@@ -393,6 +393,48 @@ testCondLifecycle = script do
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observeDayOfMonth c today
   remaining === zero
   pending === [(1.0, a)]
+
+  pure ()
+
+testCanExercise = script do
+
+  let claim = (One a) `or` (One b)
+  r <- Lifecycle.canExercise observe25 claim today
+  r === [(Lifecycle.Required, True, [One a, One b])]
+
+  let claim = give $ (One a) `or` (One b)
+  r <- Lifecycle.canExercise observe25 claim today
+  r === [(Lifecycle.Required, False, [One a, One b])]
+
+  let claim = ((One a) `or` (One b)) `and` ((One c) `or` (One d))
+  r <- Lifecycle.canExercise observe25 claim today
+  r ===
+    [ (Lifecycle.Required, True, [One a, One b])
+    , (Lifecycle.Required, True, [One c, One d])
+    ]
+
+  let claim = anytime false (one a)
+  r <- Lifecycle.canExercise observe25 claim today
+  r === []
+
+  let claim = anytime true (one a)
+  r <- Lifecycle.canExercise observe25 claim today
+  r === [(Lifecycle.Available, True, [One a])]
+
+  let claim = give $ anytime true (one a)
+  r <- Lifecycle.canExercise observe25 claim today
+  r === [(Lifecycle.Available, False, [One a])]
+
+  let claim = when (at tomorrow) (One a) `or` (One b)
+  r <- Lifecycle.canExercise observe25 claim today
+  r === []
+  -- needs to be fixed!!
+
+  -- the best approach is probably to work on the "uncollected functor" and write the para part as f(a,b) --> that also does not work ...
+
+  -- let claim = when (at today) (One a) `or` (One b)
+  -- r <- Lifecycle.canExercise observe25 claim tomorrow
+  -- r === [(Lifecycle.Required, True, [One a, One b])]
 
   pure ()
 
