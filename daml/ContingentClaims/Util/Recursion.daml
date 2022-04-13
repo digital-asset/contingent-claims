@@ -52,7 +52,7 @@ futuM' f (Free as) = fmap embed . mapA (futuM' f) $ as
 apoCataM : (Monad m, Traversable f) => (f b -> b) -> (a -> m (f (Either b a))) -> a -> m b
 apoCataM g f a = (fmap g <<< (>>= (mapA (pure ||| apoCataM g f))) <<< f) a
 
--- A modified `hylo` (refold), whith an interleaved monad effect (typically `Update`).
+-- A modified `hylo` (refold), with an interleaved monad effect (typically `Update`).
 hyloM : (Monad m, Traversable f) => (f b -> b) -> (a -> m (f a)) -> a -> m b
 hyloM f g a = (fmap f <<< (>>= mapA (hyloM f g)) <<< g) a
 
