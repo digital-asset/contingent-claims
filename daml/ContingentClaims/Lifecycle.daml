@@ -211,20 +211,6 @@ exercise' _ _ (isBearer, (_, other)) = fmap (isBearer, ) <$> other
 -- | Replace any subtrees that have expired with `Zero`s.
 expire : (Ord t, Eq a, CanAbort m) => (o -> t -> m Decimal) -> C t a o -> t -> t -> m (C t a o)
 expire spot claim acquisitionTime today =
-  apoCataM pruneZeros' acquireThenExpire
-  $ (acquisitionTime, claim)
+  apoCataM pruneZeros' acquire $ (acquisitionTime, claim)
   where
-    acquireThenExpire =
-      (expire' spot today =<<)
-      . sequence . (Prelude.fst &&& acquire' spot today)
-
--- | Carrier type used for `expire`. It consists of a claim and its acquisition time.
-type ExpireCarrier t a o = (t, C t a o)
-
--- | HIDE
--- Replace Until nodes with Zero when applicable
-expire' : (Ord t, CanAbort m) => (o -> t -> m Decimal) -> t -> (t, Acquired t a o) -> m (FE t a o (ExpireCarrier t a o))
-expire' spot t (s, UntilF obs c) = do
-  predicate <- compare spot obs t
-  if predicate then pure ZeroF else pure $ UntilF obs c
-expire' _ _ (s, other) = pure other
+    acquire = acquire' spot today
