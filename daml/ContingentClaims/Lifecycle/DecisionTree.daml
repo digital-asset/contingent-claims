@@ -1,0 +1,95 @@
+module ContingentClaims.Lifecycle.DecisionTree where
+
+import ContingentClaims.Claim (Claim(..), Inequality(..), compare)
+import Daml.Control.Recursion
+import DA.Foldable (Foldable, foldMap, foldr)
+import DA.Traversable (Traversable, sequence)
+import Prelude hiding (compare)
+
+-- | A recursive decision tree used to determine if `lifecycle` is required.
+data DecisionTree t x o
+  = No
+      -- ^ do not lifecycle 
+  | Yes
+      -- ^ lifecycle
+  | Eval with predicate : Inequality t x o, true : DecisionTree t x o, false: DecisionTree t x o
+      -- ^ a predicate to evaluate and the respective sub-trees
+  | Any with decisionTrees : [DecisionTree t x o]
+      -- ^ `Yes` if any sub-tree yields `Yes`, no otherwise
+
+-- | HIDE
+data DecisionTreeF t x o b
+  = NoF
+  | YesF
+  | EvalF with predicate : Inequality t x o, true : b, false: b
+  | AnyF with decisionTrees : [b]
+  deriving (Functor)
+
+instance Recursive (DecisionTree t x o) (DecisionTreeF t x o) where
+  project No = NoF
+  project Yes = YesF
+  project (Eval p y n) = EvalF p y n
+  project (Any ds) = AnyF ds
+
+instance Corecursive (DecisionTree t x o) (DecisionTreeF t x o) where
+  embed NoF = No
+  embed YesF = Yes
+  embed (EvalF p y n) = Eval p y n
+  embed (AnyF ds) = Any ds
+
+instance Foldable (DecisionTreeF t x o) where
+  foldr _ seed NoF = seed
+  foldr _ seed YesF = seed
+  foldr f seed (EvalF _ y n) = f y . f n $ seed
+  foldr f seed (AnyF ds) = Prelude.foldr f seed ds
+
+instance Traversable (DecisionTreeF t x o) where
+  sequence NoF = pure NoF
+  sequence YesF = pure YesF
+  sequence (EvalF p fy fn) = EvalF p <$> fy <*> fn
+  sequence (AnyF ds) = AnyF <$> Prelude.sequence ds
+
+-- | Given a claim, create a lifecycling decision tree 
+decisionTree : Claim t x a o -> DecisionTree t x o
+decisionTree = futu decisionTree'
+
+-- HIDE
+-- | CV-algebra for `decisionTree`
+decisionTree' : Claim t x a o -> DecisionTreeF t x o (Free (DecisionTreeF t x o) (Claim t x a o))
+decisionTree' (One _) = YesF
+decisionTree' Zero = NoF
+decisionTree' (When p@(Lte _) c) = EvalF p (Free YesF) (Free NoF) -- if non-deterministic predicate then lifecycle if it evaluates to True
+decisionTree' (When p@(TimeGte _) c) = EvalF p (pure c) (Free NoF)
+decisionTree' Anytime {} = NoF
+decisionTree' Or {} = NoF
+decisionTree' (Until obs c) = EvalF obs (Free YesF) (pure c)
+decisionTree' (Cond obs c c') = EvalF obs (pure c) (pure c')
+decisionTree' other = AnyF $ foldMap (\x -> [pure x]) . project $ other
+-- ^ scale, give, and
+-- [ML] I could incorporate elections in the decision tree
+
+-- given a decision tree, simplify it based on what you know about inequalities e.g. a => b
+-- this exercise is similar to propagating the acquisition time
+-- simplify : DecisionTree t x o -> DecisionTree t x o
+-- I could use this as catamorphic part of a cataFutu
+
+-- I can simplify single-element Any nodes
+
+-- | Evaluate the decision tree to decide if lifecycling is required. Returns `True` if lifecycling is required, `False` otherwise
+-- [ML] this is written using primitive recursion, not sure if it makes sense to use some kind of recursion scheme
+runDecisionTree : (Ord t, Ord x, Number x, Divisible x, Action m) 
+  => (o -> t -> m x)
+    -- ^ a function to evaluate observables
+  -> t
+    -- ^ the today date
+  -> DecisionTree t x o
+    -- ^ the input decision tree
+  -> m Bool
+runDecisionTree _ _ No = pure False
+runDecisionTree _ _ Yes = pure True
+runDecisionTree f today (Any ds) = or <$> mapA (runDecisionTree f today) ds
+runDecisionTree f today (Eval p y n) = do
+  predicate <- compare f p today
+  runDecisionTree f today if predicate then y else n
+
+

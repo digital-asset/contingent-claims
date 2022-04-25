@@ -1,0 +1,51 @@
+module Test.DecisionTree where
+
+import ContingentClaims.Claim hiding (C, F)
+import ContingentClaims.Observation qualified as O
+import ContingentClaims.Lifecycle.DecisionTree
+import DA.Assert ((===))
+import DA.Date
+import DA.Tuple (thd3)
+import Daml.Script
+import Prelude hiding (enumerate, length, or, and, (<=))
+
+-- | Observations
+two : O.Observation Date Decimal Text = O.pure 2.0
+
+-- | Functions performing observations
+observe25: Text -> Date -> Script Decimal = const . const . pure $ 25.0
+observeDayOfMonth _ d = pure . intToDecimal . thd3 . toGregorian $ d
+
+-- | Inequalities
+false = TimeGte $ date 3000 Jan 1
+true = TimeGte $ date 1970 Jan 1
+
+testDecisionTree = script do
+
+  let [a,b] = ["a","b"]
+      today = date 1970 Jan 1
+      tomorrow = succ today
+      o1 = O.observe a
+      o2 = O.observe b
+
+      f t claim = runDecisionTree observe25 t $ decisionTree claim
+
+  lifecycle <- f today (One a)
+  lifecycle === True
+
+  lifecycle <- f today zero
+  lifecycle === False
+
+  lifecycle <- f today $ when (at tomorrow) (one a)
+  lifecycle === False
+
+  lifecycle <- f tomorrow $ when (at tomorrow) (one a)
+  lifecycle === True
+
+  lifecycle <- f today $ when (o1 <= O.Const 24.0) (one a)
+  lifecycle === False
+
+  lifecycle <- f today $ when (o1 <= O.Const 26.0) (one a)
+  lifecycle === True
+
+  -- [ML] finish tests
