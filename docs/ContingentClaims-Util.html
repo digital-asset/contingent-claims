@@ -1,0 +1,98 @@
+<!-- Copyright (c) 2019-2020, Digital Asset (Switzerland) GmbH and/or its affiliates. -->
+<!-- All rights reserved. -->
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    
+  <link rel="apple-touch-icon" sizes="180x180" href="da-style/apple-touch-icon.png"/>
+  <link rel="icon" type="image/png" href="da-style/favicon-32x32.png" sizes="32x32"/>
+  <link rel="icon" type="image/png" href="da-style/favicon-16x16.png" sizes="16x16"/>
+  <link rel="shortcut icon" href="da-style/favicon.ico"/>
+
+  <link rel="stylesheet" href="da-style/da-style.css" type="text/css" />
+
+  <!--
+  <link rel="search" title="Search" href="search.html"/>
+  -->
+</head>
+
+<header class="navbar-fixed-top cbp-af-header">
+
+    <a href="#" class="da-home-link">
+        <img src="da-style/da-logo.png" class="logo" />
+    </a>
+
+    <span class="version">
+                                <span>NO TITLE PROVIDED</span>
+                    </span>
+
+</header>
+
+<div class="container">
+
+    <div class="wrap">
+        <main>
+
+            <aside>
+
+                <nav class="side-tree">
+                                    </nav>
+
+            </aside>
+            <article>
+
+                <div role="main" class="document" itemscope="itemscope" itemprop="articleBody">
+
+                    <h1 id="module-contingentclaims.util"><span id="module-contingentclaims-util-35610"></span>Module ContingentClaims.Util</h1>
+                    <h2 id="functions">Functions</h2>
+                    <p><span id="function-contingentclaims-util-fixings-85991"></span><a href="#function-contingentclaims-util-fixings-85991">fixings</a></p>
+                    <blockquote>
+                    <p>: <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claim-55448">Claim</a> t x a -&gt; [t]</p>
+                    <p>Return the fixing dates of a claim. This does not discriminate between optional dates which <em>may</em> result from a condition, and outright fixings. It also does not correctly account for malformed trees, where subtrees are orphaned due to impossible <code>When</code> statements. e.g. <code>When (t &gt; 1) ((When t &lt; 1) _)</code></p>
+                    </blockquote>
+                    <p><span id="function-contingentclaims-util-fixingstick-93981"></span><a href="#function-contingentclaims-util-fixingstick-93981">fixings'</a></p>
+                    <blockquote>
+                    <p>: <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claimf-81845">ClaimF</a> t x a [t] -&gt; [t]</p>
+                    </blockquote>
+                    <p><span id="function-contingentclaims-util-expiry-73111"></span><a href="#function-contingentclaims-util-expiry-73111">expiry</a></p>
+                    <blockquote>
+                    <p>: Ord t =&gt; <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claim-55448">Claim</a> t x a -&gt; Optional t</p>
+                    <p>Return the time after which the claim is worthless i.e. value = 0, if such a time exists. Also known as 'maturity' or 'horizon' in the Eber/Jones paper.</p>
+                    </blockquote>
+                    <p><span id="function-contingentclaims-util-payoffs-21421"></span><a href="#function-contingentclaims-util-payoffs-21421">payoffs</a></p>
+                    <blockquote>
+                    <p>: (Eq x, Eq a, Multiplicative x) =&gt; <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claim-55448">Claim</a> t x a -&gt; [(<a href="ContingentClaims-Observation.html#type-contingentclaims-observation-observation-36736">Observation</a> t x a, a)]</p>
+                    <p>Return a list of possible scale-factor/payoff pairs. This does not discriminate between conditional and outright payoffs.</p>
+                    </blockquote>
+                    <p><span id="function-contingentclaims-util-prunezeros-11483"></span><a href="#function-contingentclaims-util-prunezeros-11483">pruneZeros</a></p>
+                    <blockquote>
+                    <p>: <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claim-55448">Claim</a> t x a -&gt; <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claim-55448">Claim</a> t x a</p>
+                    <p>Prunes sub-trees which are <code>Zero</code> a.s.</p>
+                    </blockquote>
+                    <p><span id="function-contingentclaims-util-prunezerostick-14293"></span><a href="#function-contingentclaims-util-prunezerostick-14293">pruneZeros'</a></p>
+                    <blockquote>
+                    <p>: <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claimf-81845">ClaimF</a> t x a (<a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claim-55448">Claim</a> t x a) -&gt; <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claim-55448">Claim</a> t x a</p>
+                    <p>Algebra for <code>pruneZeros</code>. N.b. the <code>Or</code> case : we only reduce the case when all elements are <code>Zero</code>. It's incorrect to remove a single <code>Or</code> (as this would remove a choice for 'inaction' from the bearer - think option lapse). However, we don't handle the case for <code>Or &gt; 1</code>, as this can be unintuitive (although semantically correct); this may change in the future, so don't rely on this behaviour.</p>
+                    </blockquote>
+
+                    <br>
+                    <hr>
+                    <p>
+                        © Copyright 2016-2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.
+                    </p>
+
+                </div>
+
+
+            </article>
+
+        </main>
+    </div>
+
+</div>
+
+</html>

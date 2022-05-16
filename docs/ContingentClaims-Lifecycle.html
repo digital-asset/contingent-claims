@@ -1,0 +1,138 @@
+<!-- Copyright (c) 2019-2020, Digital Asset (Switzerland) GmbH and/or its affiliates. -->
+<!-- All rights reserved. -->
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    
+  <link rel="apple-touch-icon" sizes="180x180" href="da-style/apple-touch-icon.png"/>
+  <link rel="icon" type="image/png" href="da-style/favicon-32x32.png" sizes="32x32"/>
+  <link rel="icon" type="image/png" href="da-style/favicon-16x16.png" sizes="16x16"/>
+  <link rel="shortcut icon" href="da-style/favicon.ico"/>
+
+  <link rel="stylesheet" href="da-style/da-style.css" type="text/css" />
+
+  <!--
+  <link rel="search" title="Search" href="search.html"/>
+  -->
+</head>
+
+<header class="navbar-fixed-top cbp-af-header">
+
+    <a href="#" class="da-home-link">
+        <img src="da-style/da-logo.png" class="logo" />
+    </a>
+
+    <span class="version">
+                                <span>NO TITLE PROVIDED</span>
+                    </span>
+
+</header>
+
+<div class="container">
+
+    <div class="wrap">
+        <main>
+
+            <aside>
+
+                <nav class="side-tree">
+                                    </nav>
+
+            </aside>
+            <article>
+
+                <div role="main" class="document" itemscope="itemscope" itemprop="articleBody">
+
+                    <h1 id="module-contingentclaims.lifecycle"><span id="module-contingentclaims-lifecycle-18151"></span>Module ContingentClaims.Lifecycle</h1>
+                    <h2 id="data-types">Data Types</h2>
+                    <p><span id="type-contingentclaims-lifecycle-acquisitiontime-860"></span><strong>data</strong> <a href="#type-contingentclaims-lifecycle-acquisitiontime-860">AcquisitionTime</a> t</p>
+                    <blockquote>
+                    <p>Acquisition time of a (sub)contract. It becomes known after we cross the first <code>When</code> node. Before that, we consider it is "minus infinity".</p>
+                    <p><span id="constr-contingentclaims-lifecycle-minusinfinity-44793"></span><a href="#constr-contingentclaims-lifecycle-minusinfinity-44793">MinusInfinity</a></p>
+                    <p><span id="constr-contingentclaims-lifecycle-time-52629"></span><a href="#constr-contingentclaims-lifecycle-time-52629">Time</a> t</p>
+                    <p><strong>instance</strong> Eq t =&gt; Eq (<a href="#type-contingentclaims-lifecycle-acquisitiontime-860">AcquisitionTime</a> t)</p>
+                    <p><strong>instance</strong> Ord t =&gt; Ord (<a href="#type-contingentclaims-lifecycle-acquisitiontime-860">AcquisitionTime</a> t)</p>
+                    <p><strong>instance</strong> Show t =&gt; Show (<a href="#type-contingentclaims-lifecycle-acquisitiontime-860">AcquisitionTime</a> t)</p>
+                    </blockquote>
+                    <p><span id="type-contingentclaims-lifecycle-result-15592"></span><strong>data</strong> <a href="#type-contingentclaims-lifecycle-result-15592">Result</a> t a</p>
+                    <blockquote>
+                    <p>Returned from a <code>lifecycle</code> operation.</p>
+                    <p><span id="constr-contingentclaims-lifecycle-result-77431"></span><a href="#constr-contingentclaims-lifecycle-result-77431">Result</a></p>
+                    <blockquote>
+                    <table>
+                    <thead>
+                    <tr class="header">
+                    <th style="text-align: left;">Field</th>
+                    <th style="text-align: left;">Type</th>
+                    <th style="text-align: left;">Description</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr class="odd">
+                    <td style="text-align: left;">pending</td>
+                    <td style="text-align: left;">[(Decimal, a)]</td>
+                    <td style="text-align: left;">quantity/asset pairs requiring settlement.</td>
+                    </tr>
+                    <tr class="even">
+                    <td style="text-align: left;">remaining</td>
+                    <td style="text-align: left;">C t a</td>
+                    <td style="text-align: left;">the tree after lifecycled branches have been pruned.</td>
+                    </tr>
+                    </tbody>
+                    </table>
+                    </blockquote>
+                    <p><strong>instance</strong> (Eq a, Eq t) =&gt; Eq (<a href="#type-contingentclaims-lifecycle-result-15592">Result</a> t a)</p>
+                    <p><strong>instance</strong> (Show a, Show t) =&gt; Show (<a href="#type-contingentclaims-lifecycle-result-15592">Result</a> t a)</p>
+                    </blockquote>
+                    <h2 id="functions">Functions</h2>
+                    <p><span id="function-contingentclaims-lifecycle-lifecycle-67916"></span><a href="#function-contingentclaims-lifecycle-lifecycle-67916">lifecycle</a></p>
+                    <blockquote>
+                    <p>: (Ord t, Eq a, CanAbort m) =&gt; (a -&gt; t -&gt; m Decimal) -&gt; C t a -&gt; t -&gt; m (<a href="#type-contingentclaims-lifecycle-result-15592">Result</a> t a)</p>
+                    <p>Collect claims falling due into a list, and return the tree with those nodes pruned. <code>m</code> will typically be <code>Update</code>. It is parametrised so it can be run in a <code>Script</code>. The first argument is used to lookup the value of any <code>Observables</code>. Results in a function taking today's date, and returning the pruned tree + pending settlements.</p>
+                    </blockquote>
+                    <p><span id="function-contingentclaims-lifecycle-acquiretick-30538"></span><a href="#function-contingentclaims-lifecycle-acquiretick-30538">acquire'</a></p>
+                    <blockquote>
+                    <p>: (Ord t, Eq a, CanAbort m) =&gt; (a -&gt; t -&gt; m Decimal) -&gt; t -&gt; (<a href="#type-contingentclaims-lifecycle-acquisitiontime-860">AcquisitionTime</a> t, C t a) -&gt; m (Either (C t a) (<a href="#type-contingentclaims-lifecycle-acquisitiontime-860">AcquisitionTime</a> t, C t a))</p>
+                    <p>Evaluate observables and skip branches for which predicates don't hold, calculate the acquisition time of the claim's sub-trees. Consume <code>Cond</code> nodes, leaving the relevant sub-tree. Replace <code>When pred c</code> nodes with <code>When (TimeGte t) c</code> if the predicate is non-deterministic and evaluates to True. This is useless on its own. Composed with other functions, it adds laziness.</p>
+                    </blockquote>
+                    <p><span id="function-contingentclaims-lifecycle-lifecycletick-47708"></span><a href="#function-contingentclaims-lifecycle-lifecycletick-47708">lifecycle'</a></p>
+                    <blockquote>
+                    <p>: (Ord t, CanAbort m) =&gt; (a -&gt; t -&gt; m Decimal) -&gt; (Decimal, (<a href="#type-contingentclaims-lifecycle-acquisitiontime-860">AcquisitionTime</a> t, C t a)) -&gt; WriterT [(Decimal, a)] m (F t a (Either (C t a) (Decimal, (<a href="#type-contingentclaims-lifecycle-acquisitiontime-860">AcquisitionTime</a> t, C t a))))</p>
+                    <p>Evaluate any observables in <code>Scale</code> nodes, accumulating scale factors top-down. Log the scale factors with their corresponding leaf values. Skip <code>Or</code> and <code>Anytime</code> branches, guaranteeing liveness. Replace any Ones that can be reached with Zeros.</p>
+                    </blockquote>
+                    <p><span id="function-contingentclaims-lifecycle-exercise-67423"></span><a href="#function-contingentclaims-lifecycle-exercise-67423">exercise</a></p>
+                    <blockquote>
+                    <p>: (Ord t, Eq a, CanAbort m) =&gt; (a -&gt; t -&gt; m Decimal) -&gt; (Bool, C t a) -&gt; C t a -&gt; t -&gt; m (C t a)</p>
+                    </blockquote>
+                    <p><span id="function-contingentclaims-lifecycle-exercisetick-1077"></span><a href="#function-contingentclaims-lifecycle-exercisetick-1077">exercise'</a></p>
+                    <blockquote>
+                    <p>: (Eq t, Eq a) =&gt; (Bool, C t a) -&gt; t -&gt; (Bool, (<a href="#type-contingentclaims-lifecycle-acquisitiontime-860">AcquisitionTime</a> t, C t a)) -&gt; F t a (Either (C t a) (Bool, (<a href="#type-contingentclaims-lifecycle-acquisitiontime-860">AcquisitionTime</a> t, C t a)))</p>
+                    <p>Coalgebra for <code>exercise</code>. Resolves <code>Or</code> nodes by removing them (keeping elected subtrees). Fixes acquisition time of exercised <code>Anytime</code> nodes by replacing them with <code>When (TimeGte t)</code>. The election consists of a boolean representing the authorizer (<code>True = bearer</code>), and this is compared against available branches of the choice.</p>
+                    </blockquote>
+                    <p><span id="function-contingentclaims-lifecycle-expire-43030"></span><a href="#function-contingentclaims-lifecycle-expire-43030">expire</a></p>
+                    <blockquote>
+                    <p>: (Ord t, Eq a, CanAbort m) =&gt; (a -&gt; t -&gt; m Decimal) -&gt; C t a -&gt; t -&gt; m (C t a)</p>
+                    <p>Replace any subtrees that have expired with <code>Zero</code>s.</p>
+                    </blockquote>
+
+                    <br>
+                    <hr>
+                    <p>
+                        © Copyright 2016-2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.
+                    </p>
+
+                </div>
+
+
+            </article>
+
+        </main>
+    </div>
+
+</div>
+
+</html>
