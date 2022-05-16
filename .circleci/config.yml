@@ -137,7 +137,8 @@ workflows:
                 - master
   build_and_release:
     jobs:
-      - build:
+      - build
+#     - build:
 #         filters:
 #           branches:
 #             only:
