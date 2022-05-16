@@ -28,5 +28,6 @@ doc: build
     --exclude-instances=HasField \
     --drop-orphan-instances \
     --output docs $(DAML_SRC)
-	git switch github-pages
-	./scripts/prettify-html.sh
+
+publish-api-doc: doc
+	./scripts/publish-api-doc.sh
