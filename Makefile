@@ -28,5 +28,5 @@ doc: $(DAML_SRC)
     --drop-orphan-instances \
     --output docs $(DAML_SRC)
 
-publish-api-doc: doc
+publish-api-doc:
 	./scripts/publish-api-doc.sh
