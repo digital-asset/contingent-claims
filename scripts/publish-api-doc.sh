@@ -5,6 +5,7 @@ set -o errexit
 
 HEAD=$(git rev-parse --short HEAD)
 
+git add docs
 git switch github-pages
 # This is a bit weird as we're using the same input/output. This takes the damlc generated HTML and adds headers/styling to it.
 for f in docs/*.html 
