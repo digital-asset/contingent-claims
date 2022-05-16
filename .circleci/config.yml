@@ -138,10 +138,10 @@ workflows:
   build_and_release:
     jobs:
       - build:
-          filters:
-            branches:
-              only:
-                - master
+#         filters:
+#           branches:
+#             only:
+#               - master
       - release:
           context: github-fin-eng-context
           requires:
