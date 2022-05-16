@@ -10,7 +10,7 @@ import ContingentClaims.Financial (fixed, european, american)
 import ContingentClaims.Lifecycle qualified as Lifecycle
 import ContingentClaims.Observation qualified as O
 import ContingentClaims.Util.Recursion
-import ContingentClaims.Util (impliedAcquisitionTime)
+import ContingentClaims.Util (intrinsicAcquisitionTime)
 import DA.Action ((>=>))
 import DA.Assert ((===))
 import DA.Date (date, Month(..), toDateUTC, toGregorian)
@@ -60,7 +60,7 @@ testAcquire = script do
               process (Right (_, Zero)) = pure $ acquiredF "0"
               process (Right (s, c)) = pure $ pure . (s, ) <$> project c
 
-      f c = g (fromSome $ impliedAcquisitionTime c) c
+      f c = g (fromSome $ intrinsicAcquisitionTime c) c
 
   res <- g today (one a) today
   res === acquired a

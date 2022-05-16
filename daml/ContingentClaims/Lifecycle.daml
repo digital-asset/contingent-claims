@@ -16,7 +16,7 @@ module ContingentClaims.Lifecycle (
 import ContingentClaims.Claim (Claim, Claim(..), ClaimF(..), compare, Inequality(..))
 import ContingentClaims.Observation qualified as Observation
 import ContingentClaims.Util.Recursion (apoCataM)
-import ContingentClaims.Util (pruneZeros', impliedAcquisitionTime)
+import ContingentClaims.Util (pruneZeros', intrinsicAcquisitionTime)
 import Daml.Control.Recursion (project, distApo)
 import Daml.Control.Monad.Trans.Writer (WriterT, runWriterT)
 import Daml.Control.Monad.Writer.Class (MonadWriter(..))
@@ -68,7 +68,7 @@ lifecycle spot claim today
       . fmap lift
       $ acquire' spot today
     distE = distApo
-    acquisitionTime = fromSomeNote "Claim does not have an implied acquisition time" $ impliedAcquisitionTime claim
+    acquisitionTime = fromSomeNote "Claim does not have an intrinsic acquisition time" $ intrinsicAcquisitionTime claim
 
 -- | Evaluate observables and skip branches for which predicates don't hold, calculate the acquisition time of the claim's sub-trees.
 -- Consume `Cond` nodes, leaving the relevant sub-tree.
@@ -145,7 +145,7 @@ exercise spot election claim today =
                         . fmap sequence . fmap
                         $ acquire' spot today
     distE = distApo
-    acquisitionTime = fromSomeNote "Claim does not have an implied acquisition time" $ impliedAcquisitionTime claim
+    acquisitionTime = fromSomeNote "Claim does not have an intrinsic acquisition time" $ intrinsicAcquisitionTime claim
 
 -- | Coalgebra for `exercise`.
 -- Resolves `Or` nodes by removing them (keeping elected subtrees).
@@ -185,7 +185,7 @@ expire spot claim today =
                       . fmap (fmap (fmap (expire' spot today)))
                       $ acquire' spot today
     distE = distApo
-    acquisitionTime = fromSomeNote "Claim does not have an implied acquisition time" $ impliedAcquisitionTime claim
+    acquisitionTime = fromSomeNote "Claim does not have an intrinsic acquisition time" $ intrinsicAcquisitionTime claim
 
 -- | Coalgebra for `expire`.
 expire' : (Ord t, Monad m) => (a -> t -> m Decimal) -> t -> (t, C t a) -> m (F t a (t, C t a))

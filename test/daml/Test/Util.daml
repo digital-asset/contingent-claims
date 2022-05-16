@@ -14,7 +14,7 @@ import DA.Assert ((===))
 import DA.Date
 import Daml.Script
 import Prelude hiding (enumerate, length, or, and, (<=))
-import ContingentClaims.Util (hasImpliedAcquisitionTime, impliedAcquisitionTime, expiry, payoffs)
+import ContingentClaims.Util (hasintrinsicAcquisitionTime, intrinsicAcquisitionTime, expiry, payoffs)
 
 type C = Claim Date Decimal Text
 
@@ -29,7 +29,7 @@ utils = script do
   expiry (forward t multiplier (one "USD")) === Some t
   payoffs (forward t multiplier (one "USD")) === [(multiplier, "USD")]
 
--- | Test `impliedAcquisitionTime` and `hasImpliedAcquisitionTime`
+-- | Test `intrinsicAcquisitionTime` and `hasintrinsicAcquisitionTime`
 testAcquisitionTime = script do
 
   let [a,b] = ["a","b"]
@@ -38,33 +38,33 @@ testAcquisitionTime = script do
       o1 = O.observe a
       o2 = O.observe b
 
-  impliedAcquisitionTime (zero : C) === None
-  impliedAcquisitionTime (one a : C) === None
+  intrinsicAcquisitionTime (zero : C) === None
+  intrinsicAcquisitionTime (one a : C) === None
 
   let c1 = when (at today) $ one a
       c2 = anytime (at tomorrow) $ one b
       c3 : C = when (o1 <= o2) $ one a
       c4 : C = anytime (o1 <= o2) (one a)
 
-  impliedAcquisitionTime c1 === Some today
-  impliedAcquisitionTime c2 === Some tomorrow
-  impliedAcquisitionTime c3 === None
-  impliedAcquisitionTime c4 === None
-  impliedAcquisitionTime (and c1 c2) === Some today
-  impliedAcquisitionTime (mconcat [c1, c2, c3]) === None
+  intrinsicAcquisitionTime c1 === Some today
+  intrinsicAcquisitionTime c2 === Some tomorrow
+  intrinsicAcquisitionTime c3 === None
+  intrinsicAcquisitionTime c4 === None
+  intrinsicAcquisitionTime (and c1 c2) === Some today
+  intrinsicAcquisitionTime (mconcat [c1, c2, c3]) === None
 
   let c5 : C = scale o1 $ one a
       c6 : C = cond (o1 <= o2) (one a) (one b)
       c7 : C = or (one a) (one b)
       c8 : C = until (o1 <= o2) $ one a
 
-  impliedAcquisitionTime c5 === None
-  impliedAcquisitionTime c6 === None
-  impliedAcquisitionTime c7 === None
-  impliedAcquisitionTime c8 === None
+  intrinsicAcquisitionTime c5 === None
+  intrinsicAcquisitionTime c6 === None
+  intrinsicAcquisitionTime c7 === None
+  intrinsicAcquisitionTime c8 === None
 
-  hasImpliedAcquisitionTime c1 === True
-  hasImpliedAcquisitionTime c3 === False
+  hasintrinsicAcquisitionTime c1 === True
+  hasintrinsicAcquisitionTime c3 === False
 
   
 
