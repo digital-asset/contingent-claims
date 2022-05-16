@@ -95,7 +95,7 @@ intrinsicAcquisitionTime : (Ord t) => Claim t x a -> Optional t
 intrinsicAcquisitionTime (Anytime (TimeGte t) _) = Some t
 intrinsicAcquisitionTime (When (TimeGte t) _) = Some t
 intrinsicAcquisitionTime (And c1 c2 cs) = foldr folder (intrinsicAcquisitionTime c1) (c2 :: cs)
-  where folder = flip (liftA2 min) . intrinsicAcquisitionTime
+  where folder = liftA2 min . intrinsicAcquisitionTime
 intrinsicAcquisitionTime _ = None
 
 -- | Returns `True` if the the claim has an intrinsic acquisition time, `False` otherwise.
