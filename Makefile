@@ -14,6 +14,7 @@ install:
 clean:
 	daml clean
 	./scripts/remove-dependencies.sh daml.yaml
+	rm -f doc/*.*
 
 .PHONY: test
 test: install
@@ -22,7 +23,10 @@ test: install
 DAML_SRC:=$(shell find daml/ContingentClaims -name '*.daml')
 
 doc: $(DAML_SRC)
+doc: build
 	daml damlc docs --format html \
     --exclude-instances=HasField \
     --drop-orphan-instances \
-    --output doc $(DAML_SRC)
+    --output docs $(DAML_SRC)
+	git switch github-pages
+	./scripts/prettify-html.sh
