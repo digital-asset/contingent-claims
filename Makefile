@@ -23,7 +23,6 @@ test: install
 DAML_SRC:=$(shell find daml/ContingentClaims -name '*.daml')
 
 doc: $(DAML_SRC)
-doc: build
 	daml damlc docs --format html \
     --exclude-instances=HasField \
     --drop-orphan-instances \

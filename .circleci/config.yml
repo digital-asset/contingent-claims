@@ -75,9 +75,6 @@ commands:
       - store_artifacts:
           path: .daml/dist/contingent-claims-${VERSION}.dar
           destination: contingent-claims-dar-${VERSION}
-      - run:
-          name: "Generate doc and push to GitHub pages"
-          command: make publish-api-doc
 
 jobs:
   build:
@@ -95,9 +92,14 @@ jobs:
           name: Daml tests
           command: |
             make test
+      - run:
+          name: Daml doc
+          command: |
+            make doc
       - save_cache:
           paths:
             - .daml
+            - docs
           key: contingent-claims-{{ .Revision }}
 
   release:
@@ -111,6 +113,9 @@ jobs:
           keys:
             - contingent-claims-{{ .Revision }}
       - run_release
+      - run:
+          name: "Prettify doc and push to GitHub pages"
+          command: make publish-api-doc
 
   blackduck:
     executor: daml-executor
