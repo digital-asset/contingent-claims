@@ -1,0 +1,28 @@
+# This is a dummy config file to prevent CI failing on gh-pages branch. There is a filter to ignore itself.
+version: 2.1
+executors:
+  my-custom-executor:
+    docker:
+      - image: cimg/base:stable
+        auth:
+          # ensure you have first added these secrets
+          # visit app.circleci.com/settings/project/github/digital-asset/contingent-claims/environment-variables
+          username: $DOCKER_HUB_USER
+          password: $DOCKER_HUB_PASSWORD
+jobs:
+  ignoramus:
+
+    executor: my-custom-executor
+    steps:
+      - checkout
+      - run: |
+          echo "Ignore me"
+
+workflows:
+  my-custom-workflow:
+    jobs:
+      - ignoramus:
+        filters:
+          branches:
+            ignore:
+              - github-pages
