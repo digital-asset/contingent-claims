@@ -54,7 +54,7 @@ payoffs' (ScaleF k fs) = first multK <$> fs where
   multK f x = f (x * k)
 payoffs' other = fold other
 
--- | Prunes sub-trees which are `Zero` a.s.
+-- | Prunes sub-trees which are `Zero`.
 pruneZeros : Claim t x a -> Claim t x a
 pruneZeros = cata pruneZeros'
 
