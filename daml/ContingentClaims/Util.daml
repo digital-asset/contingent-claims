@@ -45,7 +45,6 @@ payoffs : (Eq x, Eq a, Multiplicative x) => Claim t x a -> [(Observation t x a, 
 payoffs = fmap (first ($ munit)) . cata payoffs'
 
 -- | Algebra for `payoffs`. This also applies 'multiplication by one' identity,
--- hence the continuation.
 payoffs' : (Eq x, Eq a, Multiplicative x) => ClaimF t x a [(Observation t x a -> Observation t x a, a)] -> [(Observation t x a -> Observation t x a, a)]
 payoffs' ZeroF = []
 payoffs' (OneF a) = [(identity, a)]
