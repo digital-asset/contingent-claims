@@ -142,20 +142,19 @@ workflows:
                 - master
   build_and_release:
     jobs:
-      - build
-#     - build:
-#         filters:
-#           branches:
-#             only:
-#               - master
+      - build:
+          filters:
+            branches:
+              only:
+                - master
       - release:
           context: github-fin-eng-context
           requires:
             - build
-#         filters:
-#           branches:
-#             only:
-#               - master
+          filters:
+            branches:
+              only:
+                - master
   scheduled_test:
     triggers:
       - schedule:
