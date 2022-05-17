@@ -112,10 +112,10 @@ jobs:
       - restore_cache:
           keys:
             - contingent-claims-{{ .Revision }}
-      - run_release
       - run:
           name: "Prettify doc and push to GitHub pages"
           command: make publish-api-doc
+      - run_release
 
   blackduck:
     executor: daml-executor

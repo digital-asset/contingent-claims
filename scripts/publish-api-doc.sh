@@ -5,10 +5,10 @@ set -o errexit
 
 HEAD=$(git rev-parse --short HEAD)
   
-GIT_AUTHOR_NAME="Luciano Joublanc"
-GIT_AUTHOR_EMAIL="luciano.joublanc@digitalasset.com"
-GIT_COMMITTER_NAME=${GIT_AUTHOR_NAME}
-GIT_COMMITTER_EMAIL=${GIT_AUTHOR_EMAIL}
+export GIT_AUTHOR_NAME="Luciano Joublanc"
+export GIT_AUTHOR_EMAIL="luciano.joublanc@digitalasset.com"
+export GIT_COMMITTER_NAME=${GIT_AUTHOR_NAME}
+export GIT_COMMITTER_EMAIL=${GIT_AUTHOR_EMAIL}
 
 TMPDIR=$(mktemp -d "doc-$HEAD-XXX")
 mv docs/*.html $TMPDIR
