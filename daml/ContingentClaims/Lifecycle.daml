@@ -87,6 +87,7 @@ type Acquired t a o = FE t a o (t, C t a o)
 -- Evaluate observables and skip branches for which predicates don't hold, calculate the acquisition time of the claim's sub-trees.
 -- Consume `Cond` nodes, leaving the relevant sub-tree.
 -- Replace `When pred c` nodes with `When (TimeGte t) c` if the predicate is non-deterministic and evaluates to True.
+-- Replace `Until cond c` nodes with `Zero` if the predicate evaluates to True.
 -- This is useless on its own. Composed with other functions, it adds laziness.
 acquire' : (Ord t, Eq a, CanAbort m)
   => (o -> t -> m Decimal)
@@ -111,6 +112,9 @@ acquire' spot today (s, Cond obs c c') = do
 acquire' spot today (_, Anytime obs c) = do
   predicate <- compare spot obs today
   pure . AnytimeF obs $ if predicate then Right (today,c) else Left c  -- the acquisition time of an Anytime node is assumed to be the time at which we lifecycle
+acquire' spot today (s, Until obs c) = do
+  predicate <- compare spot obs today -- we assume here that the predicate inside `Until` has not been met before `today`
+  pure $ Right . (s, ) <$> if predicate then ZeroF else UntilF obs c
 acquire' _ _ (s, other) = pure $ Right . (s, ) <$> project other
 
 -- | Carrier type used for `lifecycle`. It consists of a claim, its acquisition time and the accumulated scaling factor.

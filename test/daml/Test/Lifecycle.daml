@@ -97,7 +97,7 @@ testAcquire = script do
   res === until false (acquired a)
 
   res <- g (until true (one a)) t0 t0
-  res === until true (acquired a)
+  res === acquired "0"
 
 -- | This test replaces all leaves with zeros, logging their qty/asset pair into a `Writer`.
 -- It ignores `when/cond` nodes altogether.
@@ -412,11 +412,11 @@ testCondLifecycle = script do
 
   pure ()
 
--- | Ensure that `Until` nodes are lifecycled appropriately 
+-- | Ensure that `Until` nodes are lifecycled appropriately
 testUntilNodes = script do
-  let 
+  let
     payment = When (TimeGte tomorrow) (One "EUR")
-    claim = 
+    claim =
         Until (TimeGte tomorrow) $ payment
 
   Lifecycle.Result{pending,remaining} <- Lifecycle.lifecycle observe25 claim today
@@ -427,5 +427,5 @@ testUntilNodes = script do
   pending === []
   remaining === zero
 
-  pure ()  
+  pure ()
 
