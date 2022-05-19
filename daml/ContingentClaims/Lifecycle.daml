@@ -85,6 +85,9 @@ acquire' : (Ord t, Eq a, CanAbort m)
   -> (t, C t a)
   -- ^ input claim in functor form and its acquisition time
   -> m (Acquired t a)
+acquire' _ _ (s, When (TimeLte t) _) | t < s = pure ZeroF -- condition will never be met
+-- ^ [ML] move to expire'
+acquire' _ _ (s, (When (TimeLte t) c)) = pure $ Right . (s,) <$> WhenF (TimeLte t) c
 acquire' spot t (s, When obs c) = do
   predicate <- compare spot obs t
   if predicate then
@@ -96,9 +99,12 @@ acquire' spot t (s, When obs c) = do
 acquire' spot today (s, Cond obs c c') = do
   predicate <- compare spot obs s
   acquire' spot today . (s, ) $ if predicate then c else c'
+acquire' _ _ (s, Anytime (TimeLte t) _) | t < s = pure ZeroF -- contract is acquired after t, condition will never be met
+acquire' _ today (_, Anytime (TimeLte t) _) | t < today = pure ZeroF -- today date is after t, condition will never be met
 acquire' spot today (_, Anytime obs c) = do
   predicate <- compare spot obs today
   pure . AnytimeF obs $ if predicate then Right (today,c) else Left c  -- the acquisition time of an Anytime node is assumed to be the time at which we lifecycle
+acquire' _ _ (_, Until (TimeLte t) _) = pure ZeroF -- contract is acquired before t, predicate is immediately True
 acquire' spot today (s, Until obs c) = do
   predicate <- compare spot obs today -- we assume here that the predicate inside `Until` has not been met before `today`
   pure $ Right . (s, ) <$> if predicate then ZeroF else UntilF obs c
@@ -108,8 +114,8 @@ acquire' _ _ (s, other) = pure $ Right . (s, ) <$> project other
 type LifecycleCarrier t a = (Decimal, (t, C t a))
 
 -- | Evaluate any observables in `Scale` nodes, accumulating scale factors top-down.
--- Log the scale factors with their corresponding leaf values. 
--- Stop recursion at `Or` and `Anytime` branches, guaranteeing liveness.
+-- Log the scale factors with their corresponding leaf values.
+-- Skip `Or` and `Anytime` branches, guaranteeing liveness.
 -- Replace any Ones that can be reached with Zeros.
 lifecycle' : (Ord t, CanAbort m)
         => (a -> t -> m Decimal)
