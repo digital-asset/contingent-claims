@@ -75,6 +75,7 @@ type Acquired t a = FE t a (t, C t a)
 -- | Evaluate observables and skip branches for which predicates don't hold, calculate the acquisition time of the claim's sub-trees.
 -- Consume `Cond` nodes, leaving the relevant sub-tree.
 -- Replace `When pred c` nodes with `When (TimeGte t) c` if the predicate is non-deterministic and evaluates to True.
+-- Replace `Until cond c` nodes with `Zero` if the predicate evaluates to True.
 -- This is useless on its own. Composed with other functions, it adds laziness.
 acquire' : (Ord t, Eq a, CanAbort m)
   => (a -> t -> m Decimal)
@@ -84,6 +85,9 @@ acquire' : (Ord t, Eq a, CanAbort m)
   -> (t, C t a)
   -- ^ input claim in functor form and its acquisition time
   -> m (Acquired t a)
+acquire' _ _ (s, When (TimeLte t) _) | t < s = pure ZeroF -- condition will never be met
+-- ^ [ML] move to expire'
+acquire' _ _ (s, (When (TimeLte t) c)) = pure $ Right . (s,) <$> WhenF (TimeLte t) c
 acquire' spot t (s, When obs c) = do
   predicate <- compare spot obs t
   if predicate then
@@ -95,17 +99,23 @@ acquire' spot t (s, When obs c) = do
 acquire' spot today (s, Cond obs c c') = do
   predicate <- compare spot obs s
   acquire' spot today . (s, ) $ if predicate then c else c'
+acquire' _ _ (s, Anytime (TimeLte t) _) | t < s = pure ZeroF -- contract is acquired after t, condition will never be met
+acquire' _ today (_, Anytime (TimeLte t) _) | t < today = pure ZeroF -- today date is after t, condition will never be met
 acquire' spot today (_, Anytime obs c) = do
   predicate <- compare spot obs today
   pure . AnytimeF obs $ if predicate then Right (today,c) else Left c  -- the acquisition time of an Anytime node is assumed to be the time at which we lifecycle
+acquire' _ _ (_, Until (TimeLte t) _) = pure ZeroF -- contract is acquired before t, predicate is immediately True
+acquire' spot today (s, Until obs c) = do
+  predicate <- compare spot obs today -- we assume here that the predicate inside `Until` has not been met before `today`
+  pure $ Right . (s, ) <$> if predicate then ZeroF else UntilF obs c
 acquire' _ _ (s, other) = pure $ Right . (s, ) <$> project other
 
 -- | Carrier type used for `lifecycle`. It consists of a claim, its acquisition time and the accumulated scaling factor.
 type LifecycleCarrier t a = (Decimal, (t, C t a))
 
 -- | Evaluate any observables in `Scale` nodes, accumulating scale factors top-down.
--- Log the scale factors with their corresponding leaf values. 
--- Stop recursion at `Or` and `Anytime` branches, guaranteeing liveness.
+-- Log the scale factors with their corresponding leaf values.
+-- Skip `Or` and `Anytime` branches, guaranteeing liveness.
 -- Replace any Ones that can be reached with Zeros.
 lifecycle' : (Ord t, CanAbort m)
         => (a -> t -> m Decimal)
@@ -184,21 +194,8 @@ exercise' _ _ (isBearer, (_, other)) = fmap (isBearer, ) <$> other
 -- | Replace any subtrees that have expired with `Zero`s.
 expire : (Ord t, Eq a, CanAbort m) => (a -> t -> m Decimal) -> C t a -> t -> m (C t a)
 expire spot claim today =
-  apoCataM pruneZeros' acquireThenExpire
+  apoCataM pruneZeros' acquire
   $ (acquisitionTime, claim)
   where
-    acquireThenExpire = 
-      (expire' spot today =<<)
-      . sequence . (Prelude.fst &&& acquire' spot today)
+    acquire = acquire' spot today
     acquisitionTime = fromSomeNote "Claim does not have an intrinsic acquisition time" $ intrinsicAcquisitionTime claim
-
--- | Carrier type used for `expire`. It consists of a claim and its acquisition time.
-type ExpireCarrier t a = (t, C t a)
-
--- | HIDE
--- Replace Until nodes with Zero when applicable
-expire' : (Ord t, Monad m) => (a -> t -> m Decimal) -> t -> (t, Acquired t a) -> m (FE t a (ExpireCarrier t a))
-expire' spot t (s, UntilF obs c) = do
-  predicate <- compare spot obs t
-  if predicate then pure ZeroF else pure $ UntilF obs c
-expire' _ _ (s, other) = pure other
