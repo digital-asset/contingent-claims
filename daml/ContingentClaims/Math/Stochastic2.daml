@@ -3,15 +3,19 @@
 
 -- Mathematical expression, derived from `Claim`, used for pricing
 
+-- | Can I add some module description?
 module ContingentClaims.Math.Stochastic2 (
   fapf,
   ElementaryProcess(..),
 ) where
 
 import ContingentClaims.Claim hiding (compare,(<=))
+import ContingentClaims.Math.AcquisitionTime(AcquisitionTime(..), beforeOrAtToday, extend)
 import ContingentClaims.Math.Expression
 import ContingentClaims.Observation qualified as O
+import ContingentClaims.Util (intrinsicAcquisitionTime)
 import ContingentClaims.Util.Recursion (futuM)
+import DA.Optional (fromSomeNote)
 import Daml.Control.Arrow ((|||))
 import Daml.Control.Recursion
 
@@ -37,28 +41,27 @@ fapf : (Ord t, Eq a, Additive x, Multiplicative x, CanAbort m)
   -> Claim t x a
      -- ^ the input claim
   -> m (Expr t x a (ElementaryProcess a))
-fapf spot ccy t =
-  futuM coalg 
-  . Left -- `Left` is used for claim, `Right` for observable 
-  . (, MinusInfinity) -- initial acquisition time
+fapf spot ccy t claim =
+  futuM coalg
+  $ Left (claim, acquisitionTime) -- `Left` is used for claims, `Right` for observables
   where
+    acquisitionTime = Time . fromSomeNote "Claim does not have an intrinsic acquisition time" $ intrinsicAcquisitionTime claim
 
-  -- coalg : (Additive x) => (Carrier t x a) -> (ExprF t x a (ElementaryProcess a) (Free (ExprF t x a (ElementaryProcess a)) (Carrier t x a)))
-  coalg = ϵ t ccy ||| υ
+    -- coalg : (Additive x) => (Carrier t x a) -> (ExprF t x a (ElementaryProcess a) (Free (ExprF t x a (ElementaryProcess a)) (Carrier t x a)))
+    coalg = ϵ t ccy ||| υ
 
-  -- υ : (O.Observation t x a, AcquisitionTime t x a) -> (ExprF t x a (ElementaryProcess a) (Free (ExprF t x a (ElementaryProcess a)) (Carrier t x a)))
-  υ (O.Const {value=k}, _) = pure $ ConstF k
-  υ (O.Observe {key=observable}, MinusInfinity) = abort "Found Scale node with undefined acquisition time"
-  υ (O.Observe {key=observable}, Time s) | s <= t = ConstF <$> spot observable s
-  υ (O.Observe {key=observable}, s) = pure . ProcF $ Observable observable
-  υ (O.Add (x, x'), s) = pure $ SumF [obs (x, s), obs (x', s)]
-  υ (O.Neg x, s) =  pure . NegF $ obs (x, s)
-  υ (O.Mul (x, x'), s) = pure $ obs (x, s) `MulF` obs (x', s)
-  -- υ (O.Div (x, x'), t) = obs (x, t) `MulF` inv (obs (x', t))
-  -- ^ check if we prefer using Divisible instead of power
-  υ other = abort ""
+    -- υ : (O.Observation t x a, AcquisitionTime t x a) -> (ExprF t x a (ElementaryProcess a) (Free (ExprF t x a (ElementaryProcess a)) (Carrier t x a)))
+    υ (O.Const {value=k}, _) = pure $ ConstF k
+    υ (O.Observe {key=observable}, Time s) | s <= t = ConstF <$> spot observable s
+    υ (O.Observe {key=observable}, s) = pure . ProcF $ Observable observable
+    υ (O.Add (x, x'), s) = pure $ SumF [obs (x, s), obs (x', s)]
+    υ (O.Neg x, s) =  pure . NegF $ obs (x, s)
+    υ (O.Mul (x, x'), s) = pure $ obs (x, s) `MulF` obs (x', s)
+    -- υ (O.Div (x, x'), t) = obs (x, t) `MulF` inv (obs (x', t))
+    -- ^ check if we prefer using Divisible instead of power
+    υ other = abort ""
 
-  obs = pure . Right
+    obs = pure . Right
 
   -- check when we should evaluate an observable
 

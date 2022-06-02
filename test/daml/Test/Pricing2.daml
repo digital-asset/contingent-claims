@@ -5,6 +5,7 @@ module Test.Pricing2 where
 
 import ContingentClaims.Claim
 import ContingentClaims.Observation qualified as O
+import ContingentClaims.Math.AcquisitionTime
 import ContingentClaims.Math.Expression
 import ContingentClaims.Math.Stochastic2
 
