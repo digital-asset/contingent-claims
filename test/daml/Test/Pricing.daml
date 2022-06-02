@@ -32,9 +32,8 @@ disc USD = riskless "r_USD"
 disc EUR = riskless "r_EUR"
 disc other = error $ "disc: " <> show other
 
-val Spot_AMZN USD = gbm "μ_AMZN" "σ_AMZN"
-val Spot_APPL USD = gbm "μ_APPL" "σ_APPL"
-val _ _ = error "Unsupported underlying / currency pairs"
+val Spot_AMZN = gbm "μ_AMZN" "σ_AMZN"
+val Spot_APPL = gbm "μ_APPL" "σ_APPL"
 
 exch a a' = error $ "exch: " <> show a <> "/" <> show a'
 
@@ -72,7 +71,7 @@ print f e = do debug $ "Formula:" <> prnt f
 
 valueCall = script do
   let formula = fapf USD disc exch val t $ european t' (call AMZN 3300.0 USD)
-      s = Proc "Spot_AMZN" (val Spot_AMZN USD)
+      s = Proc "Spot_AMZN" (val Spot_AMZN)
       k = Const 3300.0
       usd = Proc "USD" (disc USD)
       expect = usd t * E (max (s t' - k) aunit / usd t') t
@@ -81,8 +80,8 @@ valueCall = script do
 
 valueMargrabe = script do
   let formula = fapf USD disc exch val t $ european t' (margrabe AMZN APPL USD)
-      s = Proc "Spot_AMZN" (val Spot_AMZN USD)
-      s' = Proc "Spot_APPL" (val Spot_APPL USD)
+      s = Proc "Spot_AMZN" (val Spot_AMZN)
+      s' = Proc "Spot_APPL" (val Spot_APPL)
       usd = Proc "USD" (disc USD)
       expect = usd t * E (max (s t' - s' t') aunit / usd t') t
   print formula expect
@@ -90,7 +89,7 @@ valueMargrabe = script do
 
 valueAmerican = script do
   let formula = fapf USD disc exch val t $ american t t' (call APPL 142.50 USD)
-      s = Proc "Spot_APPL" (val Spot_APPL USD)
+      s = Proc "Spot_APPL" (val Spot_APPL)
       k = Const 142.50
       usd = Proc "USD" (disc USD)
       τ = "τ_0"
