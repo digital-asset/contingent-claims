@@ -100,13 +100,12 @@ until : Inequality t x a -> Claim t x a -> Claim t x a
 until = Until
 
 -- | Replace parameters in an `Claim` with actual values.
-mapParams :  (t -> i)
-          -> (i -> t)
+mapParams :  (i -> t)
           -> (a -> a')
           -> (x -> x')
           -> Claim i x a -> Claim t x' a'
-mapParams ft' ft fk fv =
-  let f = Observation.mapParams ft' fk fv
+mapParams ft fk fv =
+  let f = Observation.mapParams fk fv
   in cata \case
     ZeroF -> Zero
     OneF a -> One $ fk a
