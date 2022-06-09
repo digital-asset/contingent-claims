@@ -33,7 +33,7 @@ type F t a = ClaimF t Decimal a
 
 -- | Returned from a `lifecycle` operation.
 data Result t a = Result with
-  pending : [(Decimal, a)]
+  pending : [(t, Decimal, a)]
     -- ^ quantity/asset pairs requiring settlement.
   remaining : C t a
     -- ^ the tree after lifecycled branches have been pruned.
@@ -111,9 +111,9 @@ lifecycle' : (Ord t, CanAbort m)
         => (a -> t -> m Decimal)
         -> (Decimal, (t, Acquired t a))
         -- ^ the acquired input claim, its acquisition time and the accumulated scaling factor
-        -> WriterT [(Decimal,a)] m (FE t a (LifecycleCarrier t a))
-lifecycle' _ (qty, (_, OneF asset)) = do
-  tell [(qty, asset)]
+        -> WriterT [(t, Decimal,a)] m (FE t a (LifecycleCarrier t a))
+lifecycle' _ (qty, (s, OneF asset)) = do
+  tell [(s, qty, asset)]
   pure $ ZeroF
 lifecycle' _ (qty, (_, GiveF c)) =
   pure . GiveF $ (-qty, ) <$> c
