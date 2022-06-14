@@ -197,13 +197,16 @@ testgiveExercise = script do
           acquired (t,c) = Right . (t, ) <$> project c -- map a claim to an acquired claim
 
   let rem = f (False, one a) (today, anytime true (one a))
-  rem === anytime true (one a)
+      expected : C = anytime true (one a)
+  rem === expected
 
   let rem = f (False, one a) (today, give (anytime true (one a)))
-  rem === give (When (TimeGte today) (one a))
+      expected : C = give (When (TimeGte today) (one a))
+  rem === expected
 
   let rem = f (True, one a) (today, give . give . anytime true $ one a)
-  rem === give (give (When (TimeGte today) (one a)))
+      expected : C = give (give (When (TimeGte today) (one a)))
+  rem === expected
 
 -- | Lifecycle a bond with three fixing dates. Uses ledger time effects.
 testBond = script do
