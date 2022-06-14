@@ -407,9 +407,10 @@ testKnockOutBarrier = script do
 -- | Ensure that `Cond` nodes are lifecycled appropriately 
 testCondLifecycle = script do
   let c = When true $ Cond true (One a) (One b)
+      expected : C = zero
 
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observeDayOfMonth c today
-  remaining === zero
+  remaining === expected
   pending === [Lifecycle.Pending today 1.0 a]
 
   pure ()
