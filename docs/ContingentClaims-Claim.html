@@ -49,12 +49,13 @@
 
                     <h1 id="module-contingentclaims.claim"><span id="module-contingentclaims-claim-65747"></span>Module ContingentClaims.Claim</h1>
                     <h2 id="data-types">Data Types</h2>
-                    <p><span id="type-contingentclaims-claim-claim-55448"></span><strong>data</strong> <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a</p>
+                    <p><span id="type-contingentclaims-claim-claim-55448"></span><strong>data</strong> <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o</p>
                     <blockquote>
                     <p>Used to model cashflows of instruments. See <a href="../QUICKSTART.md">quickstart</a> for detailed explanation. In Petyon-Jones' paper, this is called 'Contract'. We renamed it to avoid ambiguity.</p>
                     <ul>
                     <li><code>t</code> and <code>x</code> respectively correspond to the <code>Observation</code>s input type and the resulting output type.</li>
                     <li><code>a</code> is the representation of an asset, e.g. a <code>Text</code> ISIN code.</li>
+                    <li><code>o</code> is the representation of an observable, e.g. a <code>Text</code>.</li>
                     </ul>
                     <p><span id="constr-contingentclaims-claim-zero-77624"></span><a href="#constr-contingentclaims-claim-zero-77624">Zero</a></p>
                     <blockquote>
@@ -64,7 +65,7 @@
                     <blockquote>
                     <p>The bearer acquires one unit of <code>a</code> <em>immediately</em>.</p>
                     </blockquote>
-                    <p><span id="constr-contingentclaims-claim-give-64785"></span><a href="#constr-contingentclaims-claim-give-64785">Give</a> (<a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a)</p>
+                    <p><span id="constr-contingentclaims-claim-give-64785"></span><a href="#constr-contingentclaims-claim-give-64785">Give</a> (<a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o)</p>
                     <blockquote>
                     <p>The obligations of the bearer and issuer are revesed.</p>
                     </blockquote>
@@ -82,17 +83,17 @@
                     <tbody>
                     <tr class="odd">
                     <td style="text-align: left;">fst</td>
-                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a</td>
+                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o</td>
                     <td style="text-align: left;"></td>
                     </tr>
                     <tr class="even">
                     <td style="text-align: left;">snd</td>
-                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a</td>
+                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o</td>
                     <td style="text-align: left;"></td>
                     </tr>
                     <tr class="odd">
                     <td style="text-align: left;">tail</td>
-                    <td style="text-align: left;">[<a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a]</td>
+                    <td style="text-align: left;">[<a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o]</td>
                     <td style="text-align: left;"></td>
                     </tr>
                     </tbody>
@@ -112,17 +113,17 @@
                     <tbody>
                     <tr class="odd">
                     <td style="text-align: left;">fst</td>
-                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a</td>
+                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o</td>
                     <td style="text-align: left;"></td>
                     </tr>
                     <tr class="even">
                     <td style="text-align: left;">snd</td>
-                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a</td>
+                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o</td>
                     <td style="text-align: left;"></td>
                     </tr>
                     <tr class="odd">
                     <td style="text-align: left;">tail</td>
-                    <td style="text-align: left;">[<a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a]</td>
+                    <td style="text-align: left;">[<a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o]</td>
                     <td style="text-align: left;"></td>
                     </tr>
                     </tbody>
@@ -142,17 +143,17 @@
                     <tbody>
                     <tr class="odd">
                     <td style="text-align: left;">predicate</td>
-                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x a</td>
+                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x o</td>
                     <td style="text-align: left;"></td>
                     </tr>
                     <tr class="even">
                     <td style="text-align: left;">success</td>
-                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a</td>
+                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o</td>
                     <td style="text-align: left;"></td>
                     </tr>
                     <tr class="odd">
                     <td style="text-align: left;">failure</td>
-                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a</td>
+                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o</td>
                     <td style="text-align: left;"></td>
                     </tr>
                     </tbody>
@@ -172,12 +173,12 @@
                     <tbody>
                     <tr class="odd">
                     <td style="text-align: left;">k</td>
-                    <td style="text-align: left;"><a href="ContingentClaims-Observation.html#type-contingentclaims-observation-observation-36736">Observation</a> t x a</td>
+                    <td style="text-align: left;"><a href="ContingentClaims-Observation.html#type-contingentclaims-observation-observation-36736">Observation</a> t x o</td>
                     <td style="text-align: left;"></td>
                     </tr>
                     <tr class="even">
                     <td style="text-align: left;">claim</td>
-                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a</td>
+                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o</td>
                     <td style="text-align: left;"></td>
                     </tr>
                     </tbody>
@@ -197,12 +198,12 @@
                     <tbody>
                     <tr class="odd">
                     <td style="text-align: left;">predicate</td>
-                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x a</td>
+                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x o</td>
                     <td style="text-align: left;"></td>
                     </tr>
                     <tr class="even">
                     <td style="text-align: left;">claim</td>
-                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a</td>
+                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o</td>
                     <td style="text-align: left;"></td>
                     </tr>
                     </tbody>
@@ -222,12 +223,12 @@
                     <tbody>
                     <tr class="odd">
                     <td style="text-align: left;">predicate</td>
-                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x a</td>
+                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x o</td>
                     <td style="text-align: left;"></td>
                     </tr>
                     <tr class="even">
                     <td style="text-align: left;">claim</td>
-                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a</td>
+                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o</td>
                     <td style="text-align: left;"></td>
                     </tr>
                     </tbody>
@@ -247,25 +248,25 @@
                     <tbody>
                     <tr class="odd">
                     <td style="text-align: left;">predicate</td>
-                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x a</td>
+                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x o</td>
                     <td style="text-align: left;"></td>
                     </tr>
                     <tr class="even">
                     <td style="text-align: left;">claim</td>
-                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a</td>
+                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o</td>
                     <td style="text-align: left;"></td>
                     </tr>
                     </tbody>
                     </table>
                     </blockquote>
-                    <p><strong>instance</strong> Corecursive (<a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a) (<a href="#type-contingentclaims-claim-claimf-81845">ClaimF</a> t x a)</p>
-                    <p><strong>instance</strong> Recursive (<a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a) (<a href="#type-contingentclaims-claim-claimf-81845">ClaimF</a> t x a)</p>
-                    <p><strong>instance</strong> (Eq a, Eq x, Eq t) =&gt; Eq (<a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a)</p>
-                    <p><strong>instance</strong> (Show t, Show x, Show a) =&gt; Show (<a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a)</p>
-                    <p><strong>instance</strong> Monoid (<a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a)</p>
-                    <p><strong>instance</strong> Semigroup (<a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a)</p>
+                    <p><strong>instance</strong> Corecursive (<a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o) (<a href="#type-contingentclaims-claim-claimf-81845">ClaimF</a> t x a o)</p>
+                    <p><strong>instance</strong> Recursive (<a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o) (<a href="#type-contingentclaims-claim-claimf-81845">ClaimF</a> t x a o)</p>
+                    <p><strong>instance</strong> (Eq a, Eq x, Eq o, Eq t) =&gt; Eq (<a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o)</p>
+                    <p><strong>instance</strong> (Show t, Show x, Show a, Show o) =&gt; Show (<a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o)</p>
+                    <p><strong>instance</strong> Monoid (<a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o)</p>
+                    <p><strong>instance</strong> Semigroup (<a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o)</p>
                     </blockquote>
-                    <p><span id="type-contingentclaims-claim-claimf-81845"></span><strong>data</strong> <a href="#type-contingentclaims-claim-claimf-81845">ClaimF</a> t x a b</p>
+                    <p><span id="type-contingentclaims-claim-claimf-81845"></span><strong>data</strong> <a href="#type-contingentclaims-claim-claimf-81845">ClaimF</a> t x a o b</p>
                     <blockquote>
                     <p>Unfixed version of <code>Claim</code>, for use with <code>Daml.Control.Recursion</code>.</p>
                     <p><span id="constr-contingentclaims-claim-zerof-37537"></span><a href="#constr-contingentclaims-claim-zerof-37537">ZeroF</a></p>
@@ -342,7 +343,7 @@
                     <tbody>
                     <tr class="odd">
                     <td style="text-align: left;">predicate</td>
-                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x a</td>
+                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x o</td>
                     <td style="text-align: left;"></td>
                     </tr>
                     <tr class="even">
@@ -371,7 +372,7 @@
                     <tbody>
                     <tr class="odd">
                     <td style="text-align: left;">k</td>
-                    <td style="text-align: left;"><a href="ContingentClaims-Observation.html#type-contingentclaims-observation-observation-36736">Observation</a> t x a</td>
+                    <td style="text-align: left;"><a href="ContingentClaims-Observation.html#type-contingentclaims-observation-observation-36736">Observation</a> t x o</td>
                     <td style="text-align: left;"></td>
                     </tr>
                     <tr class="even">
@@ -395,7 +396,7 @@
                     <tbody>
                     <tr class="odd">
                     <td style="text-align: left;">predicate</td>
-                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x a</td>
+                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x o</td>
                     <td style="text-align: left;"></td>
                     </tr>
                     <tr class="even">
@@ -419,7 +420,7 @@
                     <tbody>
                     <tr class="odd">
                     <td style="text-align: left;">predicate</td>
-                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x a</td>
+                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x o</td>
                     <td style="text-align: left;"></td>
                     </tr>
                     <tr class="even">
@@ -443,7 +444,7 @@
                     <tbody>
                     <tr class="odd">
                     <td style="text-align: left;">predicate</td>
-                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x a</td>
+                    <td style="text-align: left;"><a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x o</td>
                     <td style="text-align: left;"></td>
                     </tr>
                     <tr class="even">
@@ -454,23 +455,23 @@
                     </tbody>
                     </table>
                     </blockquote>
-                    <p><strong>instance</strong> Corecursive (<a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a) (<a href="#type-contingentclaims-claim-claimf-81845">ClaimF</a> t x a)</p>
-                    <p><strong>instance</strong> Recursive (<a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a) (<a href="#type-contingentclaims-claim-claimf-81845">ClaimF</a> t x a)</p>
-                    <p><strong>instance</strong> Functor (<a href="#type-contingentclaims-claim-claimf-81845">ClaimF</a> t x a)</p>
-                    <p><strong>instance</strong> Foldable (<a href="#type-contingentclaims-claim-claimf-81845">ClaimF</a> t x a)</p>
-                    <p><strong>instance</strong> Traversable (<a href="#type-contingentclaims-claim-claimf-81845">ClaimF</a> t x b)</p>
+                    <p><strong>instance</strong> Corecursive (<a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o) (<a href="#type-contingentclaims-claim-claimf-81845">ClaimF</a> t x a o)</p>
+                    <p><strong>instance</strong> Recursive (<a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o) (<a href="#type-contingentclaims-claim-claimf-81845">ClaimF</a> t x a o)</p>
+                    <p><strong>instance</strong> Functor (<a href="#type-contingentclaims-claim-claimf-81845">ClaimF</a> t x a o)</p>
+                    <p><strong>instance</strong> Foldable (<a href="#type-contingentclaims-claim-claimf-81845">ClaimF</a> t x a o)</p>
+                    <p><strong>instance</strong> Traversable (<a href="#type-contingentclaims-claim-claimf-81845">ClaimF</a> t x a o)</p>
                     </blockquote>
                     <p><span id="type-contingentclaims-claim-f-80458"></span><strong>type</strong> <a href="#type-contingentclaims-claim-f-80458">F</a></p>
                     <blockquote>
                     <p>= <a href="#type-contingentclaims-claim-claimf-81845">ClaimF</a></p>
                     </blockquote>
-                    <p><span id="type-contingentclaims-claim-inequality-39050"></span><strong>data</strong> <a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x a</p>
+                    <p><span id="type-contingentclaims-claim-inequality-39050"></span><strong>data</strong> <a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x o</p>
                     <blockquote>
                     <p>This is either <code>time ≥ t | f t x ≤ f t x</code></p>
                     <p><span id="constr-contingentclaims-claim-timegte-50932"></span><a href="#constr-contingentclaims-claim-timegte-50932">TimeGte</a> t</p>
-                    <p><span id="constr-contingentclaims-claim-lte-52510"></span><a href="#constr-contingentclaims-claim-lte-52510">Lte</a> (<a href="ContingentClaims-Observation.html#type-contingentclaims-observation-observation-36736">Observation</a> t x a, <a href="ContingentClaims-Observation.html#type-contingentclaims-observation-observation-36736">Observation</a> t x a)</p>
-                    <p><strong>instance</strong> (Eq t, Eq x, Eq a) =&gt; Eq (<a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x a)</p>
-                    <p><strong>instance</strong> (Show t, Show x, Show a) =&gt; Show (<a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x a)</p>
+                    <p><span id="constr-contingentclaims-claim-lte-52510"></span><a href="#constr-contingentclaims-claim-lte-52510">Lte</a> (<a href="ContingentClaims-Observation.html#type-contingentclaims-observation-observation-36736">Observation</a> t x o, <a href="ContingentClaims-Observation.html#type-contingentclaims-observation-observation-36736">Observation</a> t x o)</p>
+                    <p><strong>instance</strong> (Eq t, Eq x, Eq o) =&gt; Eq (<a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x o)</p>
+                    <p><strong>instance</strong> (Show t, Show x, Show o) =&gt; Show (<a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x o)</p>
                     </blockquote>
                     <p><span id="type-contingentclaims-claim-t-19628"></span><strong>type</strong> <a href="#type-contingentclaims-claim-t-19628">T</a></p>
                     <blockquote>
@@ -479,79 +480,79 @@
                     <h2 id="functions">Functions</h2>
                     <p><span id="function-contingentclaims-claim-zero-45639"></span><a href="#function-contingentclaims-claim-zero-45639">zero</a></p>
                     <blockquote>
-                    <p>: <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a</p>
+                    <p>: <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o</p>
                     <p>Smart constructor for <code>Zero</code>.</p>
                     </blockquote>
                     <p><span id="function-contingentclaims-claim-one-70978"></span><a href="#function-contingentclaims-claim-one-70978">one</a></p>
                     <blockquote>
-                    <p>: a -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a</p>
+                    <p>: a -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o</p>
                     <p>Smart constructor for <code>One</code>.</p>
                     </blockquote>
                     <p><span id="function-contingentclaims-claim-give-32534"></span><a href="#function-contingentclaims-claim-give-32534">give</a></p>
                     <blockquote>
-                    <p>: <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a</p>
+                    <p>: <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o</p>
                     <p>Smart constructor for <code>Give</code>.</p>
                     </blockquote>
                     <p><span id="function-contingentclaims-claim-and-88537"></span><a href="#function-contingentclaims-claim-and-88537">and</a></p>
                     <blockquote>
-                    <p>: <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a</p>
+                    <p>: <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o</p>
                     <p>Smart constructor for <code>And</code>. Because of the explicit representation of the first two arguments of an <code>And</code>, it can be cumbersome to write <code>And c c' []</code>. With this constructor, you can write <code>c \</code>and` c'<code>instead. Flattens nested</code>And<code>s and applies additive monoid identity eagerly. Note this is an </code>O(n)<code>operation. For a more efficient alternative, consider</code>mconcat`.</p>
                     </blockquote>
                     <p><span id="function-contingentclaims-claim-or-1668"></span><a href="#function-contingentclaims-claim-or-1668">or</a></p>
                     <blockquote>
-                    <p>: <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a</p>
+                    <p>: <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o</p>
                     <p>Smart constructor for <code>Or</code>. Because of the explicit representation of the first two arguments of an <code>Or</code>, it can be cumbersome to write <code>Or c c' []</code>. With this constructor, you can write <code>c \</code>or` c'<code>instead. Flattens nested</code>Or<code>s. Unlike </code>and<code>, this does not apply a monoid identity. Note this is an </code>O(n)` operation.</p>
                     </blockquote>
                     <p><span id="function-contingentclaims-claim-cond-4661"></span><a href="#function-contingentclaims-claim-cond-4661">cond</a></p>
                     <blockquote>
-                    <p>: <a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x a -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a</p>
+                    <p>: <a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x o -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o</p>
                     <p>Smart constructor for <code>Cond</code>.</p>
                     </blockquote>
                     <p><span id="function-contingentclaims-claim-scale-35958"></span><a href="#function-contingentclaims-claim-scale-35958">scale</a></p>
                     <blockquote>
-                    <p>: <a href="ContingentClaims-Observation.html#type-contingentclaims-observation-observation-36736">Observation</a> t x a -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a</p>
+                    <p>: <a href="ContingentClaims-Observation.html#type-contingentclaims-observation-observation-36736">Observation</a> t x o -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o</p>
                     <p>Smart constructor for <code>Scale</code></p>
                     </blockquote>
                     <p><span id="function-contingentclaims-claim-when-47997"></span><a href="#function-contingentclaims-claim-when-47997">when</a></p>
                     <blockquote>
-                    <p>: <a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x a -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a</p>
+                    <p>: <a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x o -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o</p>
                     <p>Smart constructor for <code>When</code>.</p>
                     </blockquote>
                     <p><span id="function-contingentclaims-claim-anytime-67619"></span><a href="#function-contingentclaims-claim-anytime-67619">anytime</a></p>
                     <blockquote>
-                    <p>: <a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x a -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a</p>
+                    <p>: <a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x o -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o</p>
                     <p>Smart constructor for <code>Anytime</code>.</p>
                     </blockquote>
                     <p><span id="function-contingentclaims-claim-until-57548"></span><a href="#function-contingentclaims-claim-until-57548">until</a></p>
                     <blockquote>
-                    <p>: <a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x a -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a</p>
+                    <p>: <a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x o -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x a o</p>
                     <p>Smart constructor for <code>Until</code>.</p>
                     </blockquote>
                     <p><span id="function-contingentclaims-claim-mapparams-49812"></span><a href="#function-contingentclaims-claim-mapparams-49812">mapParams</a></p>
                     <blockquote>
-                    <p>: (t -&gt; i) -&gt; (i -&gt; t) -&gt; (a -&gt; a') -&gt; (x -&gt; x') -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> i x a -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x' a'</p>
+                    <p>: (t -&gt; i) -&gt; (i -&gt; t) -&gt; (a -&gt; a') -&gt; (o -&gt; o') -&gt; (x -&gt; x') -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> i x a o -&gt; <a href="#type-contingentclaims-claim-claim-55448">Claim</a> t x' a' o'</p>
                     <p>Replace parameters in an <code>Claim</code> with actual values.</p>
                     </blockquote>
                     <p><span id="function-contingentclaims-claim-at-37248"></span><a href="#function-contingentclaims-claim-at-37248">at</a></p>
                     <blockquote>
-                    <p>: t -&gt; <a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x a</p>
+                    <p>: t -&gt; <a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x o</p>
                     <p>Observable that is true on the passed time. i.e. identity for the time observable.</p>
                     </blockquote>
                     <p><span id="function-contingentclaims-claim-lteq-90994"></span><a href="#function-contingentclaims-claim-lteq-90994">(&lt;=)</a></p>
                     <blockquote>
-                    <p>: <a href="ContingentClaims-Observation.html#type-contingentclaims-observation-observation-36736">Observation</a> t x a -&gt; <a href="ContingentClaims-Observation.html#type-contingentclaims-observation-observation-36736">Observation</a> t x a -&gt; <a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x a</p>
+                    <p>: <a href="ContingentClaims-Observation.html#type-contingentclaims-observation-observation-36736">Observation</a> t x o -&gt; <a href="ContingentClaims-Observation.html#type-contingentclaims-observation-observation-36736">Observation</a> t x o -&gt; <a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x o</p>
                     <p><code>import Prelude hiding ((&lt;=))</code> in order to use this.</p>
                     </blockquote>
                     <p><span id="function-contingentclaims-claim-compare-37811"></span><a href="#function-contingentclaims-claim-compare-37811">compare</a></p>
                     <blockquote>
-                    <p>: (Ord t, Ord x, Number x, Divisible x, Action m) =&gt; (a -&gt; t -&gt; m x) -&gt; <a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x a -&gt; t -&gt; m Bool</p>
+                    <p>: (Ord t, Ord x, Number x, Divisible x, Action m) =&gt; (o -&gt; t -&gt; m x) -&gt; <a href="#type-contingentclaims-claim-inequality-39050">Inequality</a> t x o -&gt; t -&gt; m Bool</p>
                     <p>Reify the <code>Observable.Inequality</code> into an observation function.</p>
                     </blockquote>
 
                     <br>
                     <hr>
                     <p>
-                        © Copyright 2016-2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.
+                        © Copyright 2019-2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.
                     </p>
 
                 </div>

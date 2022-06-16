@@ -51,39 +51,54 @@
                     <h2 id="functions">Functions</h2>
                     <p><span id="function-contingentclaims-util-fixings-85991"></span><a href="#function-contingentclaims-util-fixings-85991">fixings</a></p>
                     <blockquote>
-                    <p>: <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claim-55448">Claim</a> t x a -&gt; [t]</p>
+                    <p>: <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claim-55448">Claim</a> t x a o -&gt; [t]</p>
                     <p>Return the fixing dates of a claim. This does not discriminate between optional dates which <em>may</em> result from a condition, and outright fixings. It also does not correctly account for malformed trees, where subtrees are orphaned due to impossible <code>When</code> statements. e.g. <code>When (t &gt; 1) ((When t &lt; 1) _)</code></p>
                     </blockquote>
                     <p><span id="function-contingentclaims-util-fixingstick-93981"></span><a href="#function-contingentclaims-util-fixingstick-93981">fixings'</a></p>
                     <blockquote>
-                    <p>: <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claimf-81845">ClaimF</a> t x a [t] -&gt; [t]</p>
+                    <p>: <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claimf-81845">ClaimF</a> t x a o [t] -&gt; [t]</p>
                     <p>Algebra for <code>fixings</code></p>
                     </blockquote>
                     <p><span id="function-contingentclaims-util-expiry-73111"></span><a href="#function-contingentclaims-util-expiry-73111">expiry</a></p>
                     <blockquote>
-                    <p>: Ord t =&gt; <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claim-55448">Claim</a> t x a -&gt; Optional t</p>
+                    <p>: Ord t =&gt; <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claim-55448">Claim</a> t x a o -&gt; Optional t</p>
                     <p>Return the time after which the claim is worthless i.e. value = 0, if such a time exists. Also known as 'maturity' or 'horizon' in the Eber/Jones paper.</p>
                     </blockquote>
                     <p><span id="function-contingentclaims-util-payoffs-21421"></span><a href="#function-contingentclaims-util-payoffs-21421">payoffs</a></p>
                     <blockquote>
-                    <p>: (Eq x, Eq a, Multiplicative x) =&gt; <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claim-55448">Claim</a> t x a -&gt; [(<a href="ContingentClaims-Observation.html#type-contingentclaims-observation-observation-36736">Observation</a> t x a, a)]</p>
+                    <p>: (Eq x, Eq o, Multiplicative x) =&gt; <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claim-55448">Claim</a> t x a o -&gt; [(<a href="ContingentClaims-Observation.html#type-contingentclaims-observation-observation-36736">Observation</a> t x o, a)]</p>
                     <p>Return a list of possible scale-factor/payoff pairs. This does not discriminate between conditional and outright payoffs.</p>
                     </blockquote>
                     <p><span id="function-contingentclaims-util-prunezeros-11483"></span><a href="#function-contingentclaims-util-prunezeros-11483">pruneZeros</a></p>
                     <blockquote>
-                    <p>: <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claim-55448">Claim</a> t x a -&gt; <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claim-55448">Claim</a> t x a</p>
+                    <p>: <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claim-55448">Claim</a> t x a o -&gt; <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claim-55448">Claim</a> t x a o</p>
                     <p>Prunes sub-trees which are <code>Zero</code>.</p>
                     </blockquote>
                     <p><span id="function-contingentclaims-util-prunezerostick-14293"></span><a href="#function-contingentclaims-util-prunezerostick-14293">pruneZeros'</a></p>
                     <blockquote>
-                    <p>: <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claimf-81845">ClaimF</a> t x a (<a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claim-55448">Claim</a> t x a) -&gt; <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claim-55448">Claim</a> t x a</p>
+                    <p>: <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claimf-81845">ClaimF</a> t x a o (<a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claim-55448">Claim</a> t x a o) -&gt; <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claim-55448">Claim</a> t x a o</p>
                     <p>Algebra for <code>pruneZeros</code>. N.b. the <code>Or</code> case : we only reduce the case when all elements are <code>Zero</code>. It's incorrect to remove a single <code>Or</code> (as this would remove a choice for 'inaction' from the bearer - think option lapse). However, we don't handle the case for <code>Or &gt; 1</code>, as this can be unintuitive (although semantically correct); this may change in the future, so don't rely on this behaviour.</p>
+                    </blockquote>
+                    <p><span id="function-contingentclaims-util-intrinsicacquisitiontime-91393"></span><a href="#function-contingentclaims-util-intrinsicacquisitiontime-91393">intrinsicAcquisitionTime</a></p>
+                    <blockquote>
+                    <p>: Ord t =&gt; <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claim-55448">Claim</a> t x a o -&gt; Optional t</p>
+                    <p>Returns the claim's intrinsic acquisition time (IAT) if it exists. It is defined as the time <code>t</code> such that, for the purpose of lifecycling and valuation, it is irrelevant whether the contract has been acquired at <code>t</code> or at any time <code>s</code> before <code>t</code>. This check is required as currently the claim's acquisition time is not an input to <code>lifecycle</code>, which forces us to work with claims that have an IAT. For instance:</p>
+                    <ul>
+                    <li><code>Scale obs c</code> does not have an IAT (as <code>obs</code> is evaluated at the claim's acquisition time)</li>
+                    <li>the IAT for <code>When (TimeGte t) c</code> is <code>t</code></li>
+                    <li><code>When (obs &lt;= 100) c</code> does not have an IAT, as the acquisition time defines when we start to monitor the observable <code>obs</code></li>
+                    </ul>
+                    </blockquote>
+                    <p><span id="function-contingentclaims-util-hasintrinsicacquisitiontime-40256"></span><a href="#function-contingentclaims-util-hasintrinsicacquisitiontime-40256">hasintrinsicAcquisitionTime</a></p>
+                    <blockquote>
+                    <p>: Ord t =&gt; <a href="ContingentClaims-Claim.html#type-contingentclaims-claim-claim-55448">Claim</a> t x a o -&gt; Bool</p>
+                    <p>Returns <code>True</code> if the the claim has an intrinsic acquisition time, <code>False</code> otherwise.</p>
                     </blockquote>
 
                     <br>
                     <hr>
                     <p>
-                        © Copyright 2016-2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.
+                        © Copyright 2019-2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.
                     </p>
 
                 </div>
