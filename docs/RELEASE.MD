@@ -6,7 +6,7 @@ The purpose of this document is to describe the procedure to release this librar
 
 1. Create a new local Git branch.
 2. In [daml.yaml](../daml.yaml), update the `version` value as required :
-   - To check what `versions` already exist, check the existing tags [here](https://github.com/digital-asset/daml-ctl/tags).
+   - To check what `versions` already exist, check the existing tags [here](https://github.com/digital-asset/contingent-claims/tags).
    - Note - do not add a `v` in front of the `version` in [daml.yaml](../daml.yaml). The build script handles the naming conventions of the release, the tag and the release artifacts.
 3. Run `daml build` :
    - This command validates the specified `version`;
@@ -22,7 +22,7 @@ The purpose of this document is to describe the procedure to release this librar
        - a new release in GitHub releases;
        - generated release notes;
        - a new tag in GitHub.
-8. A successful release will be listed [here](https://github.com/digital-asset/daml-ctl/releases).
+8. A successful release will be listed [here](https://github.com/digital-asset/contingent-claims/releases).
 
 ## Official release versioning
 
@@ -41,7 +41,7 @@ See [here](https://semver.org/) for further information.
 
 ### Pre-release versioning
 
-Due to the underying Haskell tooling which Daml is build upon, versioning is limited to the following regex:
+Due to the underying Haskell tooling which Daml is built upon, versioning is limited to the following regex:
 
 ```
 ^(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*$
