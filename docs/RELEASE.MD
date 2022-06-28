@@ -6,15 +6,15 @@ The purpose of this document is to describe the procedure to release this librar
 
 1. Create a new local Git branch.
 2. In [daml.yaml](../daml.yaml), update the `version` value as required :
-   - To check what `versions` already exist, check [here](https://github.com/digital-asset/daml-ctl/tags).
-   - Note - do not add a `v` in front of the `version` in [daml.yaml](../daml.yaml). The build script handles the naming convensions of the release, the tag and the release artifacts.
+   - To check what `versions` already exist, check the existing tags [here](https://github.com/digital-asset/daml-ctl/tags).
+   - Note - do not add a `v` in front of the `version` in [daml.yaml](../daml.yaml). The build script handles the naming conventions of the release, the tag and the release artifacts.
 3. Run `daml build` :
    - This command validates the specified `version`;
    - A successful build means the `version` specified is valid.
 4. Push your branch to GitHub.
 5. Create a pull request to merge your branch to `master`.
 6. Get approval and merge this branch.
-7. When the branch gets merged to `master`, a CI job gets triggered which will build the project and then preform the release:
+7. When the branch gets merged to `master`, a CI job gets triggered which will build the project and then perform the release:
    - If building the project fails, the release step will not get triggered;
    - If the build is successful then :
      - If the `version` already exists, the release will fail;
@@ -41,7 +41,7 @@ See [here](https://semver.org/) for further information.
 
 ### Pre-release versioning
 
-Due to the underying Haskell tooling in which Daml is build upon, versioning is limited to the following regex:
+Due to the underying Haskell tooling which Daml is build upon, versioning is limited to the following regex:
 
 ```
 ^(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*$
