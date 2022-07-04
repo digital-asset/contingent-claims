@@ -1,0 +1,21 @@
+module ContingentClaims.Inequality where
+
+import ContingentClaims.Observation (Observation, eval)
+
+-- | This is either `time ≥ t | f t x ≤ f t x`
+data Inequality t x o = TimeGte t | Lte (Observation t x o, Observation t x o)
+     deriving (Eq, Show)
+
+-- | Observable that is true on the passed time. i.e. identity for the time observable.
+at : t -> Inequality t x o
+at t = TimeGte t
+
+infix 4 <=
+-- | `import Prelude hiding ((<=))` in order to use this.
+(<=) : Observation t x o -> Observation t x o -> Inequality t x o
+(<=) = curry Lte
+
+-- | Reify the `Observable.Inequality` into an observation function.
+compare : (Ord t, Ord x, Number x, Divisible x, Action m) => (o -> t -> m x) -> Inequality t x o -> t -> m Bool
+compare doObserve (Lte (f, f')) t = liftA2 (Prelude.<=) (eval doObserve f t) (eval doObserve f' t)
+compare _ (TimeGte s) t = pure $ t >= s
