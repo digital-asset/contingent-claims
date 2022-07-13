@@ -16,16 +16,6 @@ The section on the contracts' valuation semantics uses results and notation from
 
 Finally, those who wish to develop the library would benefit from an understanding of recursion schemes, which are used to implement most of the workflows. Patrick Thomson's [blog post series](https://blog.sumtypeofway.com/posts/introduction-to-recursion-schemes.html) is an excellent resource to get up to speed on the topic.
 
-## Notation
-
-We often refer to primitives such as `One` or `When` as nodes, as they are implemented as nodes in a tree structure.
-
-The primitives are capitalized, whereas variable or function names are lower case. For instance, in the contract `Cond pred c1 c2`
-
-- `Cond` represents the primitive introduced in the paper
-- `pred` is a boolean predicate (a function that takes `t` as an input and returns a value which is either `True` or `False`)
-- `c1` and `c2` are the respective sub-contracts
-
 ## References
 
 <a id="1">[1]</a>
