@@ -1,6 +1,5 @@
 .daml/
 *.log
-doc/html
 lib/
 .vscode/
 .docs/
