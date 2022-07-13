@@ -44,24 +44,24 @@ data Pending t a = Pending with
 -- | Returned from a `lifecycle` operation.
 data Result t a o = Result with
   pending : [Pending t a]
-    -- ^ payments requiring settlement.
+    -- ^ Payments requiring settlement.
   remaining : C t a o
-    -- ^ the tree after lifecycled branches have been pruned.
+    -- ^ The tree after lifecycled branches have been pruned.
     deriving (Eq, Show)
 
 -- | Collect claims falling due into a list, and return the tree with those nodes pruned.
 -- `m` will typically be `Update`. It is parametrised so it can be run in a `Script`.
 -- The first argument is used to lookup the value of any `Observables`.
--- Results in a function taking today's date, and returning the pruned tree + pending settlements.
+-- Returns the pruned tree + pending settlements up to the provided market time.
 lifecycle : (Ord t, Eq a, CanAbort m)
   => (o -> t -> m Decimal)
-  -- ^ function to evaluate observables
+  -- ^ Function to evaluate observables.
   -> C t a o
-  -- ^ the input claim
+  -- ^ The input claim.
   -> t
-  -- ^ the input claim's acquisition time
+  -- ^ The input claim's acquisition time.
   -> t
-  -- ^ the today's date
+  -- ^ The current market time. This is the time up to which observations are known.
   -> m (Result t a o)
 lifecycle spot claim acquisitionTime today
   = fmap (uncurry $ flip Result)
@@ -91,7 +91,7 @@ acquire' : (Ord t, Eq a, CanAbort m)
   => (o -> t -> m Decimal)
   -- ^ function to evaluate observables
   -> t
-  -- ^ the today date
+  -- ^ the current market time. This is the time up to which observations are known.
   -> (t, C t a o)
   -- ^ input claim in functor form and its acquisition time
   -> m (Acquired t a o)
