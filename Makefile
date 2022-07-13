@@ -14,6 +14,7 @@ install:
 clean:
 	daml clean
 	./scripts/remove-dependencies.sh daml.yaml
+	rm -fr .docs/
 
 .PHONY: test
 test: install
@@ -21,8 +22,13 @@ test: install
 
 DAML_SRC:=$(shell find daml/ContingentClaims -name '*.daml')
 
-doc/html: $(DAML_SRC)
+.PHONY: doc
+doc: $(DAML_SRC)
 	daml damlc docs --format html \
     --exclude-instances=HasField \
     --drop-orphan-instances \
-    --output doc/html $(DAML_SRC)
+    --output .docs $(DAML_SRC)
+
+.PHONY: publish-api-doc
+publish-api-doc:
+	./scripts/publish-api-doc.sh
