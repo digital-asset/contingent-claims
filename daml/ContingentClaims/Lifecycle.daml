@@ -56,7 +56,7 @@ data Result t a o = Result with
 -- Results in a function taking today's date, and returning the pruned tree + pending settlements.
 lifecycle : (Ord t, Eq a, CanAbort m)
   => (o -> t -> m Decimal)
-  -- ^ function to evaluate observables 
+  -- ^ function to evaluate observables
   -> C t a o
   -- ^ the input claim
   -> t
@@ -83,13 +83,14 @@ type FE t a o x = F t a o (Either (C t a o) x)
 -- | Acquired claim (in functor form). The acquisition time is attached to acquired sub-trees.
 type Acquired t a o = FE t a o (t, C t a o)
 
--- | Evaluate observables and skip branches for which predicates don't hold, calculate the acquisition time of the claim's sub-trees.
+-- | HIDE
+-- Evaluate observables and skip branches for which predicates don't hold, calculate the acquisition time of the claim's sub-trees.
 -- Consume `Cond` nodes, leaving the relevant sub-tree.
 -- Replace `When pred c` nodes with `When (TimeGte t) c` if the predicate is non-deterministic and evaluates to True.
 -- This is useless on its own. Composed with other functions, it adds laziness.
 acquire' : (Ord t, Eq a, CanAbort m)
   => (o -> t -> m Decimal)
-  -- ^ function to evaluate observables 
+  -- ^ function to evaluate observables
   -> t
   -- ^ the today date
   -> (t, C t a o)
@@ -114,8 +115,9 @@ acquire' _ _ (s, other) = pure $ Right . (s, ) <$> project other
 -- | Carrier type used for `lifecycle`. It consists of a claim, its acquisition time and the accumulated scaling factor.
 type LifecycleCarrier t a o = (Decimal, (t, C t a o))
 
--- | Evaluate any observables in `Scale` nodes, accumulating scale factors top-down.
--- Log the scale factors with their corresponding leaf values. 
+-- | HIDE
+-- Evaluate any observables in `Scale` nodes, accumulating scale factors top-down.
+-- Log the scale factors with their corresponding leaf values.
 -- Stop recursion at `Or` and `Anytime` branches, guaranteeing liveness.
 -- Replace any Ones that can be reached with Zeros.
 lifecycle' : (Ord t, CanAbort m)
@@ -143,7 +145,7 @@ lifecycle' _ (qty, (_, other)) = pure $ fmap (qty, ) <$> other
 -- `import` this `qualified`, to avoid clashes with `Prelude.exercise`.
 exercise : (Ord t, Eq a, Eq o, CanAbort m)
   => (o -> t -> m Decimal)
-  -- ^ function to evaluate observables 
+  -- ^ function to evaluate observables
   -> (Bool, C t a o)
   -- ^ the election being made
   -> C t a o
@@ -151,7 +153,7 @@ exercise : (Ord t, Eq a, Eq o, CanAbort m)
   -> t
   -- ^ the election date
   -> m (C t a o)
-exercise spot election claim today = 
+exercise spot election claim today =
   apoCataM pruneZeros' acquireThenExercise
   . (True, ) -- initial election authorizer (`True = bearer`)
   $ (acquisitionTime, claim)
@@ -165,6 +167,7 @@ exercise spot election claim today =
 -- | Carrier type used for `exercise`. It consists of a claim, its acquisition time and a flag keeping track of who is the entitled to the election (`True = bearer`).
 type ExerciseCarrier t a o = (Bool, (t, C t a o))
 
+-- | HIDE
 -- Resolve `Or` nodes by removing them (keeping elected subtrees).
 -- Fix acquisition time of exercised `Anytime` nodes by replacing them with `When (TimeGte t)`.
 -- The election consists of a boolean representing the authorizer (`True = bearer`),
@@ -198,7 +201,7 @@ expire spot claim today =
   apoCataM pruneZeros' acquireThenExpire
   $ (acquisitionTime, claim)
   where
-    acquireThenExpire = 
+    acquireThenExpire =
       (expire' spot today =<<)
       . sequence . (Prelude.fst &&& acquire' spot today)
     acquisitionTime = fromSomeNote "Claim does not have an intrinsic acquisition time" $ intrinsicAcquisitionTime claim
