@@ -25,7 +25,7 @@ createContracts = script do
           counterparty = buyer
           claims = c
           acquisitionTime = t
-  mkContract today $  zcb (date 2021 Mar 3) 3400.0 "USD"
+  mkContract today $ zcb (date 2021 Mar 3) 3400.0 "USD"
   mkContract today $ fixed 100.0 4.0 "GBP" (unrollDates 2021 2025 [Jan, Aug] 5)
   mkContract today $ european (date 2021 Feb 8) (one "GB00BH4HKS39")
 
