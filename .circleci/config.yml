@@ -77,7 +77,7 @@ commands:
             fi
       - run:
           name: "Sign dar"
-          command: gpg --armor --detach-sign .daml/dist/daml-ctl-${VERSION}.dar
+          command: gpg --armor --detach-sign .daml/dist/contingent-claims-${VERSION}.dar
       - run:
           name: "Tag and push to GitHub"
           command: |
