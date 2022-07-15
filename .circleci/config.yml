@@ -126,6 +126,7 @@ jobs:
       - restore_cache:
           keys:
             - contingent-claims-{{ .Revision }}
+      - import_gpg_key
       - run_release
       - run:
           name: "Prettify doc and push to GitHub pages"
