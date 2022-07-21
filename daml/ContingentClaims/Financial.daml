@@ -5,7 +5,6 @@ module ContingentClaims.Financial where
 
 import Prelude hiding (and, or)
 import ContingentClaims.Claim
-import ContingentClaims.Inequality (at)
 import ContingentClaims.Observation qualified as O
 import ContingentClaims.Observation (Observation)
 import DA.Date (date, Month)

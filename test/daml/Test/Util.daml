@@ -8,7 +8,6 @@
 module Test.Util where
 
 import ContingentClaims.Claim hiding (C, F)
-import ContingentClaims.Inequality(at, (<=))
 import ContingentClaims.Observation qualified as O
 import ContingentClaims.Financial
 import DA.Assert ((===))

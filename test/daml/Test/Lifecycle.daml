@@ -7,7 +7,6 @@ module Test.Lifecycle where
 
 import ContingentClaims.Claim hiding (C, F)
 import ContingentClaims.Financial (fixed, european, american)
-import ContingentClaims.Inequality(Inequality(..), at, (<=))
 import ContingentClaims.Internal.Claim(Claim(..), ClaimF(..))
 import ContingentClaims.Lifecycle qualified as Lifecycle
 import ContingentClaims.Observation qualified as O

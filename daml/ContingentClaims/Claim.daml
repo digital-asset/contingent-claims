@@ -4,6 +4,7 @@
 module ContingentClaims.Claim
   ( Claim
   , F
+  , Inequality(..)
   , T
   , zero
   , one
@@ -16,14 +17,17 @@ module ContingentClaims.Claim
   , anytime
   , until
   , mapParams
+  , at
+  , (<=)
+  , compare
   ) where
 
-import ContingentClaims.Inequality
-import ContingentClaims.Internal.Claim
-import ContingentClaims.Observation qualified as Observation
-import ContingentClaims.Observation (Observation)
+import ContingentClaims.Internal.Claim (Claim(..), ClaimF(..), Inequality(..))
+import ContingentClaims.Observation qualified as Observation (mapParams)
+import ContingentClaims.Observation (Observation, eval)
 import Daml.Control.Recursion
-import Prelude hiding (or, and)
+import Prelude hiding ((<=), and, or, compare)
+import qualified Prelude ((<=))
 
 type T = Claim
 type F = ClaimF
@@ -120,3 +124,19 @@ mapParams ft' ft fa fk fv =
     AnytimeF (TimeGte t) c -> Anytime (TimeGte (ft t)) c
     UntilF (Lte (x, x')) c -> Until (Lte (f x, f x')) c
     UntilF (TimeGte t) c -> Until (TimeGte (ft t)) c
+
+-- Inequality --
+
+-- | Smart constructor for `TimeGte`.
+at : t -> Inequality t x o
+at t = TimeGte t
+
+infix 4 <=
+-- | Smart constructor for `Lte`. `import Prelude hiding ((<=))` in order to use this.
+(<=) : Observation t x o -> Observation t x o -> Inequality t x o
+(<=) = curry Lte
+
+-- | Reify the `Observable.Inequality` into an observation function.
+compare : (Ord t, Ord x, Number x, Divisible x, Action m) => (o -> t -> m x) -> Inequality t x o -> t -> m Bool
+compare doObserve (Lte (f, f')) t = liftA2 (Prelude.<=) (eval doObserve f t) (eval doObserve f' t)
+compare _ (TimeGte s) t = pure $ t >= s

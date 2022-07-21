@@ -14,7 +14,7 @@ module ContingentClaims.Lifecycle (
   , Result(..)
 ) where
 
-import ContingentClaims.Inequality(Inequality(..), compare)
+import ContingentClaims.Claim (Inequality(..), compare)
 import ContingentClaims.Internal.Claim(Claim(..), ClaimF(..))
 import ContingentClaims.Observation qualified as Observation
 import ContingentClaims.Util.Recursion (apoCataM)

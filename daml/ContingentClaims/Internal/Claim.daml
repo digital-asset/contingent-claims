@@ -1,10 +1,10 @@
 module ContingentClaims.Internal.Claim
   ( Claim(..)
   , ClaimF(..)
+  , Inequality(..)
   ) where
 
-import ContingentClaims.Inequality
-import ContingentClaims.Observation (Observation)
+import ContingentClaims.Observation (Observation,)
 import DA.Foldable (Foldable(..))
 import DA.Text (unwords, intercalate)
 import DA.Traversable (Traversable(..))
@@ -13,7 +13,7 @@ import Prelude hiding (fst, snd)
 
 -- | Used to model cashflows of instruments.
 -- See [quickstart](../QUICKSTART.md) for detailed explanation.
--- In Petyon-Jones' paper, this is called 'Contract'.
+-- In Peyton-Jones' paper, this is called 'Contract'.
 -- We renamed it to avoid ambiguity.
 -- * `t` and `x` respectively correspond to the `Observation`s input type and the resulting output type.
 -- * `a` is the representation of an asset, e.g. a `Text` ISIN code.
@@ -119,3 +119,13 @@ instance (Show t, Show x, Show a, Show o) => Show (Claim t x a o) where
           print2 c x s = unwords [c, bracket (show x), bracket s]
           bracket "Zero" = "Zero"
           bracket s = "(" <> s <> ")"
+
+-- Inequality --
+
+-- | A boolean predicate. This is either `time ≥ t | o(t, x) ≤ o'(t, x)`.
+data Inequality t x o
+  = TimeGte t
+    -- ^ `True` when `time ≥ t`, `False` otherwise.
+  | Lte (Observation t x o, Observation t x o)
+    -- ^ `True` when `o(t, x) ≤ o'(t, x)`, `False` otherwise, for a pair of observations `o`, `o'`.
+    deriving (Eq, Show)

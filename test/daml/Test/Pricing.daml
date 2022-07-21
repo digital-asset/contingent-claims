@@ -5,7 +5,6 @@ module Test.Pricing where
 
 import ContingentClaims.Claim
 import ContingentClaims.Financial (european, american)
-import ContingentClaims.Inequality (Inequality(..))
 import ContingentClaims.Observation qualified as O
 import ContingentClaims.MathML qualified as MathML
 import ContingentClaims.Math.Stochastic (fapf, {- simplify, -} riskless, gbm, Expr(..), unitIdentity, IsIdentifier(..))

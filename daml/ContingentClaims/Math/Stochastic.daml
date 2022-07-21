@@ -15,8 +15,7 @@ module ContingentClaims.Math.Stochastic (
   , unitIdentity
 ) where
 
-import ContingentClaims.Inequality(Inequality(..))
-import ContingentClaims.Internal.Claim(Claim(..))
+import ContingentClaims.Internal.Claim(Claim(..), Inequality(..))
 import ContingentClaims.Observation qualified as O
 import ContingentClaims.Util.Recursion (futuM)
 import DA.Foldable
