@@ -54,6 +54,12 @@ commands:
       - run:
           name: Set Daml SDK version
           command: echo 'export SDK_VERSION=$(yq e '.sdk-version' daml.yaml)' >> $BASH_ENV
+  import_gpg_key:
+    description: "Setup GPG for signing artifacts as part of a release"
+    steps:
+      - run:
+          name: Import Digital Asset GPG key
+          command: echo ${gpg_code_signing} | base64 -d | gpg --import --quiet
   run_release:
     description: "Run Release"
     steps:
@@ -70,12 +76,15 @@ commands:
               circleci-agent step halt
             fi
       - run:
+          name: "Sign dar"
+          command: gpg --armor --detach-sign .daml/dist/contingent-claims-${VERSION}.dar
+      - run:
           name: "Tag and push to GitHub"
           command: |
             if [[ `awk 'BEGIN { FS="."} { print $NF-1 }' \<<< ${VERSION}` -le 2 ]] ; then
-              gh release create v${VERSION} .daml/dist/contingent-claims-${VERSION}.dar --generate-notes
+              gh release create v${VERSION} .daml/dist/contingent-claims-${VERSION}.dar* --generate-notes
             else
-              gh release create v${VERSION} .daml/dist/contingent-claims-${VERSION}.dar --generate-notes --prerelease
+              gh release create v${VERSION} .daml/dist/contingent-claims-${VERSION}.dar* --generate-notes --prerelease
             fi
       - store_artifacts:
           path: .daml/dist/contingent-claims-${VERSION}.dar
@@ -117,6 +126,7 @@ jobs:
       - restore_cache:
           keys:
             - contingent-claims-{{ .Revision }}
+      - import_gpg_key
       - run_release
       - run:
           name: "Prettify doc and push to GitHub pages"
@@ -153,7 +163,9 @@ workflows:
               only:
                 - master
       - release:
-          context: github-fin-eng-context
+          context:
+            - github-fin-eng-context
+            - npn-publish
           requires:
             - build
           filters:
