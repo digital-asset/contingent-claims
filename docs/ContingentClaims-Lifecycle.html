@@ -120,23 +120,9 @@
                     <p>: (Ord t, Eq a, CanAbort m) =&gt; (o -&gt; t -&gt; m Decimal) -&gt; C t a o -&gt; t -&gt; t -&gt; m (<a href="#type-contingentclaims-lifecycle-result-15592">Result</a> t a o)</p>
                     <p>Collect claims falling due into a list, and return the tree with those nodes pruned. <code>m</code> will typically be <code>Update</code>. It is parametrised so it can be run in a <code>Script</code>. The first argument is used to lookup the value of any <code>Observables</code>. Returns the pruned tree + pending settlements up to the provided market time.</p>
                     </blockquote>
-                    <p><span id="function-contingentclaims-lifecycle-acquiretick-30538"></span><a href="#function-contingentclaims-lifecycle-acquiretick-30538">acquire'</a></p>
-                    <blockquote>
-                    <p>: (Ord t, Eq a, CanAbort m) =&gt; (o -&gt; t -&gt; m Decimal) -&gt; t -&gt; (t, C t a o) -&gt; m (Acquired t a o)</p>
-                    <p>Evaluate observables and skip branches for which predicates don't hold, calculate the acquisition time of the claim's sub-trees. Consume <code>Cond</code> nodes, leaving the relevant sub-tree. Replace <code>When pred c</code> nodes with <code>When (TimeGte t) c</code> if the predicate is non-deterministic and evaluates to True. This is useless on its own. Composed with other functions, it adds laziness.</p>
-                    </blockquote>
-                    <p><span id="function-contingentclaims-lifecycle-lifecycletick-47708"></span><a href="#function-contingentclaims-lifecycle-lifecycletick-47708">lifecycle'</a></p>
-                    <blockquote>
-                    <p>: (Ord t, CanAbort m) =&gt; (o -&gt; t -&gt; m Decimal) -&gt; (Decimal, (t, Acquired t a o)) -&gt; WriterT [<a href="#type-contingentclaims-lifecycle-pending-5107">Pending</a> t a] m (FE t a o (LifecycleCarrier t a o))</p>
-                    <p>Evaluate any observables in <code>Scale</code> nodes, accumulating scale factors top-down. Log the scale factors with their corresponding leaf values. Stop recursion at <code>Or</code> and <code>Anytime</code> branches, guaranteeing liveness. Replace any Ones that can be reached with Zeros.</p>
-                    </blockquote>
                     <p><span id="function-contingentclaims-lifecycle-exercise-67423"></span><a href="#function-contingentclaims-lifecycle-exercise-67423">exercise</a></p>
                     <blockquote>
                     <p>: (Ord t, Eq a, Eq o, CanAbort m) =&gt; (o -&gt; t -&gt; m Decimal) -&gt; (Bool, C t a o) -&gt; C t a o -&gt; t -&gt; t -&gt; m (C t a o)</p>
-                    </blockquote>
-                    <p><span id="function-contingentclaims-lifecycle-exercisetick-1077"></span><a href="#function-contingentclaims-lifecycle-exercisetick-1077">exercise'</a></p>
-                    <blockquote>
-                    <p>: (Eq t, Eq a, Eq o) =&gt; (Bool, C t a o) -&gt; t -&gt; (Bool, (t, Acquired t a o)) -&gt; FE t a o (ExerciseCarrier t a o)</p>
                     </blockquote>
                     <p><span id="function-contingentclaims-lifecycle-expire-43030"></span><a href="#function-contingentclaims-lifecycle-expire-43030">expire</a></p>
                     <blockquote>
