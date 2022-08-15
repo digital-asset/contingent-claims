@@ -16,20 +16,25 @@ import Prelude hiding (Time, sequence, mapA, const)
 data AcquisitionTime t x o
   = Time t
   | AtInequality { inequalities : [Inequality t x o] }
+  | Never
   deriving (Eq,Show)
 
--- | Given an inequality and an acquisition time τ1, it returns the acquisition time τ2 such that
+-- | Given an inequality and an acquisition time τ1, it returns the smallest acquisition time τ2 such that
 -- - the inequality is verified at τ2
 -- - τ2 >= τ1
 -- The name `extend` comes from the fact that we are extending the set of inequality constraints that need to be verified
 extend : (Ord t) => Inequality t x o -> AcquisitionTime t x o -> AcquisitionTime t x o
+extend _ Never = Never
 extend (TimeGte s) (Time t) = Time $ max s t
+extend (TimeLte s) (Time t) | s > t = Time t
+extend (TimeLte s) (Time t) = Never
 extend ineq@(Lte _) (Time t) = AtInequality [ineq, TimeGte t]
 extend ineq (AtInequality ineqs) = AtInequality $ ineq :: ineqs
 
 -- | Checks if an acquisition time falls before or at the today date.
 -- `None` is returned if the acquisition time is unknown.
 beforeOrAtToday : (Ord t) => t -> AcquisitionTime t x a -> Optional Bool
+beforeOrAtToday _ Never = Some False
 beforeOrAtToday today (Time s) = Some $ s <= today
 beforeOrAtToday today (AtInequality [TimeGte s]) = Some $ s <= today
 beforeOrAtToday today (AtInequality _) = None

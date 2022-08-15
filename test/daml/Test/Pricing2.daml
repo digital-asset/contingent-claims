@@ -15,7 +15,7 @@ import DA.Date
 import DA.Tuple (thd3)
 import Prelude hiding (max)
 
-type C = Claim Date Decimal Text
+type C = Claim Date Decimal Text Text
 
 -- | Assets
 [a,b,c] = ["a","b","c"]
@@ -26,7 +26,7 @@ today = date 1970 Jan 1
 tomorrow = succ today
 afterTomorrow = succ tomorrow
 
--- | Observations 
+-- | Observations
 two : O.Observation Date Decimal Text = O.pure 2.0
 
 -- | Functions performing observations
@@ -51,41 +51,41 @@ exch = Proc $ Exch a ccy
 testValuationBasic : Script()
 testValuationBasic = do
 
-  value <- fapf observe25 ccy today (one a)
+  value <- fapf observe25 ccy today today (one a)
   value === Proc (Exch a ccy)
 
-  value <- fapf observe25 ccy today (one ccy)
+  value <- fapf observe25 ccy today today (one ccy)
   value === Const 1.0
 
-  value <- fapf observe25 ccy today (one ccy)
+  value <- fapf observe25 ccy today today (one ccy)
   value === Const 1.0
 
-  value <- fapf observe25 ccy today zero
+  value <- fapf observe25 ccy today today zero
   value === Const 0.0
 
   pure ()
-  
+
 testValuationWhen : Script()
 testValuationWhen = do
 
   -- `today` the stopping rule defined by `When` is not verified, so we take expectation of discounted payoff
-  let f = Time today 
+  let f = Time today
       -- ^ filtration (i.e. available information)
       τ = Time tomorrow
       -- ^ stopping time defined by the `When` node
 
-  value <- fapf observe25 ccy today (when atTomorrow $ one a)
+  value <- fapf observe25 ccy today today (when atTomorrow $ one a)
   value === E (disc * exch) τ f / disc
 
   -- `tomorrow` the stopping rule is verified
-  value <- fapf observe25 ccy tomorrow (when atTomorrow $ one a)
+  value <- fapf observe25 ccy tomorrow today (when atTomorrow $ one a)
   value === exch
 
 testValuationScale : Script()
 testValuationScale = do
 
   -- we define a stochastic observable, as well as the corresponding process
-  let observable  = O.Const 5.0 + O.observe "spot" 
+  let observable  = O.Const 5.0 + O.observe "spot"
       obsProcess = Const 5.0 + Proc (Observable "spot")
 
       claim : C = when atTomorrow $ scale observable $ one a
@@ -94,11 +94,11 @@ testValuationScale = do
       τ = Time tomorrow -- stopping rule
 
   -- `today` the stopping rule is not verified
-  value <- fapf observe25 ccy today claim
+  value <- fapf observe25 ccy today today claim
   value === E (disc * (obsProcess * exch) ) τ f / disc
 
   -- `tomorrow` the stopping rule is verified
-  value <- fapf observe25 ccy tomorrow claim
+  value <- fapf observe25 ccy tomorrow today claim
   value === (Const 5.0 + Const 25.0) * exch
 
   -- TODO write test with stochastic stopping time
@@ -117,7 +117,7 @@ testValuationKnockOut = do
       f = Time today -- filtration
       τ = AtInequality [spotGreaterThan100] -- stopping rule
 
-  value <- fapf observe25 ccy today claim
+  value <- fapf observe25 ccy today today claim
   value === E (disc * exch) τ f / disc
 
   -- we do not consider the case when the stopping rule is verified before or at t,
