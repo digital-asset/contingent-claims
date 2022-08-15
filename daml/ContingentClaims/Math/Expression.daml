@@ -15,33 +15,34 @@ import Prelude hiding (Time, sequence, mapA, const)
 -- | Represents an algebraic expression of a t-adapted stochastic process
 -- t : time parameter
 -- x : state parameter, typically Decimal
--- a : reference used to identify observables
+-- o : reference used to identify observables
 -- b : type describing elementary processes
-data Expr t x a b
+data Expr t x o b
   = Const x
-    -- ^ a constant process
+      -- ^ A constant process.
   | Ident t
-    -- ^ a process that takes the value of the time parameter
+      -- ^ A process that takes the value of the time parameter.
   | Proc { name : b }
-    -- ^ an elementary process which we cannot decompose further
+      -- ^ An elementary process which we cannot decompose further.
   -- | Sup { lowerBound: t, tau: t, rv : Expr t }
-    -- ^ sup, needs to be reworked using feasible exercise strategies
-  | Sum [Expr t x a b]
-    -- ^ sum
-  | Neg (Expr t x a b)
-    -- ^ negation
-  | Mul (Expr t x a b, Expr t x a b)
-    -- ^ multiplication
-  | Div (Expr t x a b, Expr t x a b)
-    -- ^ division
-  -- | I (Expr t x a b , Expr t x a b)
-    -- ^ indicator function, rework using inequalities
-  | E { process : Expr t x a b, time : AcquisitionTime t x a, filtration : AcquisitionTime t x a }
-    -- ^ conditional expectation of `process(time)` conditioned on the filtration F_`t`
+      -- ^ Sup, needs to be reworked using feasible exercise strategies.
+  | Sum [Expr t x o b]
+      -- ^ Sum process.
+  | Neg (Expr t x o b)
+      -- ^ Negation process.
+  | Mul (Expr t x o b, Expr t x o b)
+      -- ^ Multiplication process.
+  | Div (Expr t x o b, Expr t x o b)
+      -- ^ Division process.
+      -- TODO think in which cases this is well defined
+  -- | I (Expr t x o b , Expr t x o b)
+      -- ^ Indicator function, rework using inequalities.
+  | E { process : Expr t x o b, time : AcquisitionTime t x o, filtration : AcquisitionTime t x o }
+      -- ^ Conditional expectation of `process(time)` conditioned on the filtration F_`t`.
   deriving (Eq,Show)
 
 -- | Base functor for `Expr`.
-data ExprF t x a b c
+data ExprF t x o b c
   = ConstF x
   | IdentF t
   | ProcF { name : b }
@@ -50,11 +51,11 @@ data ExprF t x a b c
   | NegF c
   | MulF { lhs : c, rhs : c}
   | DivF { num : c, den : c}
-  -- | I (Expr t x a b , Expr t x a b)
-  | E_F { process : c, time : AcquisitionTime t x a, filtration : AcquisitionTime t x a }
+  -- | I (Expr t x o b , Expr t x o b)
+  | E_F { process : c, time : AcquisitionTime t x o, filtration : AcquisitionTime t x o }
   deriving (Functor)
 
-instance Recursive (Expr t x a b) (ExprF t x a b) where
+instance Recursive (Expr t x o b) (ExprF t x o b) where
   project (Const d) = ConstF d
   project (Ident s) = IdentF s
   project Proc{..} = ProcF with ..
@@ -66,7 +67,7 @@ instance Recursive (Expr t x a b) (ExprF t x a b) where
   -- project (I (x, x')) = I_F x x'
   project E{..} = E_F with ..
 
-instance Corecursive (Expr t x a b) (ExprF t x a b) where
+instance Corecursive (Expr t x o b) (ExprF t x o b) where
   embed (ConstF d) = Const d
   embed (IdentF s) = Ident s
   embed ProcF{..} = Proc with ..
@@ -78,7 +79,7 @@ instance Corecursive (Expr t x a b) (ExprF t x a b) where
   -- embed (I_F x x') = I (x, x')
   embed E_F{..} = E with ..
 
-instance Foldable (ExprF t x a b) where
+instance Foldable (ExprF t x o b) where
   foldMap f (ConstF _) = mempty
   foldMap f (IdentF _) = mempty
   foldMap f (ProcF _) = mempty
@@ -90,7 +91,7 @@ instance Foldable (ExprF t x a b) where
   -- foldMap f (I_F x x') = f x <> f x'
   foldMap f (E_F x _ _) = f x
 
-instance Traversable (ExprF t x a b) where
+instance Traversable (ExprF t x o b) where
   sequence (ConstF d) = pure $ ConstF d
   sequence (IdentF t) = pure $ IdentF t
   sequence (ProcF x) = pure $ ProcF x
@@ -105,12 +106,12 @@ instance Traversable (ExprF t x a b) where
 --   sequence (I_F fa fa') = I_F <$> fa <*> fa'
   sequence (E_F fa t f) = (\a -> E_F a t f) <$> fa
 
-instance (Additive x) => Additive (Expr t x a b) where
+instance (Additive x) => Additive (Expr t x o b) where
   x + y = Sum [x, y]
   negate = Neg
   aunit = Const aunit
 
-instance (Multiplicative x) => Multiplicative (Expr t x a b) where
+instance (Multiplicative x) => Multiplicative (Expr t x o b) where
   (*) = curry Mul
   munit = Const munit
   x ^ y | y > 0 = x * (x ^ pred y)
@@ -119,10 +120,10 @@ instance (Multiplicative x) => Multiplicative (Expr t x a b) where
 
 -- [ML] we don't give as definition of Inv but use it to define power with negative integers
 
-instance (Multiplicative x) => Divisible (Expr t x a b) where
+instance (Multiplicative x) => Divisible (Expr t x o b) where
   x / y = Div (x,y)
 
--- [ML] we could define this as x * y ^ -1, but we are using the 
+-- [ML] we could define this as x * y ^ -1, but we are using the
 -- fact that x * Div (munit,y) == Div (x,y)
 
 -- alternatively, instead of using Div Expr Expr we can just use Inv Expr (1 / Expr)

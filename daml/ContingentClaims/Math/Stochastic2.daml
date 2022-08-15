@@ -9,44 +9,43 @@ module ContingentClaims.Math.Stochastic2 (
   ElementaryProcess(..),
 ) where
 
+import ContingentClaims.Internal.Claim (Claim(..))
 import ContingentClaims.Claim hiding (compare,(<=))
 import ContingentClaims.Math.AcquisitionTime(AcquisitionTime(..), beforeOrAtToday, extend)
 import ContingentClaims.Math.Expression
 import ContingentClaims.Observation qualified as O
-import ContingentClaims.Util (intrinsicAcquisitionTime)
 import ContingentClaims.Util.Recursion (futuM)
-import DA.Optional (fromSomeNote)
 import Daml.Control.Arrow ((|||))
 import Daml.Control.Recursion
 
 -- | Elementary processes as described in the Peyton-Jones paper.
 -- Once a model assumption is made, these can be replaced by the specific model (e.g. geometric brownian motion for stock spot prices)
-data ElementaryProcess a
-  = Observable a
-    -- ^ process corresponding to observable a
+data ElementaryProcess a o
+  = Observable o
+      -- ^ Process corresponding to an observable.
   | Exch with { asset : a, currency : a }
-    -- ^ value of `asset` expressed in units of `currency`
+      -- ^ Value of `asset` expressed in units of `currency`.
   | Disc a
-    -- ^ discount factor expressed in currency `a`
+      -- ^ Discount factor expressed in currency `a`.
   deriving (Eq, Show)
 
 -- | Maps a claim to the corresponding value process in currency `ccy`, taking into account known information up to time `t`.
 fapf : (Ord t, Eq a, Additive x, Multiplicative x, CanAbort m)
-  => (a -> t -> m x)
+  => (o -> t -> m x)
      -- ^ function to evaluate observables
   -> a
      -- ^ currency
   -> t
      -- ^ valuation date
-  -> Claim t x a
+  -> t
+     -- ^ acquisition time
+  -> Claim t x a o
      -- ^ the input claim
-  -> m (Expr t x a (ElementaryProcess a))
-fapf spot ccy t claim =
+  -> m (Expr t x o (ElementaryProcess a o))
+fapf spot ccy t acquisitionTime claim =
   futuM coalg
-  $ Left (claim, acquisitionTime) -- `Left` is used for claims, `Right` for observables
+  $ Left (claim, Time acquisitionTime) -- `Left` is used for claims, `Right` for observables
   where
-    acquisitionTime = Time . fromSomeNote "Claim does not have an intrinsic acquisition time" $ intrinsicAcquisitionTime claim
-
     -- coalg : (Additive x) => (Carrier t x a) -> (ExprF t x a (ElementaryProcess a) (Free (ExprF t x a (ElementaryProcess a)) (Carrier t x a)))
     coalg = ϵ t ccy ||| υ
 
@@ -65,7 +64,7 @@ fapf spot ccy t claim =
 
   -- check when we should evaluate an observable
 
-ϵ : (Eq a, Ord t, Additive x, Multiplicative x, CanAbort m) => t -> a -> (Claim t x a, AcquisitionTime t x a) -> m (ExprF t x a (ElementaryProcess a) (Free (ExprF t x a (ElementaryProcess a)) (Carrier t x a)))
+ϵ : (Eq a, Ord t, Additive x, Multiplicative x, CanAbort m) => t -> a -> (Claim t x a o, AcquisitionTime t x o) -> m (ExprF t x o (ElementaryProcess a o) (Free (ExprF t x o (ElementaryProcess a o)) (Carrier t x a o)))
 
 ϵ _ _ (Zero, _) = pure $ ConstF aunit
 
@@ -86,7 +85,7 @@ fapf spot ccy t claim =
   where τ = extend pred s
 -- ^ the acquisition time of the inner contract is known and not in the future
 
-ϵ t ccy (When pred c, s) = pure $ DivF (ex ( disc * claim (c,τ) ) τ filtration) disc 
+ϵ t ccy (When pred c, s) = pure $ DivF (ex ( disc * claim (c,τ) ) τ filtration) disc
   where τ = extend pred s
         filtration = case s of
           AtInequality _ -> s -- acquisition time of the outer contract is unknown
@@ -97,7 +96,7 @@ fapf spot ccy t claim =
         ex e τ f = Free $ E_F e τ f
 -- ^ the acquisition time of the inner contract is either unknown or known but in the future
 
--- DONE: 
+-- DONE:
 -- zero
 -- one
 -- give
@@ -114,7 +113,7 @@ fapf spot ccy t claim =
 
 -- | HIDE
 -- Carrier of the CV-coalgebra ϵ ||| υ
-type Carrier t x a = Either (Claim t x a, AcquisitionTime t x a) (O.Observation t x a, AcquisitionTime t x a)
+type Carrier t x a o = Either (Claim t x a o, AcquisitionTime t x o) (O.Observation t x o, AcquisitionTime t x o)
 
 
 
