@@ -89,11 +89,10 @@ testAcquire = script do
   res === when (at t1) (scale two (acquired a))
 
   res <- g (cond (at t1) (one a) (one b)) t0 t0
-  res === acquired b
+  res === cond (at t1) zero (acquired b)
 
   res <- g (cond (at t1) (one a) (one b)) t1 t1
-  res === acquired a
-
+  res === cond (at t1) (acquired a) zero
 
   res <- g (when (TimeGte t0) (when (TimeGte t1) (one a))) t0 t1
   res === when (TimeGte t0) (when (TimeGte t1) (acquired a))
