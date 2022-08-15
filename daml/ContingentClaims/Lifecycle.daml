@@ -8,6 +8,8 @@ module ContingentClaims.Lifecycle (
   , exercise
   , exercise'
   , expire
+  , expire'
+  , fixAcquisitionTime'
   , Pending(..)
   , Result(..)
 ) where
@@ -131,7 +133,8 @@ acquire' spot today (s, Until obs c) = do
   pure . UntilF obs $ if predicate then Left c else Right (s,c)
 acquire' _ _ (s, other) = pure $ Right . (s, ) <$> project other
 
--- | Replace sub-trees that will never be acquired with `Zero`.
+-- | HIDE
+-- Replace sub-trees that will never be acquired with `Zero`.
 expire' : (Ord t, Eq a) => Acquired t a o -> Acquired t a o
 expire' (WhenF (TimeLte t) (Left _)) = ZeroF
 expire' (AnytimeF (TimeLte t) (Left _)) = ZeroF
@@ -140,7 +143,8 @@ expire' (CondF pred (Right c) _) = CondF pred (Right c) (Left Zero)
 expire' (CondF pred _ (Right c)) = CondF pred (Left Zero) (Right c)
 expire' other = other
 
--- | Replace acquired `When pred c` nodes with `When (TimeGte t) c` when the predicate is non-deterministic.
+-- | HIDE
+-- Replace acquired `When pred c` nodes with `When (TimeGte t) c` when the predicate is non-deterministic.
 fixAcquisitionTime' : (Ord t, Eq a) => Acquired t a o -> Acquired t a o
 fixAcquisitionTime' (WhenF (Lte _) (Right (s,c))) = WhenF (TimeGte s) $ Right (s,c)
 fixAcquisitionTime' other = other
