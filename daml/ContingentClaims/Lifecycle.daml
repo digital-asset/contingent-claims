@@ -7,7 +7,6 @@ module ContingentClaims.Lifecycle (
   , acquire'
   , exercise
   , exercise'
-  , expire
   , expire'
   , fixAcquisitionTime'
   , Pending(..)
@@ -234,10 +233,3 @@ exercise' (elector, election) t (isBearer, (s, f@(AnytimeF _ _)))
   where stop = fmap $ Left . (identity ||| Prelude.snd)
         elections = foldMap (foldMap singleton) f
 exercise' _ _ (isBearer, (_, other)) = fmap (isBearer, ) <$> other
-
--- | Replace any subtrees that have expired with `Zero`s.
-expire : (Ord t, Eq a, CanAbort m) => (o -> t -> m Decimal) -> C t a o -> t -> t -> m (C t a o)
-expire spot claim acquisitionTime today =
-  apoCataM pruneZeros' acquireThenExpire $ (acquisitionTime, claim)
-  where
-    acquireThenExpire = fmap expire' <$> acquire' spot today

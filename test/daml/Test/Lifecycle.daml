@@ -363,10 +363,6 @@ testAmericanPut = script do
   remaining === option
   pending === []
 
-  -- So is expiration before maturity
-  remaining <- Lifecycle.expire observe25 option t0 t
-  remaining === option
-
   -- Exercise `anytime`
   remaining <- Lifecycle.exercise observe25 (bearer, payoff) option t0 t
   remaining === when (TimeGte t1) (when (TimeGte t1) payoff)
