@@ -7,7 +7,7 @@ module ContingentClaims.Math.AcquisitionTime (
   extend
 ) where
 
-import ContingentClaims.Claim hiding (compare,(<=))
+import ContingentClaims.Claim (Inequality(..))
 import Prelude hiding (Time, sequence, mapA, const)
 
 -- | Acquisition time of a contract in the context of the valuation semantics.
