@@ -79,6 +79,9 @@ fapf spot ccy t acquisitionTime claim =
 ϵ _ _ _ (And c c' cs, s) = pure . SumF $ fmap (claim . (, s)) (c :: c' :: cs)
   where claim = pure . Left
 
+ϵ _ _ _ (Or c c' cs, s) = pure . MaxF $ fmap (claim . (, s)) (c :: c' :: cs)
+  where claim = pure . Left
+
 ϵ spot t ccy (When pred c, s) | beforeOrAtToday t τ == Some True = ϵ spot t ccy (c, τ)
   where τ = extend pred s
 -- ^ the acquisition time of the inner contract is known and not in the future

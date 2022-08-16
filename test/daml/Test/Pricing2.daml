@@ -13,7 +13,7 @@ import Daml.Script
 import DA.Assert
 import DA.Date
 import DA.Tuple (thd3)
-import Prelude hiding (max, (<=))
+import Prelude hiding (or, max, (<=))
 
 type C = Claim Date Decimal Text Text
 
@@ -53,13 +53,22 @@ testValuationBasic : Script()
 testValuationBasic = do
 
   value <- fapf observe25 ccy t0 t0 (one a)
-  value === Proc (Exch a ccy)
+  value === exch
 
   value <- fapf observe25 ccy t0 t0 (one ccy)
   value === Const 1.0
 
   value <- fapf observe25 ccy t0 t0 zero
   value === Const 0.0
+
+  value <- fapf observe25 ccy t0 t0 $ give (one a)
+  value === -exch
+
+  value <- fapf observe25 ccy t0 t0 $ one a <> one b <> one c
+  value === Sum [exch, Proc (Exch b ccy), Proc (Exch c ccy)]
+
+  value <- fapf observe25 ccy t0 t0 $ one a `or` one b
+  value === Max [exch, Proc (Exch b ccy)]
 
   pure ()
 
