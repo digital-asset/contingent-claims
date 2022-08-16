@@ -12,7 +12,7 @@ import DA.Traversable
 import Daml.Control.Recursion
 import Prelude hiding (Time, sequence, mapA, const)
 
--- | Represents an algebraic expression of a t-adapted stochastic process
+-- | Represents an algebraic expression of a t-adapted stochastic process.
 -- t : time parameter
 -- x : state parameter, typically Decimal
 -- o : reference used to identify observables

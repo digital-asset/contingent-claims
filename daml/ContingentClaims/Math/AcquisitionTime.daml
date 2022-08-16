@@ -11,25 +11,31 @@ import ContingentClaims.Claim hiding (compare,(<=))
 import Prelude hiding (Time, sequence, mapA, const)
 
 -- | Acquisition time of a contract in the context of the valuation semantics.
--- It is either a deterministic time (`Time t`) or it is defined based on a set of `Inequality`. In the latter case, the acquisition time is defined as the first instant when all of the inequalities are met, with the inequalities generally being of stochastic nature.
--- [ML] it is not obvious if we actually need the (Time t) part as it could simply be expressed in terms of the deterministic inequality (TimeGte t)
+-- It is either a deterministic time (`Time t`) or it is defined based on a list of `Inequality`.
+-- For inequalities [i_1, i_2, ..., i_N], the acquisition time is defined as the first instant `t` for which there exist times `t_1 ≤ t_2 ≤ ... ≤ t_N ≤ t` such that `t_k` verifies `i_k` for each `k`.
+-- In both cases, the time `t` is a stopping time in the mathematical sense.
+-- [ML] it is not obvious if we actually need the (Time t) part as it could simply be expressed in terms of the deterministic inequality (TimeGte t).
+-- [ML] we should rewrite definitions using `inf` instead of "first instant".
 data AcquisitionTime t x o
   = Time t
+    -- ^ Acquisition at time `t`.
   | AtInequality { inequalities : [Inequality t x o] }
+    -- ^ Acquisition when inequalities are verified. The order of the inequalities matters (see definition above).
   | Never
+    -- ^ Acquisition never happens.
   deriving (Eq,Show)
 
--- | Given an inequality and an acquisition time τ1, it returns the smallest acquisition time τ2 such that
--- - the inequality is verified at τ2
--- - τ2 >= τ1
--- The name `extend` comes from the fact that we are extending the set of inequality constraints that need to be verified
+-- | Given an inequality and an acquisition time τ1, it returns the acquisition time τ2 corresponding to the first instant such that
+-- - the inequality is verified
+-- - τ2 ≥ τ1
+-- The name `extend` comes from the fact that we are extending the set of inequality constraints that need to be verified.
 extend : (Ord t) => Inequality t x o -> AcquisitionTime t x o -> AcquisitionTime t x o
 extend _ Never = Never
 extend (TimeGte s) (Time t) = Time $ max s t
-extend (TimeLte s) (Time t) | s > t = Time t
+extend (TimeLte s) (Time t) | s >= t = Time t
 extend (TimeLte s) (Time t) = Never
-extend ineq@(Lte _) (Time t) = AtInequality [ineq, TimeGte t]
-extend ineq (AtInequality ineqs) = AtInequality $ ineq :: ineqs
+extend ineq@(Lte _) (Time t) = AtInequality [TimeGte t, ineq]
+extend ineq (AtInequality ineqs) = AtInequality $ ineqs <> [ineq]
 
 -- | Checks if an acquisition time falls before or at the today date.
 -- `None` is returned if the acquisition time is unknown.
