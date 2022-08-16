@@ -85,7 +85,7 @@ fapf spot ccy t acquisitionTime claim =
   where τ = extend pred s
 -- ^ the acquisition time of the inner contract is known and not in the future
 
-ϵ t ccy (When pred c, s) = pure $ DivF (ex ( disc * claim (c,τ) ) τ filtration) disc
+ϵ t ccy (When pred c, s) = pure $ MulF (ex (disc * claim (c,τ)) τ filtration) $ inv disc
   where τ = extend pred s
         filtration = case s of
           AtInequality _ -> s -- acquisition time of the outer contract is unknown
@@ -94,6 +94,7 @@ fapf spot ccy t acquisitionTime claim =
         disc = Free . ProcF $ Disc ccy
         x * y = Free $ MulF x y
         ex e τ f = Free $ E_F e τ f
+        inv = Free . InvF
 -- ^ the acquisition time of the inner contract is either unknown or known but in the future
 
 -- DONE:

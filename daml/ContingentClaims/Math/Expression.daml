@@ -32,8 +32,8 @@ data Expr t x o b
       -- ^ Negation process.
   | Mul (Expr t x o b, Expr t x o b)
       -- ^ Multiplication process.
-  | Div (Expr t x o b, Expr t x o b)
-      -- ^ Division process.
+  | Inv (Expr t x o b)
+      -- ^ Inverse process.
       -- TODO think in which cases this is well defined
   -- | I (Expr t x o b , Expr t x o b)
       -- ^ Indicator function, rework using inequalities.
@@ -50,7 +50,7 @@ data ExprF t x o b c
   | SumF [c]
   | NegF c
   | MulF { lhs : c, rhs : c}
-  | DivF { num : c, den : c}
+  | InvF c
   -- | I (Expr t x o b , Expr t x o b)
   | E_F { process : c, time : AcquisitionTime t x o, filtration : AcquisitionTime t x o }
   deriving (Functor)
@@ -63,7 +63,7 @@ instance Recursive (Expr t x o b) (ExprF t x o b) where
   project (Sum xs) = SumF xs
   project (Neg x) = NegF x
   project (Mul (x,x')) = MulF x x'
-  project (Div (x, x')) = DivF x x'
+  project (Inv x) = InvF x
   -- project (I (x, x')) = I_F x x'
   project E{..} = E_F with ..
 
@@ -75,7 +75,7 @@ instance Corecursive (Expr t x o b) (ExprF t x o b) where
   embed (SumF xs) = Sum xs
   embed (NegF x) = Neg x
   embed (MulF x x') = Mul (x, x')
-  embed (DivF x x') = Div (x, x')
+  embed (InvF x) = Inv x
   -- embed (I_F x x') = I (x, x')
   embed E_F{..} = E with ..
 
@@ -87,7 +87,7 @@ instance Foldable (ExprF t x o b) where
   foldMap f (SumF xs) = foldMap f xs
   foldMap f (NegF x) = f x
   foldMap f (MulF x x') = f x <> f x'
-  foldMap f (DivF x x') = f x <> f x'
+  foldMap f (InvF x) = f x
   -- foldMap f (I_F x x') = f x <> f x'
   foldMap f (E_F x _ _) = f x
 
@@ -102,7 +102,7 @@ instance Traversable (ExprF t x o b) where
   sequence (SumF []) = error "Traversable ExprF: sequence empty SumF"
   sequence (NegF fa) = NegF <$> fa
   sequence (MulF fa fa') = MulF <$> fa <*> fa'
-  sequence (DivF fa fa') = DivF <$> fa <*> fa'
+  sequence (InvF fa) = InvF <$> fa
 --   sequence (I_F fa fa') = I_F <$> fa <*> fa'
   sequence (E_F fa t f) = (\a -> E_F a t f) <$> fa
 
@@ -116,12 +116,10 @@ instance (Multiplicative x) => Multiplicative (Expr t x o b) where
   munit = Const munit
   x ^ y | y > 0 = x * (x ^ pred y)
   x ^ 0 = munit
-  x ^ y = curry Div munit $ x ^ (-y)
-
--- [ML] we don't give as definition of Inv but use it to define power with negative integers
+  x ^ y = Inv x ^ (-y)
 
 instance (Multiplicative x) => Divisible (Expr t x o b) where
-  x / y = Div (x,y)
+  x / y = curry Mul x $ Inv y
 
 -- [ML] we could define this as x * y ^ -1, but we are using the
 -- fact that x * Div (munit,y) == Div (x,y)
