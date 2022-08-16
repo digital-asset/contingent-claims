@@ -4,6 +4,7 @@
 module Test.Pricing2 where
 
 import ContingentClaims.Claim
+import ContingentClaims.Financial (european)
 import ContingentClaims.Observation qualified as O
 import ContingentClaims.Math.AcquisitionTime
 import ContingentClaims.Math.Expression
@@ -15,30 +16,35 @@ import DA.Date
 import DA.Tuple (thd3)
 import Prelude hiding (or, max, (<=))
 
+-- | Assets.
 data Instrument = USD | A | B | C deriving (Eq, Show)
 
+-- | Observables.
 data Observable = Spot_AMZN deriving (Eq, Show)
 
+-- | The claim type used for the tests.
 type C = Claim Date Decimal Instrument Observable
+
+-- | The observation type used for the tests.
 type O = O.Observation Date Decimal Observable
 
--- | Assets
+-- Assets
 [ccy, a, b, c] = [USD, A, B, C]
 
--- | Dates
+-- Dates
 t0 = date 1970 Jan 1
 t1 = succ t0
 t2 = succ t1
 
--- | Observations
+-- Observations
 two : O = O.pure 2.0
 spotAmzn = O.observe Spot_AMZN
 
--- | Functions performing observations
+-- Functions performing observations
 observe25: Observable -> Date -> Script Decimal = const . const . pure $ 25.0
 observeDayOfMonth _ d = pure . intToDecimal . thd3 . toGregorian $ d
 
--- | Inequalities
+-- Inequalities
 false = TimeGte $ date 3000 Jan 1
 true = TimeGte $ date 1970 Jan 1
 atT1 = TimeGte t1
@@ -47,7 +53,7 @@ atT1 = TimeGte t1
 disc = Proc $ Disc ccy
 exch = Proc $ Exch a ccy
 
--- | Valuation of `One` and `Zero` nodes.
+-- | Valuation of `One`, `Zero`, `Give`, `And`, `Or` nodes.
 testValuationBasic : Script()
 testValuationBasic = do
 
@@ -107,6 +113,7 @@ testValuationWhen = do
   -- given that the valuation focuses on claims that are "up-to-date" with respect to lifecycle events
   -- and the lifecycle function replaces verified stochastic stopping rule with deterministic ones
 
+-- | Valuation of `Scale` nodes.
 testValuationScale : Script()
 testValuationScale = do
   let
@@ -128,6 +135,7 @@ testValuationScale = do
 
   pure ()
 
+-- | Valuation of `Cond` nodes.
 testValuationCond : Script()
 testValuationCond = do
   let
@@ -153,13 +161,27 @@ testValuationCond = do
 
   pure ()
 
--- valueCall = script do
---   let
---     c =
---     formula = fapf observe25 ccy val t $ european t' (call AMZN 3300.0 USD)
---       s = Proc "Spot_AMZN" (val Spot_AMZN)
---       k = Const 3300.0
---       usd = Proc "USD" (disc USD)
---       expect = usd t * E (max (s t' - k) aunit / usd t') t
---   print formula expect
---   multIdentity formula === expect
+valueCall = script do
+  let
+    k = O.pure 100.0 -- strike price
+    c : C = european t1 $ scale (spotAmzn - k) $ one USD
+    f = Time t0 -- filtration
+    τ = Time t1 -- stopping rule
+    obsProcess = Proc (Observable Spot_AMZN) - Const 100.0
+    expect = E (disc * Max [ obsProcess * Const 1.0 , aunit ] ) τ f / disc
+
+  -- before expiry
+  value <- fapf observe25 ccy t0 t0 c
+  value === expect
+
+  let
+    obsProcess = Const 25.0 - Const 100.0
+    expect = Max [ obsProcess * Const 1.0 , aunit ]
+
+  -- at expiry (but before exercise)
+  value <- fapf observe25 ccy t1 t0 c
+  value === expect
+
+  pure ()
+
+-- TODO simplify Mul Const 1.0
