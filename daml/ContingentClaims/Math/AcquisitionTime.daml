@@ -1,11 +1,12 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module ContingentClaims.Math.AcquisitionTime (
-  AcquisitionTime(..),
-  beforeOrAtToday,
-  extend
-) where
+module ContingentClaims.Math.AcquisitionTime
+  ( AcquisitionTime(..)
+  , beforeOrAtToday
+  , extend
+  , resolve
+  ) where
 
 import ContingentClaims.Claim (Inequality(..))
 import Prelude hiding (Time, sequence, mapA, const)
@@ -44,4 +45,10 @@ beforeOrAtToday _ Never = Some False
 beforeOrAtToday today (Time s) = Some $ s <= today
 beforeOrAtToday today (AtInequality [TimeGte s]) = Some $ s <= today
 beforeOrAtToday today (AtInequality _) = None
+
+-- | Check if acquisition time is known.
+-- TODO improve for `TimeLte`.
+resolve : AcquisitionTime t x o -> Optional t
+resolve (Time t) = Some t
+resolve _ = None
 

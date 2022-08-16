@@ -13,7 +13,7 @@ import Daml.Script
 import DA.Assert
 import DA.Date
 import DA.Tuple (thd3)
-import Prelude hiding (max)
+import Prelude hiding (max, (<=))
 
 type C = Claim Date Decimal Text Text
 
@@ -120,7 +120,30 @@ testValuationScale = do
 
   pure ()
 
-  -- TODO : we should define a mapping from inequality to the corresponding stochastic process (same as for observables) as these need to be simulated
+testValuationCond : Script()
+testValuationCond = do
+  let
+    p1 = O.Const 5.0 <= O.observe "spot"
+    c1 : C = when atT1 $ cond p1 (one a) zero
+    p2 = O.observe "spot" <= O.Const 5.0
+    c2 : C = when atT1 $ cond p2 (one a) zero
+
+    f = Time t0 -- filtration
+    τ = Time t1 -- stopping rule
+    expect = E (disc * (I p1 * exch + (Const 1.0 - I p1) * aunit) ) τ f / disc
+
+  -- At `t0` the stopping rule is not verified
+  value <- fapf observe25 ccy t0 t0 c1
+  value === expect
+
+  -- At `t1` the stopping rule is verified
+  value <- fapf observe25 ccy t1 t0 c1
+  value === exch
+
+  value <- fapf observe25 ccy t1 t0 c2
+  value === aunit
+
+  pure ()
 
   -- TODO : write helper function to collect observables (catamorphism)
 

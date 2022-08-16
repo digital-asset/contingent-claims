@@ -10,13 +10,14 @@ module ContingentClaims.Math.Stochastic2 (
 ) where
 
 import ContingentClaims.Internal.Claim (Claim(..))
-import ContingentClaims.Claim hiding (compare,(<=))
-import ContingentClaims.Math.AcquisitionTime(AcquisitionTime(..), beforeOrAtToday, extend)
+import ContingentClaims.Claim hiding ((<=))
+import ContingentClaims.Math.AcquisitionTime(AcquisitionTime(..), beforeOrAtToday, extend, resolve)
 import ContingentClaims.Math.Expression
 import ContingentClaims.Observation qualified as O
 import ContingentClaims.Util.Recursion (futuM)
 import Daml.Control.Arrow ((|||))
 import Daml.Control.Recursion
+import Prelude hiding (compare)
 
 -- | Elementary processes as described in the Peyton-Jones paper.
 -- Once a model assumption is made, these can be replaced by the specific model (e.g. geometric brownian motion for stock spot prices)
@@ -30,7 +31,7 @@ data ElementaryProcess a o
   deriving (Eq, Show)
 
 -- | Maps a claim to the corresponding value process in currency `ccy`, taking into account known information up to time `t`.
-fapf : (Ord t, Eq a, Additive x, Multiplicative x, CanAbort m)
+fapf : (Ord t, Eq a, Ord x, Number x, Divisible x, CanAbort m)
   => (o -> t -> m x)
      -- ^ function to evaluate observables
   -> a
@@ -47,7 +48,7 @@ fapf spot ccy t acquisitionTime claim =
   $ Left (claim, Time acquisitionTime) -- `Left` is used for claims, `Right` for observables
   where
     -- coalg : (Additive x) => (Carrier t x a) -> (ExprF t x a (ElementaryProcess a) (Free (ExprF t x a (ElementaryProcess a)) (Carrier t x a)))
-    coalg = ϵ t ccy ||| υ
+    coalg = ϵ spot t ccy ||| υ
 
     -- υ : (O.Observation t x a, AcquisitionTime t x a) -> (ExprF t x a (ElementaryProcess a) (Free (ExprF t x a (ElementaryProcess a)) (Carrier t x a)))
     υ (O.Const {value=k}, _) = pure $ ConstF k
@@ -56,36 +57,33 @@ fapf spot ccy t acquisitionTime claim =
     υ (O.Add (x, x'), s) = pure $ SumF [obs (x, s), obs (x', s)]
     υ (O.Neg x, s) =  pure . NegF $ obs (x, s)
     υ (O.Mul (x, x'), s) = pure $ obs (x, s) `MulF` obs (x', s)
-    -- υ (O.Div (x, x'), t) = obs (x, t) `MulF` inv (obs (x', t))
-    -- ^ check if we prefer using Divisible instead of power
-    υ other = abort ""
+    υ (O.Div (x, x'), t) = pure $ obs (x, t) `MulF` inv (obs (x', t))
 
     obs = pure . Right
+    inv = Free . InvF
 
-  -- check when we should evaluate an observable
+ϵ : (Eq a, Ord t, Ord x, Number x, Divisible x, CanAbort m) => (o -> t -> m x) -> t -> a -> (Claim t x a o, AcquisitionTime t x o) -> m (ExprF t x o (ElementaryProcess a o) (Free (ExprF t x o (ElementaryProcess a o)) (Carrier t x a o)))
 
-ϵ : (Eq a, Ord t, Additive x, Multiplicative x, CanAbort m) => t -> a -> (Claim t x a o, AcquisitionTime t x o) -> m (ExprF t x o (ElementaryProcess a o) (Free (ExprF t x o (ElementaryProcess a o)) (Carrier t x a o)))
+ϵ _ _ _ (Zero, _) = pure $ ConstF aunit
 
-ϵ _ _ (Zero, _) = pure $ ConstF aunit
-
-ϵ _ ccy (One asset, _) = pure $ exch asset ccy
+ϵ _ _ ccy (One asset, _) = pure $ exch asset ccy
   where
     exch asset ccy = if asset == ccy then ConstF munit else ProcF $ Exch asset ccy
 
-ϵ _ _ (Give c, s) = pure . NegF $ Pure $ Left (c,s)
+ϵ _ _ _ (Give c, s) = pure . NegF $ Pure $ Left (c,s)
 
-ϵ _ _ (Scale k c, s) = pure $ obs (k,s) `MulF` claim (c,s)
+ϵ _ _ _ (Scale k c, s) = pure $ obs (k,s) `MulF` claim (c,s)
   where obs = pure . Right
         claim = pure . Left
 
-ϵ _ _ (And c c' cs, s) = pure . SumF $ fmap (claim . (, s)) (c :: c' :: cs)
+ϵ _ _ _ (And c c' cs, s) = pure . SumF $ fmap (claim . (, s)) (c :: c' :: cs)
   where claim = pure . Left
 
-ϵ t ccy (When pred c, s) | beforeOrAtToday t τ == Some True = ϵ t ccy (c, τ)
+ϵ spot t ccy (When pred c, s) | beforeOrAtToday t τ == Some True = ϵ spot t ccy (c, τ)
   where τ = extend pred s
 -- ^ the acquisition time of the inner contract is known and not in the future
 
-ϵ t ccy (When pred c, s) = pure $ MulF (ex (disc * claim (c,τ)) τ filtration) $ inv disc
+ϵ _ t ccy (When pred c, s) = pure $ MulF (ex (disc * claim (c,τ)) τ filtration) $ inv disc
   where τ = extend pred s
         filtration = case s of
           AtInequality _ -> s -- acquisition time of the outer contract is unknown
@@ -97,6 +95,28 @@ fapf spot ccy t acquisitionTime claim =
         inv = Free . InvF
 -- ^ the acquisition time of the inner contract is either unknown or known but in the future
 
+ϵ spot t ccy (Cond pred c1 c2, s) | beforeOrAtToday t s == Some True = do
+  let
+    Some obsTime = resolve s
+  predicate <- compare spot pred obsTime
+  if predicate then ϵ spot t ccy (c1, s) else ϵ spot t ccy (c2, s)
+-- ^ the acquisition time of the `Cond` node is known and not in the future
+-- potentially we could replace this by a 1 * if we want to avoid the recursive call inside the RV-coalgebra
+
+ϵ spot t ccy (Cond pred c1 c2, s) =
+  let
+    v1 = ind pred * claim (c1,s)
+    v2 = (one - ind pred) * claim (c2,s)
+  in
+    pure $ SumF [v1, v2]
+  where claim = pure . Left
+        x - y = Free $ SumF [x, (Free $ NegF y)]
+        x * y = Free $ MulF x y
+        ind = Free . I_F
+        one = Free $ ConstF munit
+-- ^ the acquisition time of the inner contract is either unknown or known but in the future
+-- Value is ind(p) * c1 + (1 - ind(p)) * c2 where p is the boolean process implied by the inequality
+
 -- DONE:
 -- zero
 -- one
@@ -104,13 +124,15 @@ fapf spot ccy t acquisitionTime claim =
 -- scale
 -- when
 -- and
+-- cond
 
 -- MISSING :
 -- or
 -- anytime
 -- until
--- cond
-ϵ _ _ _ = abort "Unsupported primitive"
+ϵ _ _ _ _ = abort "Unsupported primitive"
+
+-- TODO how do we calculate value given initial acquisition time? We need to discount as of today so probably need to introduce an extra discount term disc s / disc t initially ...
 
 -- | HIDE
 -- Carrier of the CV-coalgebra ϵ ||| υ
