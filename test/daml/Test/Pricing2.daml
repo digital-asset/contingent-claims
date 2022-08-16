@@ -15,11 +15,15 @@ import DA.Date
 import DA.Tuple (thd3)
 import Prelude hiding (or, max, (<=))
 
-type C = Claim Date Decimal Text Text
+data Instrument = USD | A | B | C deriving (Eq, Show)
+
+data Observable = Spot_AMZN deriving (Eq, Show)
+
+type C = Claim Date Decimal Instrument Observable
+type O = O.Observation Date Decimal Observable
 
 -- | Assets
-[a,b,c] = ["a","b","c"]
-ccy = "USD"
+[ccy, a, b, c] = [USD, A, B, C]
 
 -- | Dates
 t0 = date 1970 Jan 1
@@ -27,10 +31,11 @@ t1 = succ t0
 t2 = succ t1
 
 -- | Observations
-two : O.Observation Date Decimal Text = O.pure 2.0
+two : O = O.pure 2.0
+spotAmzn = O.observe Spot_AMZN
 
 -- | Functions performing observations
-observe25: Text -> Date -> Script Decimal = const . const . pure $ 25.0
+observe25: Observable -> Date -> Script Decimal = const . const . pure $ 25.0
 observeDayOfMonth _ d = pure . intToDecimal . thd3 . toGregorian $ d
 
 -- | Inequalities
@@ -41,12 +46,6 @@ atT1 = TimeGte t1
 -- Helper expressions
 disc = Proc $ Disc ccy
 exch = Proc $ Exch a ccy
-
--- max x y = I (x, y) * x + I (y, x) * y
-
--- This is needed because scale x (one USD) = x * 1.0. It would make writing
--- the expressions by hand tedious
--- multIdentity = cata unitIdentity
 
 -- | Valuation of `One` and `Zero` nodes.
 testValuationBasic : Script()
@@ -95,7 +94,7 @@ testValuationWhen = do
 
   -- 3. When (o1 <= o2) ...
   let
-    pred = Lte (O.Const 100.0, O.observe "spot") -- spot greater or equal than 100.0
+    pred = O.Const 100.0 <= spotAmzn -- spot greater or equal than 100.0
     c2 = when pred $ one a
 
     f = Time t0 -- filtration
@@ -111,12 +110,12 @@ testValuationWhen = do
 testValuationScale : Script()
 testValuationScale = do
   let
-    observable  = O.Const 5.0 + O.observe "spot"
+    observable  = O.Const 5.0 + spotAmzn
     claim : C = when atT1 $ scale observable $ one a
 
     f = Time t0 -- filtration
     τ = Time t1 -- stopping rule
-    obsProcess = Const 5.0 + Proc (Observable "spot")
+    obsProcess = Const 5.0 + Proc (Observable Spot_AMZN)
     expect = E (disc * (obsProcess * exch) ) τ f / disc
 
   -- At `t0` the stopping rule is not verified
@@ -132,9 +131,9 @@ testValuationScale = do
 testValuationCond : Script()
 testValuationCond = do
   let
-    p1 = O.Const 5.0 <= O.observe "spot"
+    p1 = O.Const 5.0 <= spotAmzn
     c1 : C = when atT1 $ cond p1 (one a) zero
-    p2 = O.observe "spot" <= O.Const 5.0
+    p2 = spotAmzn <= O.Const 5.0
     c2 : C = when atT1 $ cond p2 (one a) zero
 
     f = Time t0 -- filtration
@@ -154,6 +153,13 @@ testValuationCond = do
 
   pure ()
 
-  -- TODO : write helper function to collect observables (catamorphism)
-
-  -- TODO : write helper function to collect relevant fixing dates (for the purpose of MC simulation)
+-- valueCall = script do
+--   let
+--     c =
+--     formula = fapf observe25 ccy val t $ european t' (call AMZN 3300.0 USD)
+--       s = Proc "Spot_AMZN" (val Spot_AMZN)
+--       k = Const 3300.0
+--       usd = Proc "USD" (disc USD)
+--       expect = usd t * E (max (s t' - k) aunit / usd t') t
+--   print formula expect
+--   multIdentity formula === expect
