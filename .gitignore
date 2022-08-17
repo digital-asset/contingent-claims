@@ -1,0 +1,8 @@
+.daml/
+*.log
+docs/.jekyll-cache/
+docs/_site/
+lib/
+.vscode/
+.docs/
+.DS_Store
