@@ -14,36 +14,43 @@ import Daml.Control.Recursion
 import Prelude hiding (Time, sequence, mapA, const)
 
 -- | Represents an algebraic expression of a t-adapted stochastic process.
--- t : time parameter
--- x : state parameter, typically Decimal (our best approximation of real numbers)
--- o : reference used to identify observables
--- b : type describing elementary processes
+-- t : time parameter.
+-- x : state parameter, typically Decimal (our best approximation of real numbers).
+-- o : reference used to identify observables.
+-- b : type describing elementary processes.
 data Expr t x o b
   = Const x
-      -- ^ A constant process.
+    -- ^ A constant process.
   | Proc { name : b }
-      -- ^ An elementary process which we cannot decompose further.
+    -- ^ An elementary process which we cannot decompose further.
   -- | Sup { lowerBound: t, tau: t, rv : Expr t }
-      -- ^ Sup, needs to be reworked using feasible exercise strategies.
+    -- -- ^ Sup, needs to be reworked using feasible exercise strategies.
   | Sum [Expr t x o b]
-      -- ^ Sum process.
+    -- ^ Sum process.
   | Neg (Expr t x o b)
-      -- ^ Negation process.
+    -- ^ Negation process.
   | Mul (Expr t x o b, Expr t x o b)
-      -- ^ Multiplication process.
+    -- ^ Multiplication process.
   | Inv (Expr t x o b)
-      -- ^ Inverse process.
+    -- ^ Inverse process.
   | Max [Expr t x o b]
-      -- ^ Maximum process.
+    -- ^ Maximum process.
   | I (Inequality t x o)
-      -- ^ Indicator function. I(p) is 1 if p(t) = True, False otherwise, where
-      -- `p` is the boolen process corrersponding to the provided inequality.
-      -- Specifically, this means
-      -- - for `o1 ≤ o2`, `p = υ(o1) ≤ υ(o2)`
-      -- - for `TimeGte t`, `p(s) = s ≥ t`
-      -- - for `TimeLte t`, `p(s) = s ≤ t`
+    -- ^ Indicator function. I(p) is 1 if p(t) = True, False otherwise, where
+    -- `p` is the boolen process corrersponding to the provided inequality.
+    -- Specifically, this means
+    -- - for `o1 ≤ o2`, `p = υ(o1) ≤ υ(o2)`
+    -- - for `TimeGte t`, `p(s) = s ≥ t`
+    -- - for `TimeLte t`, `p(s) = s ≤ t`
   | E { process : Expr t x o b, time : AcquisitionTime t x o, filtration : AcquisitionTime t x o }
-      -- ^ Conditional expectation of `process(time)` conditioned on the filtration F_`t`.
+    -- ^ Conditional expectation of `process(time)` conditioned on the filtration F_`t`.
+  -- | Snell { process : Expr t x o b, time : AcquisitionTime t x o, predicate : Inequality t x o}
+  --     -- ^ Snell envelope of a stochastic process.
+  --     -- We need the predicate to identify the feasible region
+  --     -- I feel that we need the acquisition time to identify the conditional filtration, but it might not be needed.
+  -- | Absorb { process : Expr t x o b, time : AcquisitionTime t x o, predicate : Inequality t x o}
+  --     -- ^ Absorb primitive.
+  --     -- It feels that absorb hides an expectation, but I need to write this down in formulas for better understanding.
   deriving (Eq,Show)
 
 -- | Base functor for `Expr`.
