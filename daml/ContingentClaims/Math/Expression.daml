@@ -4,6 +4,7 @@
 module ContingentClaims.Math.Expression (
   Expr(..),
   ExprF(..),
+  simplify
 ) where
 
 import ContingentClaims.Claim (Inequality(..))
@@ -30,14 +31,14 @@ data Expr t x o b
   | Neg (Expr t x o b)
     -- ^ Negation process.
   | Mul (Expr t x o b, Expr t x o b)
-    -- ^ Multiplication process.
+    -- ^ Multiplication of two processes (`p1 * p2`).
   | Inv (Expr t x o b)
-    -- ^ Inverse process.
+    -- ^ Inverse of a process (`1 / p`).
   | Max [Expr t x o b]
     -- ^ Maximum process.
   | I (Inequality t x o)
     -- ^ Indicator function. I(p) is 1 if p(t) = True, False otherwise, where
-    -- `p` is the boolen process corrersponding to the provided inequality.
+    -- `p` is the boolen process corresponding to the provided inequality.
     -- Specifically, this means
     -- - for `o1 ≤ o2`, `p = υ(o1) ≤ υ(o2)`
     -- - for `TimeGte t`, `p(s) = s ≥ t`
@@ -51,6 +52,8 @@ data Expr t x o b
   -- | Absorb { process : Expr t x o b, time : AcquisitionTime t x o, predicate : Inequality t x o}
   --     -- ^ Absorb primitive.
   --     -- It feels that absorb hides an expectation, but I need to write this down in formulas for better understanding.
+  -- In order to write until valuation explicitly, we need to introduce a new class of boolean processes, namely those that we start observing at a time tau and have never been true since (we can then use an indicator function to transform it to a real process)
+  -- We can use the absorb primitive to cover this case, which we can then distribute. across the other primitives.
   deriving (Eq,Show)
 
 -- | Base functor for `Expr`.
@@ -134,3 +137,76 @@ instance (Multiplicative x) => Multiplicative (Expr t x o b) where
 
 instance (Multiplicative x) => Divisible (Expr t x o b) where
   x / y = curry Mul x $ Inv y
+
+-- | This is meant to be a function that algebraically simplifies the FAPF by
+-- 1) using simple identities and ring laws
+-- 2) change of numeraire technique.
+simplify : (Eq x, Eq b, Eq t, Eq o, Multiplicative x) => Expr t x o b -> Expr t x o b
+simplify =
+    cata unitIdentity
+  -- . cata zeroIdentity
+  . cata factNeg
+  -- . \case [] -> Const aunit
+  --         [x] -> x
+  --         xs -> Sum xs
+  -- . cata distSum
+  -- . ana commuteLeft
+  -- . cata mulBeforeSum
+
+-- {- Functions below here are helpers for simplifying the expression tree, used mainly in `simplify` -}
+
+-- | Algebra that simplifies sums, multiplications, expectations involving 0.0.
+-- BUG I need to add an additive typeclass constraint, otherwise aunit is just a pattern match.
+zeroIdentity : ExprF t x o b (Expr t x o b) -> Expr t x o b
+zeroIdentity (MulF (Const aunit) x) = Const aunit
+zeroIdentity (MulF x (Const aunit)) = Const aunit
+zeroIdentity (SumF xs) = Sum $ filter (not . isZero) xs
+  where isZero (Const aunit) = True
+        isZero _ = False
+zeroIdentity (E_F (Const aunit) _ _) = Const aunit
+zeroIdentity other = embed other
+
+-- | Algebra that simplifies multiplications and divisions by 1.0.
+unitIdentity : (Eq x, Eq b, Eq t, Eq o, Multiplicative x) => ExprF t x o b (Expr t x o b) -> Expr t x o b
+unitIdentity (MulF a b) | a == munit = b
+unitIdentity (MulF a b) | b == munit = a
+unitIdentity (InvF x) | x == munit = munit
+unitIdentity other = embed other
+
+-- | Algebra that collects and simplifies minuses.
+factNeg : ExprF t x o b (Expr t x o b) -> Expr t x o b
+factNeg (NegF (Neg x)) = x
+-- factNeg (MulF (Neg x) (Neg y)) = Mul (x, y) -- [ML] I think this is redundant
+factNeg (MulF (Neg x) y) = Neg $ Mul (x, y)
+factNeg (MulF y (Neg x)) = Neg $ Mul (y, x)
+factNeg (E_F (Neg x) t f) = Neg $ E x t f
+factNeg other = embed other
+
+-- -- | Turn any expression into a list of terms to be summed together
+-- distSum : ExprF t x o b [Expr t x o b] -> [Expr t x o b]
+-- distSum = \case
+--   ConstF x -> [Const x]
+--   SumF xs -> join xs
+--   MulF xs xs' -> curry Mul <$> xs <*> xs'
+--   NegF xs -> Neg <$> xs
+--   E_F xs t -> flip E t <$> xs
+--   I_F xs xs' -> [I (unroll xs, unroll xs')]
+--   ProcF{..} -> [Proc{..}]
+--   where unroll xs = Sum xs
+
+-- | Algebra that changes `(a + b) x c` to `c x (a + b)`
+-- mulBeforeSum : ExprF t x o b (Expr t x o b) -> Expr t x o b
+-- mulBeforeSum (MulF y@Sum{} x) = Mul (x, y)
+-- mulBeforeSum (MulF (Mul (x, y@Sum{})) x') = Mul (Mul (x,x'), y)
+-- mulBeforeSum other = embed other
+
+-- | Algebra that applies commutative property to all multiplications.
+-- commute : ExprF t x o b (Expr t x o b) -> Expr t x o b
+-- commute (MulF a b) = embed $ MulF b a
+-- commute other = embed other
+
+-- | Change e.g. `a x (b x c)` to `(a x b) x c`.
+-- We are not using commutative property, but rather associative --> should rename
+-- commuteLeft : Expr t x o b -> ExprF t x o b (Expr t x o b)
+-- commuteLeft (Mul (a,(Mul (b, c)))) = Mul (a, b) `MulF` c
+-- commuteLeft other = project other
