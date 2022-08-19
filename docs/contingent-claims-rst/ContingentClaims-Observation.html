@@ -1,0 +1,430 @@
+<!-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!-->
+<html class="no-js" lang="en">
+<!--<![endif]-->
+
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Module ContingentClaims.Observation &mdash; Daml Finance  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+  
+  <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+  <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+  <script src="../_static/jquery.js"></script>
+  <script src="../_static/underscore.js"></script>
+  <script src="../_static/doctools.js"></script>
+  <script src="../_static/clipboard.min.js"></script>
+  <script src="../_static/copybutton.js"></script>
+  
+  <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+  
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/copybutton.css" type="text/css" />
+  <link rel="index" title="Index" href="../genindex.html" />
+  <link rel="search" title="Search" href="../search.html" />
+  <link rel="next" title="Module ContingentClaims.Util" href="ContingentClaims-Util.html" />
+  <link rel="prev" title="&lt;no title&gt;" href="ContingentClaims-MathML.html" /> 
+
+  
+  <link rel="icon" type="image/svg+xml"  href="../_static/images/daml-logo-mark-light.svg">
+  <link rel="alternate icon" href="../_static/images/daml-favicon-1.ico">
+
+  <!-- Google Tag Manager -->
+  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+  })(window,document,'script','dataLayer','GTM-MSWJMNX');</script>
+  <!-- End Google Tag Manager -->
+</head>
+
+<body class="wy-body-for-nav">
+  <!-- Google Tag Manager (noscript) -->
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MSWJMNX"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+  <!-- End Google Tag Manager (noscript) -->
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-nav-side-shadow"></div>
+      <div class="wy-side-scroll">
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+          
+          
+          
+          
+          
+          <ul>
+<li class="toctree-l1"><a class="reference internal" href="../index.html">Daml Finance Documentation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Code documentation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="ContingentClaims-Claim.html">ContingentClaims.Claim</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ContingentClaims-Claim.html#data-types">Data Types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ContingentClaims-Claim.html#functions">Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ContingentClaims-Financial.html">ContingentClaims.Financial</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ContingentClaims-Financial.html#functions">Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ContingentClaims-Lifecycle.html">ContingentClaims.Lifecycle</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ContingentClaims-Lifecycle.html#data-types">Data Types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ContingentClaims-Lifecycle.html#functions">Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ContingentClaims-Math-Stochastic.html">ContingentClaims.Math.Stochastic</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ContingentClaims-Math-Stochastic.html#typeclasses">Typeclasses</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ContingentClaims-Math-Stochastic.html#data-types">Data Types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ContingentClaims-Math-Stochastic.html#functions">Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">ContingentClaims.Observation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#data-types">Data Types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#functions">Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ContingentClaims-Util.html">ContingentClaims.Util</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ContingentClaims-Util.html#functions">Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ContingentClaims-Util-Recursion.html">ContingentClaims.Util.Recursion</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ContingentClaims-Util-Recursion.html#functions">Functions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          
+          
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <div class="topbar fixed">
+        
+        <nav class="wy-nav-top" aria-label="top navigation">
+          
+          <i data-toggle="wy-nav-top" class="wy-nav-top-toggle"></i>
+          
+        </nav>
+        <!-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+<div class="navbar">
+    <h1><img src="../_static/images/Daml_Logo_Blue.svg"></h1>
+    <div class="navbar-menu">
+        <div class="da-menu-item da-menu-depth-1" role="menu">
+            <a href="https://www.digitalasset.com/developers" role="menuitem" class="da-menu-link">Developers</a>
+        </div>
+        <div class="da-menu-item da-menu-depth-1" role="menu">
+            <a href="https://www.digitalasset.com/products" role="menuitem" class="da-menu-link">Products</a>
+        </div>
+        <div class="da-menu-item da-menu-depth-1" role="menu">
+            <a href="https://www.digitalasset.com" role="menuitem" class="da-menu-link">Company</a>
+        </div>
+    </div>
+</div>
+
+        <div class="version ">
+          <span class="hide-mobile">Version&nbsp;</span><span class="version_switcher_placeholder"></span>
+          
+        </div>
+
+
+        <!-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<div class="search-inline">
+    <div id="rtd-search-inline-form" class="wy-form">
+        <input type="text" class="search-inline-input" placeholder="Search" name="q">
+        <img src="../_static/images/Search.svg" class="search-inline-img"/>
+    </div>
+    <div class="search-alert">
+        Please enter at least 3 letters.
+    </div>
+    <div id="search-inline-results" class="search-inline-results">
+        
+    </div>
+</div>
+          <!-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+<div class="content-menu collapsed">
+    <span class="content-menu-title">In This Section</span>
+    <span class="content-menu-expand"></span>
+    <div class="content-menu-wrapper">
+        
+        <!-- Local TOC -->
+        <div class="content-menu-toc"><ul>
+<li><a class="reference internal" href="#">Module ContingentClaims.Observation</a><ul>
+<li><a class="reference internal" href="#data-types">Data Types</a></li>
+<li><a class="reference internal" href="#functions">Functions</a></li>
+</ul>
+</li>
+</ul>
+</div>
+        
+    </div>
+</div>
+        
+
+      </div>
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+          
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div itemprop="articleBody">
+                
+  <section id="module-contingentclaims-observation">
+<span id="module-contingentclaims-observation-52423"></span><h1>Module ContingentClaims.Observation<a class="headerlink" href="#module-contingentclaims-observation" title="Permalink to this headline">¶</a></h1>
+<section id="data-types">
+<h2>Data Types<a class="headerlink" href="#data-types" title="Permalink to this headline">¶</a></h2>
+<p id="type-contingentclaims-observation-observation-36736"><strong>data</strong> <a class="reference internal" href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o</p>
+<blockquote>
+<div><p>Concrete implementation of <code class="docutils literal notranslate"><span class="pre">Observable</span></code>, which can be serialized.
+Conceptually it’s helpful to think of this as the type <code class="docutils literal notranslate"><span class="pre">t</span> <span class="pre">-&gt;</span> <span class="pre">x</span></code>, or <code class="docutils literal notranslate"><span class="pre">t</span> <span class="pre">-&gt;</span> <span class="pre">Update</span> <span class="pre">x</span></code>.</p>
+<p id="constr-contingentclaims-observation-const-70708"><a class="reference internal" href="#constr-contingentclaims-observation-const-70708">Const</a></p>
+<blockquote>
+<div><p>A named constant</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 27%" />
+<col style="width: 18%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>value</p></td>
+<td><p>x</p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p id="constr-contingentclaims-observation-observe-10987"><a class="reference internal" href="#constr-contingentclaims-observation-observe-10987">Observe</a></p>
+<blockquote>
+<div><p>A named parameter</p>
+<table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 27%" />
+<col style="width: 18%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>key</p></td>
+<td><p>o</p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p id="constr-contingentclaims-observation-add-72670"><a class="reference internal" href="#constr-contingentclaims-observation-add-72670">Add</a> (<a class="reference internal" href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o, <a class="reference internal" href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o)</p>
+<p id="constr-contingentclaims-observation-neg-68861"><a class="reference internal" href="#constr-contingentclaims-observation-neg-68861">Neg</a> (<a class="reference internal" href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o)</p>
+<p id="constr-contingentclaims-observation-mul-65149"><a class="reference internal" href="#constr-contingentclaims-observation-mul-65149">Mul</a> (<a class="reference internal" href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o, <a class="reference internal" href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o)</p>
+<p id="constr-contingentclaims-observation-div-87698"><a class="reference internal" href="#constr-contingentclaims-observation-div-87698">Div</a> (<a class="reference internal" href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o, <a class="reference internal" href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o)</p>
+<p><strong>instance</strong> Corecursive (<a class="reference internal" href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o) (<a class="reference internal" href="#type-contingentclaims-observation-observationf-8193">ObservationF</a> t x o)</p>
+<p><strong>instance</strong> Recursive (<a class="reference internal" href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o) (<a class="reference internal" href="#type-contingentclaims-observation-observationf-8193">ObservationF</a> t x o)</p>
+<p><strong>instance</strong> <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-base-functor-31205">Functor</a> (<a class="reference internal" href="#type-contingentclaims-observation-observation-36736">Observation</a> t x)</p>
+<p><strong>instance</strong> (<a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713">Eq</a> x, <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713">Eq</a> o) =&gt; <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713">Eq</a> (<a class="reference internal" href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o)</p>
+<p><strong>instance</strong> <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-num-additive-25881">Additive</a> x =&gt; <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-num-additive-25881">Additive</a> (<a class="reference internal" href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o)</p>
+<p><strong>instance</strong> <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-num-multiplicative-10593">Multiplicative</a> x =&gt; <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-num-divisible-86689">Divisible</a> (<a class="reference internal" href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o)</p>
+<p><strong>instance</strong> <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-num-multiplicative-10593">Multiplicative</a> x =&gt; <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-num-multiplicative-10593">Multiplicative</a> (<a class="reference internal" href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o)</p>
+<p><strong>instance</strong> (<a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-num-additive-25881">Additive</a> x, <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-num-multiplicative-10593">Multiplicative</a> x) =&gt; <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-num-number-53664">Number</a> (<a class="reference internal" href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o)</p>
+<p><strong>instance</strong> (<a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-show-show-65360">Show</a> t, <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-show-show-65360">Show</a> x, <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-show-show-65360">Show</a> o) =&gt; <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-show-show-65360">Show</a> (<a class="reference internal" href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o)</p>
+</div></blockquote>
+<p id="type-contingentclaims-observation-observationf-8193"><strong>data</strong> <a class="reference internal" href="#type-contingentclaims-observation-observationf-8193">ObservationF</a> t x o b</p>
+<blockquote>
+<div><p id="constr-contingentclaims-observation-constf-89713"><a class="reference internal" href="#constr-contingentclaims-observation-constf-89713">ConstF</a></p>
+<blockquote>
+<div><table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 27%" />
+<col style="width: 18%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>value</p></td>
+<td><p>x</p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p id="constr-contingentclaims-observation-observef-44560"><a class="reference internal" href="#constr-contingentclaims-observation-observef-44560">ObserveF</a></p>
+<blockquote>
+<div><table class="colwidths-given docutils align-default">
+<colgroup>
+<col style="width: 27%" />
+<col style="width: 18%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>key</p></td>
+<td><p>o</p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p id="constr-contingentclaims-observation-addf-6843"><a class="reference internal" href="#constr-contingentclaims-observation-addf-6843">AddF</a> (b, b)</p>
+<p id="constr-contingentclaims-observation-negf-14222"><a class="reference internal" href="#constr-contingentclaims-observation-negf-14222">NegF</a> b</p>
+<p id="constr-contingentclaims-observation-mulf-34126"><a class="reference internal" href="#constr-contingentclaims-observation-mulf-34126">MulF</a> (b, b)</p>
+<p id="constr-contingentclaims-observation-divf-86887"><a class="reference internal" href="#constr-contingentclaims-observation-divf-86887">DivF</a> (b, b)</p>
+<p><strong>instance</strong> Corecursive (<a class="reference internal" href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o) (<a class="reference internal" href="#type-contingentclaims-observation-observationf-8193">ObservationF</a> t x o)</p>
+<p><strong>instance</strong> Recursive (<a class="reference internal" href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o) (<a class="reference internal" href="#type-contingentclaims-observation-observationf-8193">ObservationF</a> t x o)</p>
+<p><strong>instance</strong> <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-base-functor-31205">Functor</a> (<a class="reference internal" href="#type-contingentclaims-observation-observationf-8193">ObservationF</a> t x o)</p>
+<p><strong>instance</strong> (<a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713">Eq</a> x, <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713">Eq</a> o, <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713">Eq</a> b) =&gt; <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713">Eq</a> (<a class="reference internal" href="#type-contingentclaims-observation-observationf-8193">ObservationF</a> t x o b)</p>
+<p><strong>instance</strong> (<a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-show-show-65360">Show</a> x, <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-show-show-65360">Show</a> o, <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-show-show-65360">Show</a> b) =&gt; <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-show-show-65360">Show</a> (<a class="reference internal" href="#type-contingentclaims-observation-observationf-8193">ObservationF</a> t x o b)</p>
+<p><strong>instance</strong> <a class="reference external" href="https://docs.daml.com/daml/stdlib/DA-Foldable.html#class-da-foldable-foldable-25994">Foldable</a> (<a class="reference internal" href="#type-contingentclaims-observation-observationf-8193">ObservationF</a> t x o)</p>
+<p><strong>instance</strong> <a class="reference external" href="https://docs.daml.com/daml/stdlib/DA-Traversable.html#class-da-traversable-traversable-18144">Traversable</a> (<a class="reference internal" href="#type-contingentclaims-observation-observationf-8193">ObservationF</a> t x o)</p>
+</div></blockquote>
+<dl class="simple" id="type-contingentclaims-observation-t-26484">
+<dt><strong>type</strong> <a class="reference internal" href="#type-contingentclaims-observation-t-26484">T</a></dt><dd><p>= <a class="reference internal" href="#type-contingentclaims-observation-observation-36736">Observation</a></p>
+</dd>
+</dl>
+</section>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Permalink to this headline">¶</a></h2>
+<dl id="function-contingentclaims-observation-pure-48671">
+<dt><a class="reference internal" href="#function-contingentclaims-observation-pure-48671">pure</a></dt><dd><p>: x -&gt; <a class="reference internal" href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o</p>
+<p>Lift a constant to an observation</p>
+</dd>
+</dl>
+<dl id="function-contingentclaims-observation-observe-43610">
+<dt><a class="reference internal" href="#function-contingentclaims-observation-observe-43610">observe</a></dt><dd><p>: o -&gt; <a class="reference internal" href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o</p>
+<p>Look up the value of <code class="docutils literal notranslate"><span class="pre">o</span></code></p>
+</dd>
+</dl>
+<dl id="function-contingentclaims-observation-eval-9779">
+<dt><a class="reference internal" href="#function-contingentclaims-observation-eval-9779">eval</a></dt><dd><p>: (<a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-num-number-53664">Number</a> x, <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-num-divisible-86689">Divisible</a> x, <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-prelude-action-68790">Action</a> m) =&gt; (o -&gt; t -&gt; m x) -&gt; <a class="reference internal" href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o -&gt; t -&gt; m x</p>
+<p>Reify the <code class="docutils literal notranslate"><span class="pre">Observable</span></code> into an observation function.
+The function is only total when the first argument is too (typically it will fail on <code class="docutils literal notranslate"><span class="pre">t</span></code> &gt; today).</p>
+</dd>
+</dl>
+<dl id="function-contingentclaims-observation-mapparams-82796">
+<dt><a class="reference internal" href="#function-contingentclaims-observation-mapparams-82796">mapParams</a></dt><dd><p>: (t -&gt; i) -&gt; (o -&gt; o’) -&gt; (x -&gt; x’) -&gt; <a class="reference internal" href="#type-contingentclaims-observation-observation-36736">Observation</a> i x o -&gt; <a class="reference internal" href="#type-contingentclaims-observation-observation-36736">Observation</a> t x’ o’</p>
+<p>The functor map operation <em>and</em> also map any parameters to keys.
+For example, could map the param &quot;spot&quot; to an ISIN code &quot;GB123456789&quot;.
+Also contra-maps time parameter, i.e. from relative time values to absolute ones.</p>
+<p>&#64; mapParams identity = bimap</p>
+</dd>
+</dl>
+</section>
+</section>
+
+
+              
+            </div>
+            
+            
+              <!-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+<footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="ContingentClaims-MathML.html" class="da-btn da-btn-label btn-prev" title="&lt;no title&gt;" accesskey="p" rel="prev">Previous</a>
+      
+      
+        <a href="ContingentClaims-Util.html" class="da-btn da-btn-label btn-next" title="Module ContingentClaims.Util" accesskey="n" rel="next">Next</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited. &#34;Digital Asset&#34; and &#34;Daml&#34; are Registered in the U.S. Patent and Trademark Office.
+
+    </p>
+  </div> 
+
+</footer>
+            
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+
+
+
+
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+
+  
+    
+  
+  <div id="inpageContent"></div>
+  
+
+</body>
+</html>

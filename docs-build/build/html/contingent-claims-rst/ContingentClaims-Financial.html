@@ -1,0 +1,337 @@
+<!-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!-->
+<html class="no-js" lang="en">
+<!--<![endif]-->
+
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Module ContingentClaims.Financial &mdash; Daml Finance  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+  
+  <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+  <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+  <script src="../_static/jquery.js"></script>
+  <script src="../_static/underscore.js"></script>
+  <script src="../_static/doctools.js"></script>
+  <script src="../_static/clipboard.min.js"></script>
+  <script src="../_static/copybutton.js"></script>
+  
+  <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+  
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/copybutton.css" type="text/css" />
+  <link rel="index" title="Index" href="../genindex.html" />
+  <link rel="search" title="Search" href="../search.html" />
+  <link rel="next" title="Module ContingentClaims.Lifecycle" href="ContingentClaims-Lifecycle.html" />
+  <link rel="prev" title="Module ContingentClaims.Claim" href="ContingentClaims-Claim.html" /> 
+
+  
+  <link rel="icon" type="image/svg+xml"  href="../_static/images/daml-logo-mark-light.svg">
+  <link rel="alternate icon" href="../_static/images/daml-favicon-1.ico">
+
+  <!-- Google Tag Manager -->
+  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+  })(window,document,'script','dataLayer','GTM-MSWJMNX');</script>
+  <!-- End Google Tag Manager -->
+</head>
+
+<body class="wy-body-for-nav">
+  <!-- Google Tag Manager (noscript) -->
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MSWJMNX"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+  <!-- End Google Tag Manager (noscript) -->
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-nav-side-shadow"></div>
+      <div class="wy-side-scroll">
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+          
+          
+          
+          
+          
+          <ul>
+<li class="toctree-l1"><a class="reference internal" href="../index.html">Daml Finance Documentation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Code documentation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="ContingentClaims-Claim.html">ContingentClaims.Claim</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ContingentClaims-Claim.html#data-types">Data Types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ContingentClaims-Claim.html#functions">Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">ContingentClaims.Financial</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#functions">Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ContingentClaims-Lifecycle.html">ContingentClaims.Lifecycle</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ContingentClaims-Lifecycle.html#data-types">Data Types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ContingentClaims-Lifecycle.html#functions">Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ContingentClaims-Math-Stochastic.html">ContingentClaims.Math.Stochastic</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ContingentClaims-Math-Stochastic.html#typeclasses">Typeclasses</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ContingentClaims-Math-Stochastic.html#data-types">Data Types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ContingentClaims-Math-Stochastic.html#functions">Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ContingentClaims-Observation.html">ContingentClaims.Observation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ContingentClaims-Observation.html#data-types">Data Types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ContingentClaims-Observation.html#functions">Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ContingentClaims-Util.html">ContingentClaims.Util</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ContingentClaims-Util.html#functions">Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ContingentClaims-Util-Recursion.html">ContingentClaims.Util.Recursion</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ContingentClaims-Util-Recursion.html#functions">Functions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          
+          
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <div class="topbar fixed">
+        
+        <nav class="wy-nav-top" aria-label="top navigation">
+          
+          <i data-toggle="wy-nav-top" class="wy-nav-top-toggle"></i>
+          
+        </nav>
+        <!-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+<div class="navbar">
+    <h1><img src="../_static/images/Daml_Logo_Blue.svg"></h1>
+    <div class="navbar-menu">
+        <div class="da-menu-item da-menu-depth-1" role="menu">
+            <a href="https://www.digitalasset.com/developers" role="menuitem" class="da-menu-link">Developers</a>
+        </div>
+        <div class="da-menu-item da-menu-depth-1" role="menu">
+            <a href="https://www.digitalasset.com/products" role="menuitem" class="da-menu-link">Products</a>
+        </div>
+        <div class="da-menu-item da-menu-depth-1" role="menu">
+            <a href="https://www.digitalasset.com" role="menuitem" class="da-menu-link">Company</a>
+        </div>
+    </div>
+</div>
+
+        <div class="version ">
+          <span class="hide-mobile">Version&nbsp;</span><span class="version_switcher_placeholder"></span>
+          
+        </div>
+
+
+        <!-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<div class="search-inline">
+    <div id="rtd-search-inline-form" class="wy-form">
+        <input type="text" class="search-inline-input" placeholder="Search" name="q">
+        <img src="../_static/images/Search.svg" class="search-inline-img"/>
+    </div>
+    <div class="search-alert">
+        Please enter at least 3 letters.
+    </div>
+    <div id="search-inline-results" class="search-inline-results">
+        
+    </div>
+</div>
+          <!-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+<div class="content-menu collapsed">
+    <span class="content-menu-title">In This Section</span>
+    <span class="content-menu-expand"></span>
+    <div class="content-menu-wrapper">
+        
+        <!-- Local TOC -->
+        <div class="content-menu-toc"><ul>
+<li><a class="reference internal" href="#">Module ContingentClaims.Financial</a><ul>
+<li><a class="reference internal" href="#functions">Functions</a></li>
+</ul>
+</li>
+</ul>
+</div>
+        
+    </div>
+</div>
+        
+
+      </div>
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+          
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div itemprop="articleBody">
+                
+  <section id="module-contingentclaims-financial">
+<span id="module-contingentclaims-financial-79268"></span><h1>Module ContingentClaims.Financial<a class="headerlink" href="#module-contingentclaims-financial" title="Permalink to this headline">¶</a></h1>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Permalink to this headline">¶</a></h2>
+<dl id="function-contingentclaims-financial-unrolldates-63936">
+<dt><a class="reference internal" href="#function-contingentclaims-financial-unrolldates-63936">unrollDates</a></dt><dd><p>: <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261">Int</a> -&gt; <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261">Int</a> -&gt; [<a class="reference external" href="https://docs.daml.com/daml/stdlib/DA-Date.html#type-da-date-types-month-22803">Month</a>] -&gt; <a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261">Int</a> -&gt; [<a class="reference external" href="https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-date-32253">Date</a>]</p>
+<p>Helper function to generate a series of fixing dates, e.g. for coupon payments in <code class="docutils literal notranslate"><span class="pre">fixed</span></code>.
+This assumes <code class="docutils literal notranslate"><span class="pre">fixingMonths</span></code> and <code class="docutils literal notranslate"><span class="pre">fixingDates</span></code> are ordered.
+The Daml Finance library(<a class="reference external" href="https://github.com/digital-asset/daml-finance">https://github.com/digital-asset/daml-finance</a>) has more feature-complete date handling functions.</p>
+</dd>
+</dl>
+<dl id="function-contingentclaims-financial-forward-70996">
+<dt><a class="reference internal" href="#function-contingentclaims-financial-forward-70996">forward</a></dt><dd><p>: t -&gt; <a class="reference internal" href="ContingentClaims-Observation.html#type-contingentclaims-observation-observation-36736"><span class="std std-ref">Observation</span></a> t x o -&gt; <a class="reference internal" href="ContingentClaims-Claim.html#type-contingentclaims-internal-claim-claim-98456"><span class="std std-ref">Claim</span></a> t x a o -&gt; <a class="reference internal" href="ContingentClaims-Claim.html#type-contingentclaims-internal-claim-claim-98456"><span class="std std-ref">Claim</span></a> t x a o</p>
+<p>Forward agreement. Discounted by (potentially stochastic) interest rate <code class="docutils literal notranslate"><span class="pre">r</span></code>.</p>
+</dd>
+</dl>
+<dl id="function-contingentclaims-financial-fra-53138">
+<dt><a class="reference internal" href="#function-contingentclaims-financial-fra-53138">fra</a></dt><dd><p>: t -&gt; t -&gt; <a class="reference internal" href="ContingentClaims-Observation.html#type-contingentclaims-observation-observation-36736"><span class="std std-ref">Observation</span></a> t x o -&gt; <a class="reference internal" href="ContingentClaims-Observation.html#type-contingentclaims-observation-observation-36736"><span class="std std-ref">Observation</span></a> t x o -&gt; <a class="reference internal" href="ContingentClaims-Claim.html#type-contingentclaims-internal-claim-claim-98456"><span class="std std-ref">Claim</span></a> t x a o -&gt; <a class="reference internal" href="ContingentClaims-Claim.html#type-contingentclaims-internal-claim-claim-98456"><span class="std std-ref">Claim</span></a> t x a o</p>
+<p>Forward rate agreement.</p>
+</dd>
+</dl>
+<dl id="function-contingentclaims-financial-zcb-55986">
+<dt><a class="reference internal" href="#function-contingentclaims-financial-zcb-55986">zcb</a></dt><dd><p>: t -&gt; x -&gt; ccy -&gt; <a class="reference internal" href="ContingentClaims-Claim.html#type-contingentclaims-internal-claim-claim-98456"><span class="std std-ref">Claim</span></a> t x ccy o</p>
+<p>Zero Coupon Bond.</p>
+</dd>
+</dl>
+<dl id="function-contingentclaims-financial-floating-19068">
+<dt><a class="reference internal" href="#function-contingentclaims-financial-floating-19068">floating</a></dt><dd><p>: <a class="reference internal" href="ContingentClaims-Observation.html#type-contingentclaims-observation-observation-36736"><span class="std std-ref">Observation</span></a> t x o -&gt; <a class="reference internal" href="ContingentClaims-Observation.html#type-contingentclaims-observation-observation-36736"><span class="std std-ref">Observation</span></a> t x o -&gt; ccy -&gt; [t] -&gt; <a class="reference internal" href="ContingentClaims-Claim.html#type-contingentclaims-internal-claim-claim-98456"><span class="std std-ref">Claim</span></a> t x ccy o</p>
+<p>A floating rate bond.</p>
+</dd>
+</dl>
+<dl id="function-contingentclaims-financial-fixed-49039">
+<dt><a class="reference internal" href="#function-contingentclaims-financial-fixed-49039">fixed</a></dt><dd><p>: x -&gt; x -&gt; ccy -&gt; [t] -&gt; <a class="reference internal" href="ContingentClaims-Claim.html#type-contingentclaims-internal-claim-claim-98456"><span class="std std-ref">Claim</span></a> t x ccy o</p>
+<p>A (fixed rate) coupon paying bond.</p>
+</dd>
+</dl>
+<dl id="function-contingentclaims-financial-european-58413">
+<dt><a class="reference internal" href="#function-contingentclaims-financial-european-58413">european</a></dt><dd><p>: t -&gt; <a class="reference internal" href="ContingentClaims-Claim.html#type-contingentclaims-internal-claim-claim-98456"><span class="std std-ref">Claim</span></a> t x a o -&gt; <a class="reference internal" href="ContingentClaims-Claim.html#type-contingentclaims-internal-claim-claim-98456"><span class="std std-ref">Claim</span></a> t x a o</p>
+<p>European option on the passed claim. e.g. call option on S&amp;P 500:</p>
+<div class="highlight-daml notranslate"><div class="highlight"><pre><span></span><span class="nf">european</span><span class="w"> </span><span class="p">(</span><span class="n">date</span><span class="w"> </span><span class="mi">2021</span><span class="w"> </span><span class="mi">05</span><span class="w"> </span><span class="mi">14</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="n">observe</span><span class="w"> </span><span class="s">&quot;SPX&quot;</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">pure</span><span class="w"> </span><span class="mi">4200</span><span class="p">)</span><span class="w"></span>
+</pre></div>
+</div>
+</dd>
+</dl>
+<dl id="function-contingentclaims-financial-bermudan-54912">
+<dt><a class="reference internal" href="#function-contingentclaims-financial-bermudan-54912">bermudan</a></dt><dd><p>: [t] -&gt; <a class="reference internal" href="ContingentClaims-Claim.html#type-contingentclaims-internal-claim-claim-98456"><span class="std std-ref">Claim</span></a> t x a o -&gt; <a class="reference internal" href="ContingentClaims-Claim.html#type-contingentclaims-internal-claim-claim-98456"><span class="std std-ref">Claim</span></a> t x a o</p>
+<p>Bermudan option on the passed claim. Given a pre-defined set of times
+{t_1, t_2, .., t_N}, it allows the holder to acquire the underlying claim on at
+most one of these times.</p>
+</dd>
+</dl>
+<dl id="function-contingentclaims-financial-american-20032">
+<dt><a class="reference internal" href="#function-contingentclaims-financial-american-20032">american</a></dt><dd><p>: t -&gt; t -&gt; <a class="reference internal" href="ContingentClaims-Claim.html#type-contingentclaims-internal-claim-claim-98456"><span class="std std-ref">Claim</span></a> t x a o -&gt; <a class="reference internal" href="ContingentClaims-Claim.html#type-contingentclaims-internal-claim-claim-98456"><span class="std std-ref">Claim</span></a> t x a o</p>
+<p>American option (knock-in). The lead parameter is the first possible acquisition date.</p>
+</dd>
+</dl>
+<dl id="function-contingentclaims-financial-swap-33135">
+<dt><a class="reference internal" href="#function-contingentclaims-financial-swap-33135">swap</a></dt><dd><p>: ([t] -&gt; <a class="reference internal" href="ContingentClaims-Claim.html#type-contingentclaims-internal-claim-claim-98456"><span class="std std-ref">Claim</span></a> t x a o) -&gt; ([t] -&gt; <a class="reference internal" href="ContingentClaims-Claim.html#type-contingentclaims-internal-claim-claim-98456"><span class="std std-ref">Claim</span></a> t x a o) -&gt; [t] -&gt; <a class="reference internal" href="ContingentClaims-Claim.html#type-contingentclaims-internal-claim-claim-98456"><span class="std std-ref">Claim</span></a> t x a o</p>
+<p>Asset swap on specific fixing dates <code class="docutils literal notranslate"><span class="pre">[t]</span></code>. For example:</p>
+<div class="highlight-daml notranslate"><div class="highlight"><pre><span></span><span class="nf">fixedUsdVsFloatingEur</span><span class="w"> </span><span class="kt">:</span><span class="w"> </span><span class="p">[</span><span class="n">t</span><span class="p">]</span><span class="w"> </span><span class="ow">-&gt;</span><span class="w"> </span><span class="kt">Serializable</span><span class="o">.</span><span class="kt">Claim</span><span class="w"> </span><span class="kt">Text</span><span class="w"></span>
+<span class="nf">fixedUsdVsFloatingEur</span><span class="w"> </span><span class="ow">=</span><span class="w"> </span><span class="n">fixed</span><span class="w"> </span><span class="mf">100.0</span><span class="w"> </span><span class="mf">0.02</span><span class="w"> </span><span class="s">&quot;USD&quot;</span><span class="w"> </span><span class="p">`</span><span class="n">swap</span><span class="p">`</span><span class="w"> </span><span class="n">floating</span><span class="w"> </span><span class="p">(</span><span class="n">observe</span><span class="w"> </span><span class="s">&quot;USDEUR&quot;</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">pure</span><span class="w"> </span><span class="mf">100.0</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="n">observe</span><span class="w"> </span><span class="s">&quot;EUR1M&quot;</span><span class="p">)</span><span class="w"> </span><span class="s">&quot;EUR&quot;</span><span class="w"></span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</section>
+</section>
+
+
+              
+            </div>
+            
+            
+              <!-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+<footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="ContingentClaims-Claim.html" class="da-btn da-btn-label btn-prev" title="Module ContingentClaims.Claim" accesskey="p" rel="prev">Previous</a>
+      
+      
+        <a href="ContingentClaims-Lifecycle.html" class="da-btn da-btn-label btn-next" title="Module ContingentClaims.Lifecycle" accesskey="n" rel="next">Next</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited. &#34;Digital Asset&#34; and &#34;Daml&#34; are Registered in the U.S. Patent and Trademark Office.
+
+    </p>
+  </div> 
+
+</footer>
+            
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+
+
+
+
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+
+  
+    
+  
+  <div id="inpageContent"></div>
+  
+
+</body>
+</html>
