@@ -1,0 +1,204 @@
+<!-- Copyright (c) 2019-2022, Digital Asset (Switzerland) GmbH and/or its affiliates. -->
+<!-- All rights reserved. -->
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    
+  <link rel="apple-touch-icon" sizes="180x180" href="da-style/apple-touch-icon.png"/>
+  <link rel="icon" type="image/png" href="da-style/favicon-32x32.png" sizes="32x32"/>
+  <link rel="icon" type="image/png" href="da-style/favicon-16x16.png" sizes="16x16"/>
+  <link rel="shortcut icon" href="da-style/favicon.ico"/>
+
+  <link rel="stylesheet" href="da-style/da-style.css" type="text/css" />
+
+  <!--
+  <link rel="search" title="Search" href="search.html"/>
+  -->
+</head>
+
+<header class="navbar-fixed-top cbp-af-header">
+
+    <a href="#" class="da-home-link">
+        <img src="da-style/da-logo.png" class="logo" />
+    </a>
+
+    <span class="version">
+                                <span>NO TITLE PROVIDED</span>
+                    </span>
+
+</header>
+
+<div class="container">
+
+    <div class="wrap">
+        <main>
+
+            <aside>
+
+                <nav class="side-tree">
+                                    </nav>
+
+            </aside>
+            <article>
+
+                <div role="main" class="document" itemscope="itemscope" itemprop="articleBody">
+
+                    <h1 id="module-contingentclaims.observation"><span id="module-contingentclaims-observation-52423"></span>Module ContingentClaims.Observation</h1>
+                    <h2 id="data-types">Data Types</h2>
+                    <p><span id="type-contingentclaims-observation-observation-36736"></span><strong>data</strong> <a href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o</p>
+                    <blockquote>
+                    <p>Concrete implementation of <code>Observable</code>, which can be serialized. Conceptually it's helpful to think of this as the type <code>t -&gt; x</code>, or <code>t -&gt; Update x</code>.</p>
+                    <p><span id="constr-contingentclaims-observation-const-70708"></span><a href="#constr-contingentclaims-observation-const-70708">Const</a></p>
+                    <blockquote>
+                    <p>A named constant</p>
+                    <table>
+                    <thead>
+                    <tr class="header">
+                    <th style="text-align: left;">Field</th>
+                    <th style="text-align: left;">Type</th>
+                    <th style="text-align: left;">Description</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr class="odd">
+                    <td style="text-align: left;">value</td>
+                    <td style="text-align: left;">x</td>
+                    <td style="text-align: left;"></td>
+                    </tr>
+                    </tbody>
+                    </table>
+                    </blockquote>
+                    <p><span id="constr-contingentclaims-observation-observe-10987"></span><a href="#constr-contingentclaims-observation-observe-10987">Observe</a></p>
+                    <blockquote>
+                    <p>A named parameter</p>
+                    <table>
+                    <thead>
+                    <tr class="header">
+                    <th style="text-align: left;">Field</th>
+                    <th style="text-align: left;">Type</th>
+                    <th style="text-align: left;">Description</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr class="odd">
+                    <td style="text-align: left;">key</td>
+                    <td style="text-align: left;">o</td>
+                    <td style="text-align: left;"></td>
+                    </tr>
+                    </tbody>
+                    </table>
+                    </blockquote>
+                    <p><span id="constr-contingentclaims-observation-add-72670"></span><a href="#constr-contingentclaims-observation-add-72670">Add</a> (<a href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o, <a href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o)</p>
+                    <p><span id="constr-contingentclaims-observation-neg-68861"></span><a href="#constr-contingentclaims-observation-neg-68861">Neg</a> (<a href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o)</p>
+                    <p><span id="constr-contingentclaims-observation-mul-65149"></span><a href="#constr-contingentclaims-observation-mul-65149">Mul</a> (<a href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o, <a href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o)</p>
+                    <p><span id="constr-contingentclaims-observation-div-87698"></span><a href="#constr-contingentclaims-observation-div-87698">Div</a> (<a href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o, <a href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o)</p>
+                    <p><strong>instance</strong> Corecursive (<a href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o) (<a href="#type-contingentclaims-observation-observationf-8193">ObservationF</a> t x o)</p>
+                    <p><strong>instance</strong> Recursive (<a href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o) (<a href="#type-contingentclaims-observation-observationf-8193">ObservationF</a> t x o)</p>
+                    <p><strong>instance</strong> Functor (<a href="#type-contingentclaims-observation-observation-36736">Observation</a> t x)</p>
+                    <p><strong>instance</strong> (Eq x, Eq o) =&gt; Eq (<a href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o)</p>
+                    <p><strong>instance</strong> Additive x =&gt; Additive (<a href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o)</p>
+                    <p><strong>instance</strong> Multiplicative x =&gt; Divisible (<a href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o)</p>
+                    <p><strong>instance</strong> Multiplicative x =&gt; Multiplicative (<a href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o)</p>
+                    <p><strong>instance</strong> (Additive x, Multiplicative x) =&gt; Number (<a href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o)</p>
+                    <p><strong>instance</strong> (Show t, Show x, Show o) =&gt; Show (<a href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o)</p>
+                    </blockquote>
+                    <p><span id="type-contingentclaims-observation-observationf-8193"></span><strong>data</strong> <a href="#type-contingentclaims-observation-observationf-8193">ObservationF</a> t x o b</p>
+                    <blockquote>
+                    <p><span id="constr-contingentclaims-observation-constf-89713"></span><a href="#constr-contingentclaims-observation-constf-89713">ConstF</a></p>
+                    <blockquote>
+                    <table>
+                    <thead>
+                    <tr class="header">
+                    <th style="text-align: left;">Field</th>
+                    <th style="text-align: left;">Type</th>
+                    <th style="text-align: left;">Description</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr class="odd">
+                    <td style="text-align: left;">value</td>
+                    <td style="text-align: left;">x</td>
+                    <td style="text-align: left;"></td>
+                    </tr>
+                    </tbody>
+                    </table>
+                    </blockquote>
+                    <p><span id="constr-contingentclaims-observation-observef-44560"></span><a href="#constr-contingentclaims-observation-observef-44560">ObserveF</a></p>
+                    <blockquote>
+                    <table>
+                    <thead>
+                    <tr class="header">
+                    <th style="text-align: left;">Field</th>
+                    <th style="text-align: left;">Type</th>
+                    <th style="text-align: left;">Description</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr class="odd">
+                    <td style="text-align: left;">key</td>
+                    <td style="text-align: left;">o</td>
+                    <td style="text-align: left;"></td>
+                    </tr>
+                    </tbody>
+                    </table>
+                    </blockquote>
+                    <p><span id="constr-contingentclaims-observation-addf-6843"></span><a href="#constr-contingentclaims-observation-addf-6843">AddF</a> (b, b)</p>
+                    <p><span id="constr-contingentclaims-observation-negf-14222"></span><a href="#constr-contingentclaims-observation-negf-14222">NegF</a> b</p>
+                    <p><span id="constr-contingentclaims-observation-mulf-34126"></span><a href="#constr-contingentclaims-observation-mulf-34126">MulF</a> (b, b)</p>
+                    <p><span id="constr-contingentclaims-observation-divf-86887"></span><a href="#constr-contingentclaims-observation-divf-86887">DivF</a> (b, b)</p>
+                    <p><strong>instance</strong> Corecursive (<a href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o) (<a href="#type-contingentclaims-observation-observationf-8193">ObservationF</a> t x o)</p>
+                    <p><strong>instance</strong> Recursive (<a href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o) (<a href="#type-contingentclaims-observation-observationf-8193">ObservationF</a> t x o)</p>
+                    <p><strong>instance</strong> Functor (<a href="#type-contingentclaims-observation-observationf-8193">ObservationF</a> t x o)</p>
+                    <p><strong>instance</strong> (Eq x, Eq o, Eq b) =&gt; Eq (<a href="#type-contingentclaims-observation-observationf-8193">ObservationF</a> t x o b)</p>
+                    <p><strong>instance</strong> (Show x, Show o, Show b) =&gt; Show (<a href="#type-contingentclaims-observation-observationf-8193">ObservationF</a> t x o b)</p>
+                    <p><strong>instance</strong> Foldable (<a href="#type-contingentclaims-observation-observationf-8193">ObservationF</a> t x o)</p>
+                    <p><strong>instance</strong> Traversable (<a href="#type-contingentclaims-observation-observationf-8193">ObservationF</a> t x o)</p>
+                    </blockquote>
+                    <p><span id="type-contingentclaims-observation-t-26484"></span><strong>type</strong> <a href="#type-contingentclaims-observation-t-26484">T</a></p>
+                    <blockquote>
+                    <p>= <a href="#type-contingentclaims-observation-observation-36736">Observation</a></p>
+                    </blockquote>
+                    <h2 id="functions">Functions</h2>
+                    <p><span id="function-contingentclaims-observation-pure-48671"></span><a href="#function-contingentclaims-observation-pure-48671">pure</a></p>
+                    <blockquote>
+                    <p>: x -&gt; <a href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o</p>
+                    <p>Lift a constant to an observation</p>
+                    </blockquote>
+                    <p><span id="function-contingentclaims-observation-observe-43610"></span><a href="#function-contingentclaims-observation-observe-43610">observe</a></p>
+                    <blockquote>
+                    <p>: o -&gt; <a href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o</p>
+                    <p>Look up the value of <code>o</code></p>
+                    </blockquote>
+                    <p><span id="function-contingentclaims-observation-eval-9779"></span><a href="#function-contingentclaims-observation-eval-9779">eval</a></p>
+                    <blockquote>
+                    <p>: (Number x, Divisible x, Action m) =&gt; (o -&gt; t -&gt; m x) -&gt; <a href="#type-contingentclaims-observation-observation-36736">Observation</a> t x o -&gt; t -&gt; m x</p>
+                    <p>Reify the <code>Observable</code> into an observation function. The function is only total when the first argument is too (typically it will fail on <code>t</code> &gt; today).</p>
+                    </blockquote>
+                    <p><span id="function-contingentclaims-observation-mapparams-82796"></span><a href="#function-contingentclaims-observation-mapparams-82796">mapParams</a></p>
+                    <blockquote>
+                    <p>: (t -&gt; i) -&gt; (o -&gt; o') -&gt; (x -&gt; x') -&gt; <a href="#type-contingentclaims-observation-observation-36736">Observation</a> i x o -&gt; <a href="#type-contingentclaims-observation-observation-36736">Observation</a> t x' o'</p>
+                    <p>The functor map operation <em>and</em> also map any parameters to keys. For example, could map the param "spot" to an ISIN code "GB123456789". Also contra-maps time parameter, i.e. from relative time values to absolute ones.</p>
+                    <p>@ mapParams identity = bimap</p>
+                    </blockquote>
+
+                    <br>
+                    <hr>
+                    <p>
+                        © Copyright 2019-2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.
+                    </p>
+
+                </div>
+
+
+            </article>
+
+        </main>
+    </div>
+
+</div>
+
+</html>
