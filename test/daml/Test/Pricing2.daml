@@ -80,7 +80,7 @@ testValuationBasic = do
 -- | Valuation of `When` nodes.
 testValuationWhen : Script()
 testValuationWhen = do
-  -- 1. When (TimeGte t) ...
+  -- 1. When (TimeGte t) c
   let
     c1 = when atT1 $ one a
     expect = E (disc * exch) τ f / disc
@@ -96,9 +96,7 @@ testValuationWhen = do
   value <- fapf observe25 ccy t1 t0 c1
   value === exch
 
-  -- 1. When (TimeLte t) ...
-
-  -- 3. When (o1 <= o2) ...
+  -- 2. When (o1 <= o2) c
   let
     pred = O.Const 100.0 <= spotAmzn -- spot greater or equal than 100.0
     c2 = when pred $ one a
@@ -112,6 +110,18 @@ testValuationWhen = do
   -- We do not consider the case when the stopping rule is verified before or at t,
   -- given that the valuation focuses on claims that are "up-to-date" with respect to lifecycle events
   -- and the lifecycle function replaces verified stochastic stopping rule with deterministic ones
+
+  -- 3. When (TimeLte t) c
+  let
+    c3 = when (upTo t0) $ one a
+
+  -- Contract is acquired at `t0`, predicate is verified immediately
+  value <- fapf observe25 ccy t0 t0 c3
+  value === exch
+
+  -- Contract is acquired at `t1`, predicate is never verified
+  value <- fapf observe25 ccy t1 t1 c3
+  value === aunit
 
 -- | Valuation of `Scale` nodes.
 testValuationScale : Script()

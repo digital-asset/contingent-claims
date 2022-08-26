@@ -38,7 +38,7 @@ data Expr t x o b
     -- ^ Maximum process.
   | I (Inequality t x o)
     -- ^ Indicator function. I(p) is 1 if p(t) = True, False otherwise, where
-    -- `p` is the boolen process corresponding to the provided inequality.
+    -- `p` is the boolean process corresponding to the provided inequality.
     -- Specifically, this means
     -- - for `o1 ≤ o2`, `p = υ(o1) ≤ υ(o2)`
     -- - for `TimeGte t`, `p(s) = s ≥ t`

@@ -5,7 +5,7 @@ module ContingentClaims.Math.AcquisitionTime
   ( AcquisitionTime(..)
   , beforeOrAtToday
   , extend
-  , resolve
+  , isNever
   ) where
 
 import ContingentClaims.Claim (Inequality(..))
@@ -15,8 +15,6 @@ import Prelude hiding (Time, sequence, mapA, const)
 -- It is either a deterministic time (`Time t`) or it is defined based on a list of `Inequality`.
 -- For inequalities [i_1, i_2, ..., i_N], the acquisition time is defined as the first instant `t` for which there exist times `t_1 ≤ t_2 ≤ ... ≤ t_N ≤ t` such that `t_k` verifies `i_k` for each `k`.
 -- In both cases, the time `t` is a stopping time in the mathematical sense.
--- [ML] it is not obvious if we actually need the (Time t) part as it could simply be expressed in terms of the deterministic inequality (TimeGte t).
--- [ML] we should rewrite definitions using `inf` instead of "first instant".
 data AcquisitionTime t x o
   = Time t
     -- ^ Acquisition at time `t`.
@@ -43,12 +41,10 @@ extend ineq (AtInequality ineqs) = AtInequality $ ineqs <> [ineq]
 beforeOrAtToday : (Ord t) => t -> AcquisitionTime t x a -> Optional Bool
 beforeOrAtToday _ Never = Some False
 beforeOrAtToday today (Time s) = Some $ s <= today
-beforeOrAtToday today (AtInequality [TimeGte s]) = Some $ s <= today
 beforeOrAtToday today (AtInequality _) = None
 
--- | Check if acquisition time is known.
--- TODO improve for `TimeLte`.
-resolve : AcquisitionTime t x o -> Optional t
-resolve (Time t) = Some t
-resolve _ = None
-
+-- | Checks if an acquisition time is `Never`.
+-- This is used to avoid requiring the (Eq o) constraint.
+isNever : AcquisitionTime t x a -> Bool
+isNever Never = True
+isNever _ = False
