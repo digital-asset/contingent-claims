@@ -1,12 +1,12 @@
-sdk-version: 2.0.0
+sdk-version: 2.3.2
 name: contingent-claims
 version: 0.0.1
 source: daml
 parties:
-- Buyer
-- Seller
-- Registrar
+  - Buyer
+  - Seller
+  - Registrar
 dependencies:
-- daml-prim
-- daml-stdlib
-- daml-script
+  - daml-prim
+  - daml-stdlib
+  - daml-script

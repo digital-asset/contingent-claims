@@ -68,7 +68,8 @@ template ProposeSettlement
   where
     signatory Set.fromList [payer, receiver]
 
-    controller receiver can
-      Confirm : () do
+    choice Confirm : ()
+      controller receiver
+      do
         debug $ "Settled: " <> show this
         return ()

@@ -1,15 +1,15 @@
-sdk-version: 1.13.1
+sdk-version: 2.3.2
 name: contingent-claims-test
 version: 0.0.1
 source: daml
 init-script: Test.Initialization:createContracts
 parties:
-- Buyer
-- Seller
-- Registrar
+  - Buyer
+  - Seller
+  - Registrar
 #exposed-modules:
 #- Finance
 dependencies:
-- daml-prim
-- daml-stdlib
-- daml-script
+  - daml-prim
+  - daml-stdlib
+  - daml-script
