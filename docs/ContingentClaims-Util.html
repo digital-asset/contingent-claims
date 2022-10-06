@@ -51,27 +51,27 @@
                     <h2 id="functions">Functions</h2>
                     <p><span id="function-contingentclaims-util-fixings-85991"></span><a href="#function-contingentclaims-util-fixings-85991">fixings</a></p>
                     <blockquote>
-                    <p>: <a href="ContingentClaims-Internal-Claim.html#type-contingentclaims-internal-claim-claim-98456">Claim</a> t x a o -&gt; [t]</p>
+                    <p>: <a href="ContingentClaims-Claim.html#type-contingentclaims-internal-claim-claim-98456">Claim</a> t x a o -&gt; [t]</p>
                     <p>Return the fixing dates of a claim. This does not discriminate between optional dates which <em>may</em> result from a condition, and outright fixings. It also does not correctly account for malformed trees, where subtrees are orphaned due to impossible <code>When</code> statements. e.g. <code>When (t &gt; 1) ((When t &lt; 1) _)</code></p>
                     </blockquote>
                     <p><span id="function-contingentclaims-util-expiry-73111"></span><a href="#function-contingentclaims-util-expiry-73111">expiry</a></p>
                     <blockquote>
-                    <p>: Ord t =&gt; <a href="ContingentClaims-Internal-Claim.html#type-contingentclaims-internal-claim-claim-98456">Claim</a> t x a o -&gt; Optional t</p>
+                    <p>: Ord t =&gt; <a href="ContingentClaims-Claim.html#type-contingentclaims-internal-claim-claim-98456">Claim</a> t x a o -&gt; Optional t</p>
                     <p>Return the time after which the claim is worthless i.e. value = 0, if such a time exists. Also known as 'maturity' or 'horizon' in the Eber/Jones paper.</p>
                     </blockquote>
                     <p><span id="function-contingentclaims-util-payoffs-21421"></span><a href="#function-contingentclaims-util-payoffs-21421">payoffs</a></p>
                     <blockquote>
-                    <p>: (Eq x, Eq o, Multiplicative x) =&gt; <a href="ContingentClaims-Internal-Claim.html#type-contingentclaims-internal-claim-claim-98456">Claim</a> t x a o -&gt; [(<a href="ContingentClaims-Observation.html#type-contingentclaims-observation-observation-36736">Observation</a> t x o, a)]</p>
+                    <p>: (Eq x, Eq o, Multiplicative x) =&gt; <a href="ContingentClaims-Claim.html#type-contingentclaims-internal-claim-claim-98456">Claim</a> t x a o -&gt; [(<a href="ContingentClaims-Observation.html#type-contingentclaims-observation-observation-36736">Observation</a> t x o, a)]</p>
                     <p>Return a list of possible scale-factor/payoff pairs. This does not discriminate between conditional and outright payoffs.</p>
                     </blockquote>
                     <p><span id="function-contingentclaims-util-prunezeros-11483"></span><a href="#function-contingentclaims-util-prunezeros-11483">pruneZeros</a></p>
                     <blockquote>
-                    <p>: <a href="ContingentClaims-Internal-Claim.html#type-contingentclaims-internal-claim-claim-98456">Claim</a> t x a o -&gt; <a href="ContingentClaims-Internal-Claim.html#type-contingentclaims-internal-claim-claim-98456">Claim</a> t x a o</p>
+                    <p>: <a href="ContingentClaims-Claim.html#type-contingentclaims-internal-claim-claim-98456">Claim</a> t x a o -&gt; <a href="ContingentClaims-Claim.html#type-contingentclaims-internal-claim-claim-98456">Claim</a> t x a o</p>
                     <p>Prunes sub-trees which are <code>Zero</code>.</p>
                     </blockquote>
                     <p><span id="function-contingentclaims-util-iszero-28308"></span><a href="#function-contingentclaims-util-iszero-28308">isZero</a></p>
                     <blockquote>
-                    <p>: <a href="ContingentClaims-Internal-Claim.html#type-contingentclaims-internal-claim-claim-98456">Claim</a> t x a o -&gt; Bool</p>
+                    <p>: <a href="ContingentClaims-Claim.html#type-contingentclaims-internal-claim-claim-98456">Claim</a> t x a o -&gt; Bool</p>
                     <p>This avoids requiring the equality type constraint on <code>a</code></p>
                     </blockquote>
 
