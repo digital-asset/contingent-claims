@@ -395,10 +395,6 @@ testAmericanPut = script do
 
   remaining <- Lifecycle.exercise observe25 (bearer, payoff) option t0 t
   remaining === zero -- past maturity; no exercise possible, contract is worthless
-  -- ^ should this behaviour be done only in lifecycle or also in exercise?
-  -- I would expect that if no exercise is possible then the contract does not mutate
-  -- This would require making acquire' entirely non-effectful (thus moving the effectful part somewhere else, including the Cond nodes)
-  -- TODO idea: break acquire' into two functions. The second functions encodes logic of the kind "the condition x" will never be met again so we can kill the contract
 
   Lifecycle.Result{pending, remaining} <- Lifecycle.lifecycle observe25 option t0 t
   remaining === zero
