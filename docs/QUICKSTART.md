@@ -21,6 +21,7 @@ data Claim a
  | give (Claim a)
  | and with lhs: Claim a, rhs: Claim a
  | or with lhs: Claim a, rhs: Claim a
+ | cond with predicate: Date -> Bool, lhs: Claim a, rhs: Claim a
  | scale with k: Date -> Decimal, claim: Claim a
  | when with predicate: Date -> Bool, claim: Claim a
  | anytime with predicate : Date -> Bool, claim: Claim a
@@ -37,18 +38,18 @@ when (time == t_0) (scale (pure coupon) (one “USD”)) `and` ...
 
 Let's look at the constructors used in the above expression in more detail:
 
-* `one "USD"` means that the acquirer of the contract receives one unit of the asset, parametrised by `a`, *immediately*. In this case we use a 3-letter ISO code to represent a currency. But you can use your own type to represent any asset.
-* `scale (pure coupon)` modifies the *magnitude* of the arrow in the diagram. So for example, in the diagram, the big arrow would have a distinct scale factor from the small arrows. Note also, that in our example the scale factor is constant : `pure coupon = const coupon`. However, it's possible to have a scale factor that varies on an unobserved value, such as a stock price, the weather, or any other measurable quantity.
-* `when (time == t_0)` tells us where along the x-axis the arrow is placed. i.e. it modifies the moment the claim is acquired. The convention is that this must be the first instant that the predicate (`time == t_0` in this case) is true. In our example it is a point, but again, we could have used an expression with an unknown quantity, for example `spotPrice > pure k`, and it would trigger *the first instant* that the expression becomes true.
-* `and` is used to chain multiple expressions together. Remember that in the `data` definition above, each constructor is a function: `and : Claim a -> Claim a -> Claim a`. We use the Daml backtick syntax to write `and` as an infix operator, for legibility.
+- `one "USD"` means that the acquirer of the contract receives one unit of the asset, parametrised by `a`, _immediately_. In this case we use a 3-letter ISO code to represent a currency. But you can use your own type to represent any asset.
+- `scale (pure coupon)` modifies the _magnitude_ of the arrow in the diagram. So for example, in the diagram, the big arrow would have a distinct scale factor from the small arrows. Note also, that in our example the scale factor is constant : `pure coupon = const coupon`. However, it's possible to have a scale factor that varies on an unobserved value, such as a stock price, the weather, or any other measurable quantity.
+- `when (time == t_0)` tells us where along the x-axis the arrow is placed. i.e. it modifies the moment the claim is acquired. The convention is that this must be the first instant that the predicate (`time == t_0` in this case) is true. In our example it is a point, but again, we could have used an expression with an unknown quantity, for example `spotPrice > pure k`, and it would trigger _the first instant_ that the expression becomes true.
+- `and` is used to chain multiple expressions together. Remember that in the `data` definition above, each constructor is a function: `and : Claim a -> Claim a -> Claim a`. We use the Daml backtick syntax to write `and` as an infix operator, for legibility.
 
 Additionally we have several constructors which we've not used in this example:
 
-* `zero`, used to indicate an absence of obligations. While it may not make sense to create a `zero` claim, it could, for example, result from applying a function on a tree of claims.
-* `give` would flip the direction of the arrows in our diagram. So for example, in a swap we could use `give` to distinguishing the received/paid legs.
-* `or` is used to give the bearer the right to choose between two different claims.
-* `anytime` is like `when`, except it allows the bearer to choose (vs. no choice) acquisition in a *region* (vs. a point).
-* `until` is used to adjust the expiration (*horizon* in [[1]](#1)) of a claim. Typically used with `anytime` to limit aforesaid acquisition region.
+- `zero`, used to indicate an absence of obligations. While it may not make sense to create a `zero` claim, it could, for example, result from applying a function on a tree of claims.
+- `give` would flip the direction of the arrows in our diagram. So for example, in a swap we could use `give` to distinguishing the received/paid legs.
+- `or` is used to give the bearer the right to choose between two different claims.
+- `anytime` is like `when`, except it allows the bearer to choose (vs. no choice) acquisition in a _region_ (vs. a point).
+- `until` is used to adjust the expiration (_horizon_ in [[1]](#1)) of a claim. Typically used with `anytime` to limit aforesaid acquisition region.
 
 The tree produced by our expression is pictured below:
 
@@ -60,7 +61,7 @@ Although we could model every subsequent arrow the way we did the first one, as 
 
 ```Haskell
 zcb maturity principal asset =
- when (time == maturity) (scale (O.pure principal) (one asset))
+ When (time == maturity) (Scale (O.pure principal) (One asset))
 ```
 
 Here we've just wrapped our expression from the previous section in a function `zcb`, that we can reuse to build the `fixed`-rate bond:
@@ -73,9 +74,10 @@ fixed principal coupon asset (t :: ts) = zcb t coupon asset `and` fixed principa
 ```
 
 We define the fixed rate bond by induction, iterating over a list of dates `[t]`, and producing multiple zero-coupon bonds `zcb` combined together with `and`.
-* The first definition covers the trivial case where we pass an empty list of dates.
-* The second definition handles the base case, at maturity: we create both a coupon (interest) payment, and the principal payment.
-* The third definition is the induction step; it peels the first element off the list, and calls itself recursively on the tail of the list, until it reaches the base case at maturity.
+
+- The first definition covers the trivial case where we pass an empty list of dates.
+- The second definition handles the base case, at maturity: we create both a coupon (interest) payment, and the principal payment.
+- The third definition is the induction step; it peels the first element off the list, and calls itself recursively on the tail of the list, until it reaches the base case at maturity.
 
 This re-use of code is prevalent throughout the library. It's great as it mirrors how instruments are defined in the industry. Let's look at yet another example, a fixed vs floating USD/EUR swap.
 
@@ -89,7 +91,7 @@ We define it in terms of its two legs, `fixed` and `floating`, which themselves 
 
 As you can see, not only is this approach highly composable, but it also mirrors the way derivative instruments are modelled in finance.
 
-Another major advantage of this approach is its extensibility. Unlike a traditional approach, where we might in an object-oriented language represent different instruments as classes, in the cashflow approach, we do not need to enumerate possible asset classes/instruments *a priori*. This is especially relevant in a distributed setting, where parties must execute the same code i.e. have the same `*.dar`s  on their ledger to interact. In other words, party A can issue a new instrument, or even write a new combinator function that is in a private `*.dar`, while being able to trade with party B, who has no knowledge of this new `*.dar`.
+Another major advantage of this approach is its extensibility. Unlike a traditional approach, where we might in an object-oriented language represent different instruments as classes, in the cashflow approach, we do not need to enumerate possible asset classes/instruments _a priori_. This is especially relevant in a distributed setting, where parties must execute the same code i.e. have the same `*.dar`s on their ledger to interact. In other words, party A can issue a new instrument, or even write a new combinator function that is in a private `*.dar`, while being able to trade with party B, who has no knowledge of this new `*.dar`.
 
 # Concerning Type Parameters
 
@@ -161,7 +163,42 @@ This is an **experimental** feature. Expect breaking changes.
 The `Daml.ContigentClaims.Math.Stochastic` module can be used for valuation. There is a `fapf` function which is used to derive a _fundamental asset pricing formula_ for an arbitrary `Claim` tree. The resulting AST is represented by `Expr`, but can be rendered as XML/MathML with the provided `MathML.presentation` function, for display in a web browser. See the `Test/Pricing` module for examples. Here is a sample rendering of a margrabe option:
 
 ```html
-<math display="block"><msub><mi>USD</mi><mi>t</mi></msub><mo>⁢</mo><mo>𝔼</mo><mo>⁡</mo><mrow><mo fence="true">[</mo><mrow><mo fence="true">(</mo><msub><mo>I</mo><mrow><msub><mi>AMZN</mi><mi>T</mi></msub><mo>-</mo><msub><mi>APPL</mi><mi>T</mi></msub><mo>≤</mo><mn>0.0</mn></mrow></msub><mo>⁢</mo><mrow><mo fence="true">(</mo><msub><mi>AMZN</mi><mi>T</mi></msub><mo>-</mo><msub><mi>APPL</mi><mi>T</mi></msub><mo fence="true">)</mo></mrow><mo>+</mo><msub><mo>I</mo><mrow><mn>0.0</mn><mo>≤</mo><msub><mi>AMZN</mi><mi>T</mi></msub><mo>-</mo><msub><mi>APPL</mi><mi>T</mi></msub></mrow></msub><mo>×</mo><mn>0.0</mn><mo fence="true">)</mo></mrow><mo>⁢</mo><msup><mrow><msub><mi>USD</mi><mi>T</mi></msub></mrow><mrow><mo>-</mo><mn>1.0</mn></mrow></msup><mo>|</mo><msub><mo mathvariant="script">F</mo><mi>t</mi></msub><mo fence="true">]</mo></mrow></math>
+<math display="block"
+  ><msub><mi>USD</mi><mi>t</mi></msub
+  ><mo>⁢</mo><mo>𝔼</mo><mo>⁡</mo
+  ><mrow
+    ><mo fence="true">[</mo
+    ><mrow
+      ><mo fence="true">(</mo
+      ><msub
+        ><mo>I</mo
+        ><mrow
+          ><msub><mi>AMZN</mi><mi>T</mi></msub
+          ><mo>-</mo><msub><mi>APPL</mi><mi>T</mi></msub
+          ><mo>≤</mo><mn>0.0</mn></mrow
+        ></msub
+      ><mo>⁢</mo
+      ><mrow
+        ><mo fence="true">(</mo><msub><mi>AMZN</mi><mi>T</mi></msub
+        ><mo>-</mo><msub><mi>APPL</mi><mi>T</mi></msub
+        ><mo fence="true">)</mo></mrow
+      ><mo>+</mo
+      ><msub
+        ><mo>I</mo
+        ><mrow
+          ><mn>0.0</mn><mo>≤</mo><msub><mi>AMZN</mi><mi>T</mi></msub
+          ><mo>-</mo><msub><mi>APPL</mi><mi>T</mi></msub></mrow
+        ></msub
+      ><mo>×</mo><mn>0.0</mn><mo fence="true">)</mo></mrow
+    ><mo>⁢</mo
+    ><msup
+      ><mrow
+        ><msub><mi>USD</mi><mi>T</mi></msub></mrow
+      ><mrow><mo>-</mo><mn>1.0</mn></mrow></msup
+    ><mo>|</mo><msub><mo mathvariant="script">F</mo><mi>t</mi></msub
+    ><mo fence="true">]</mo></mrow
+  ></math
+>
 ```
 
 You can cut-and-paste this into a web page in 'developer mode' in any modern browser.
