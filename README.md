@@ -3,15 +3,13 @@
 
 Copyright © 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved. SPDX-License-Identifier: Apache-2.0
 
-# Contingent Claims
-
-## :mega: Deprecation notice :mega:
+# :mega: Deprecation notice :mega:
 
 The Contingent Claims library is now part of [Daml Finance](https://www.digitalasset.com/daml-finance) and development is continuing on the [Daml Finance repository](https://github.com/digital-asset/daml-finance).
 
 You can read more about it on [Digital Asset's website](https://www.digitalasset.com/daml-finance) or jump straight into [the code](https://github.com/digital-asset/daml-finance).
 
-## Contingent Claims
+# Contingent Claims
 
 This is a library for modeling contingent claims, i.e. derivatives, written in the smart contract language [Daml](https://www.digitalasset.com/developers). Briefly, a derivative is represented by a tree of `Claim`s, which describe future cashflows between two parties as well as the conditions under which these cashflows occur.
 
